@@ -1,63 +1,58 @@
-# ProcureAI · Strategic Category Suite v1.0
+# CategoryAI Strategic Category Suite
 
-A **single-file, no-install application** that walks a procurement category manager through building a complete, defensible category strategy — from external market data to a boardroom-ready Word document and PowerPoint deck — in 15 guided steps.
+**A complete procurement category strategy tool in a single HTML file.** Open it in a browser and build an end-to-end category strategy — market analysis, positioning, supplier strategy, negotiation plan, execution tracking and a board-ready document — with AI assistance at every step and full transparency about where every input came from.
 
-> **Try it in 60 seconds:** open `procureai-category-suite-v1.0.html` in any modern browser and click **▶ Demo tour** in the header. A full simulated *Cloud Services* category loads instantly (offline, no API key) and a 16-stop narrated tour walks you through every module.
+> **Formerly ProcureAI Strategic Category Suite.** v1.1.0 renames the product to CategoryAI; sessions and files from v1.0 load without any migration steps.
 
----
+## Try it in 60 seconds
 
-## What it does
+Open `categoryai-strategic-category-suite-v1_1_0.html`, choose **🏖 Sandbox** as the provider (header ⚙ — no API key, nothing leaves your machine), and click **Guided demo tour**. Sixteen stops walk the full workflow on a simulated Cloud Services category, from profile to finished strategy document.
 
-**Five phases, 15 modules:**
+## What's inside
 
 | Phase | Modules |
 |---|---|
-| **Intake** | Category profile · Spend profile (internal, optional) · Market info hub (9 external variables) |
-| **Assessment** | SWOT & PESTLE · Five Forces (derived + radar) |
-| **Strategy** | Kraljic matrix · Supplier segmentation, Gold/Silver/Bronze tiering & preferencing · Risk heatmap & ESG · Purchasing Chessboard (literal 8×8 board) · Cost drivers & levers |
-| **Bargaining** | Negotiation plan (Huthwaite-style) |
-| **Execution & Output** | Execution plan (Gantt + RACI) · Savings & value (planned vs delivered) · Commercial 7Ps (optional) · Strategy document, elevator pitch + 10 FAQs, downloads |
+| **Intake** | Category profile · Spend profile (optional CSV upload) · Market info hub with live research assistant |
+| **Assessment** | SWOT & PESTLE · Porter's Five Forces with radar chart · Kraljic matrix with quadrant strategy advice |
+| **Strategy** | Supplier segmentation, scorecard, preferencing & Gold/Silver/Bronze tiering · **SRM post-contract reviews with dated history and grading** *(new)* · 5×5 risk heatmap with ESG opportunities · Purchasing chessboard (open 64-method board; licensed ATK board pluggable) · Cost drivers & levers across 20+ category archetypes |
+| **Bargaining** | Huthwaite-style negotiation plan: objectives, BATNAs, issues matrix, trading board |
+| **Execution** | 3-year Gantt · RACI · Savings pipeline with **status funnel, complexity, owners and value view** *(upgraded)* · Benefits register across five benefit types · Maturity self-assessment **plus staged CIPS/Hackett-style practice checklist** *(new)* |
+| **Output** | Optional commercial 7Ps · Strategy document with elevator pitch and defend-your-strategy FAQs · Word (.docx) export · PowerPoint board deck · Four fillable master templates · Per-module Word reports |
 
-**Principles that make it different:**
+## Design principles
 
-- **External-data-first** — a full strategy can be built from market knowledge alone; internal spend data sharpens, never blocks (generic mode).
-- **Confidence transparency** — every value is flagged **User / AI-inferred / Assumed**; the assumption register in the output shows reviewers exactly what has and hasn't been validated.
-- **Grounded libraries** — 9 market variables, 16 cost drivers, 21 levers, 22 curated category archetypes, a 64-method chessboard, 4 master templates.
-- **Progress you can see** — green/amber module dots, an X/13 progress bar, and a Module review card on every screen with a chart and a per-module Word report.
+- **External data first.** A full strategy can be built from market data alone; internal spend upload is an optional refinement, never a prerequisite. New in 1.1.0: enter an approximate annual spend to unlock indicative £/$ values — clearly flagged as an assumed baseline.
+- **Confidence transparency.** Every AI-generated input carries a User / AI-inferred / Assumed flag with one-click confirmation. Every AI section explains its sources.
+- **Accumulate, never overwrite.** Regenerating chessboard methods appends recommendations for you to keep or discard; SRM reviews build dated history rather than replacing scores.
+- **Visible progress.** Module dots, per-phase completion counts in the collapsible navigation, and a Module Review with per-module export.
 
 ## Getting started
 
-1. Download `procureai-category-suite-v1.0.html` and open it in Chrome, Edge, Firefox or Safari.
-2. Open **⚙ AI settings** in the header and pick a provider:
+1. Download the HTML file and open it in any modern browser (internet needed for CDN libraries; Sandbox mode needs no AI network access).
+2. Pick an AI provider in the header ⚙:
 
-| Provider | Key needed | Notes |
+| Provider | Needs | Notes |
 |---|---|---|
-| Claude — in-app | None | When the file runs inside Claude.ai |
-| Claude — API key | `sk-ant-…` | Enables the live web-search research module |
-| Google Gemini | `AIza…` | gemini-2.5-flash default, automatic fallback |
-| 🏖 Sandbox | None | Offline simulated demo data, clearly labelled |
+| 🏖 Sandbox | Nothing | Simulated demo data, honestly tagged; fully offline-safe |
+| Claude (in-app) | Running inside Claude.ai | No key required |
+| Claude (API key) | Anthropic key | Stored locally only, at your choice |
+| Gemini 2.5 Flash/Pro | Google key | Automatic model fallback |
 
-3. Fill the **Category profile** and work left to right. Every screen has ⓘ tooltips and a 📚 Guide bubble that answers questions about that exact screen.
-4. Download the result: a real **Word .docx**, a widescreen **PowerPoint deck**, Markdown, four pre-filled master templates, and per-module reports.
+3. Name your category on step 1 — every other module unlocks from there.
+4. Work saves automatically in your browser; export a session `.json` any time for backup or hand-over (v1.0 `procureai-session` files import cleanly).
 
 ## Documentation
 
-| Document | Audience |
-|---|---|
-| [`docs/ProcureAI-v1.0-User-Guide.docx`](docs/ProcureAI-v1.0-User-Guide.docx) | Category managers — the full walkthrough |
-| [`docs/ProcureAI-v1.0-Reference-Guide.docx`](docs/ProcureAI-v1.0-Reference-Guide.docx) | Frameworks, formulas and master data behind every screen |
-| [`docs/ProcureAI-v1.0-Admin-Guide.docx`](docs/ProcureAI-v1.0-Admin-Guide.docx) | Deployment, CDN whitelist, customisation, governance |
+`docs/` contains the User Guide, Reference Guide and Admin Guide (v1.0 editions — they carry the former ProcureAI name; content remains accurate for the workflow, with 1.1.0 additions covered in `CHANGELOG.md`).
 
-## Network & privacy
+## Privacy & network
 
-- Requires **cdnjs.cloudflare.com** at open time (React, Babel, PapaParse); the Word (`docx`) and PowerPoint (`pptxgenjs`) libraries load on demand with unpkg/jsDelivr fallbacks.
-- API keys stay in the browser (memory, or localStorage if you click Save) and are sent **only** to the chosen AI vendor. In Sandbox mode nothing leaves the machine.
-- All working data lives in the browser; sessions can be exported/imported as `.json` files.
+Keys are stored on your device only, and only if you choose to save them. Session data lives in your browser and in files you export. In Sandbox mode nothing is sent anywhere. CDN access is required for React, Babel, PapaParse, pptxgenjs and docx libraries.
 
-## Customisation (Admin panel 🛠)
+## Customisation
 
-Custom document templates · custom category archetypes (JSON) · licensed A.T. Kearney chessboard plug-in (the built-in board is ProcureAI's open version) · local user register · provider pre-configuration.
+The Admin panel manages API keys, a local user register, custom document templates, custom category archetypes, and the licensed A.T. Kearney chessboard plug-in (board data not included — see LICENSE).
 
-## Versioning
+## Version
 
-This is the **v1.0 release candidate** — frozen after testing. See [CHANGELOG.md](CHANGELOG.md). Development continues on a copy toward v1.1.
+**v1.1.0 — frozen 2026-07-14.** See `CHANGELOG.md` for the full release history and SHA-256 checksums. Development continues on a copy toward v1.2.
