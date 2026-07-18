@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.23.2</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.23.3</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -1405,7 +1405,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
             <span key={c} style={{background:"#0B4038",color:"#D9E5E1",borderRadius:99,padding:"4px 12px",fontSize:11.5,fontWeight:600}}>{c}</span>)}
         </div>
         <div style={{marginTop:14,display:"flex",gap:10,flexWrap:"wrap"}}>
-          <button className="btn" style={{background:"var(--amber)",color:"#2A2004",borderColor:"var(--amber)",fontWeight:800}} onClick={startDemoTour}>▶ Take the 16-stop demo tour</button>
+          <button className="btn" style={{background:"var(--amber)",color:"#2A2004",borderColor:"var(--amber)",fontWeight:800}} onClick={startDemoTour}>▶ Take the 19-stop demo tour (category, then portfolio)</button>
           <button className="btn" style={{background:"transparent",color:"#fff",borderColor:"#4A7E76"}} onClick={()=>jump("profile")}>Start your own category →</button>
         </div>
       </div>
@@ -1466,6 +1466,22 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <h3>Board-ready outputs</h3>
         <p className="hint" style={{maxWidth:820}}>Word strategy document (.docx with offline .doc fallback) · PowerPoint board deck · four fillable master templates · per-module Word reports from the Module Review · session .json files for full round-trip · autosave on every change. Confidence flags travel with the data into every export.</p>
         <JumpBtn id="strategy" label="Open the Output step →"/>
+      </div>
+
+      <div className="card">
+        <h3 style={{marginTop:0}}>💾 Data & devices — how workspaces work</h3>
+        <div className="hint" style={{margin:"0 0 5px"}}>• <b>The principle: one person · one device · one browser profile = one private workspace.</b> Everything (sessions, portfolios, strategies, templates, API keys) lives in that browser's local storage. Nothing is sent anywhere; nothing is shared automatically.</div>
+        <div className="hint" style={{margin:"0 0 5px"}}>• <b>Shared computers are the mixing risk.</b> Two people in the SAME browser profile see and overwrite each other's work — the Admin user register is a label, not a lock. Use separate operating-system logins or separate browser profiles (Chrome/Edge profiles work well); each gets its own clean workspace. Name yours in the sidebar (👤 Workspace) so it's always obvious whose data is loaded.</div>
+        <div className="hint" style={{margin:"0 0 5px"}}>• <b>Laptop ↔ mobile: no automatic sync — by design, for now.</b> The honest bridge is the session file: ⬇ Backup session (.json) on device A → move it (drive, email, chat) → Load session on device B. The file is stamped with the workspace name, device type and time; importing <b>replaces</b> the target browser's workspace, so work on ONE device at a time and hand off with an export — like checking a file in and out. The portfolio library exports/imports the same way.</div>
+        <div className="hint" style={{margin:0}}>• <b>Real accounts and live sync belong to the server phase</b> (see the to-do box below) — a single file in a browser cannot provide them honestly, and pretending otherwise would risk exactly the data mix-ups this design avoids.</div>
+      </div>
+
+      <div className="card" style={{background:"var(--paper)",borderStyle:"dashed"}}>
+        <h3 style={{marginTop:0}}>📌 To-do box — status</h3>
+        <div className="hint" style={{margin:"0 0 5px"}}>✅ <b>Portfolio views — DELIVERED.</b> The Portfolio track (P1–P3) is the cross-category roll-up: composition & coverage, savings register, benefits register, risk register, maturity heatmap and the 12-section board-paper report; <b>Edit-&-confirm</b> on the Report Preview is the sign-off of record (declarations log who confirmed what, when). Standalone category builds can update their portfolio line with a stamped note (Step 14).</div>
+        <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
+        <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
+        <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
       </div>
     </div>
   );
@@ -3264,20 +3280,6 @@ Respond ONLY with JSON, no markdown fences:
               onChange={e=>{ if(e.target.files[0]) importSession(e.target.files[0]); }}/>
           </label>
         </div>
-      </div>
-      <div className="card">
-        <h3 style={{marginTop:0}}>💾 Data & devices — how workspaces work</h3>
-        <div className="hint" style={{margin:"0 0 5px"}}>• <b>The principle: one person · one device · one browser profile = one private workspace.</b> Everything (sessions, portfolios, strategies, templates, API keys) lives in that browser's local storage. Nothing is sent anywhere; nothing is shared automatically.</div>
-        <div className="hint" style={{margin:"0 0 5px"}}>• <b>Shared computers are the mixing risk.</b> Two people in the SAME browser profile see and overwrite each other's work — the Admin user register is a label, not a lock. Use separate operating-system logins or separate browser profiles (Chrome/Edge profiles work well); each gets its own clean workspace. Name yours in the sidebar (👤 Workspace) so it's always obvious whose data is loaded.</div>
-        <div className="hint" style={{margin:"0 0 5px"}}>• <b>Laptop ↔ mobile: no automatic sync — by design, for now.</b> The honest bridge is the session file: ⬇ Backup session (.json) on device A → move it (drive, email, chat) → Load session on device B. The file is stamped with the workspace name, device type and time; importing <b>replaces</b> the target browser's workspace, so work on ONE device at a time and hand off with an export — like checking a file in and out. The portfolio library exports/imports the same way.</div>
-        <div className="hint" style={{margin:0}}>• <b>Real accounts and live sync belong to the server phase</b> (see the to-do box below) — a single file in a browser cannot provide them honestly, and pretending otherwise would risk exactly the data mix-ups this design avoids.</div>
-      </div>
-      <div className="card" style={{background:"var(--paper)",borderStyle:"dashed"}}>
-        <h3 style={{marginTop:0}}>📌 To-do box — status</h3>
-        <div className="hint" style={{margin:"0 0 5px"}}>✅ <b>Portfolio views — DELIVERED.</b> The Portfolio track (P1–P3) is the cross-category roll-up: composition & coverage, savings register, benefits register, risk register, maturity heatmap and the 12-section board-paper report; <b>Edit-&-confirm</b> on the Report Preview is the sign-off of record (declarations log who confirmed what, when). Standalone category builds can update their portfolio line with a stamped note (Step 14).</div>
-        <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
-        <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
-        <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
       </div>
     </div>
   );
@@ -7835,7 +7837,7 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.23.2</span></div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.23.3</span></div>
           <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.21.0 · baseline v1.2.1 frozen · portfolio frozen at v2.12.0 (bbf2fc5c…) · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
