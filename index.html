@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.23.3</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.24.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -1393,12 +1393,14 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
   const jump=id=>{ const portfolioSteps=["portfolio_setup","portfolio_options","ess"]; if(id!=="profile"&&!portfolioSteps.includes(id)&&!profileNamed){ alert("Name your category on step 1 first — everything unlocks from there. (The Portfolio track is independent and always open.)"); setStep("profile"); return; } setStep(id); };
   const JumpBtn=({id,label})=>(
     <button className="btn" style={{padding:"3px 10px",fontSize:11}} onClick={()=>jump(id)}>{label||"Open →"}</button>);
-  return (
-    <div>
-      <div className="card" style={{background:"var(--petrol)",color:"#fff",position:"relative"}}>
-        <button className="btn" onClick={onClose} aria-label="Close About and return to the app"
-          style={{position:"absolute",top:14,right:14,background:"transparent",color:"#D9E5E1",borderColor:"#4A7E76",padding:"5px 12px",fontSize:12}}>✕ Back to the app</button>
-        <h2 className="display" style={{color:"#fff",marginTop:0,paddingRight:170}}>About CategoryAI</h2>
+  /* v2.24 — About as a numbered, paginated deck (8 sections, one at a time),
+     with clickable number dots and Prev/Next. Resets to page 1 each time
+     About is (re)opened, since the parent unmounts this component on close. */
+  const [page,setPage]=useState(0);
+  const SECTIONS=[
+    ["Overview", (
+      <div className="card" style={{background:"var(--petrol)",color:"#fff"}}>
+        <h2 className="display" style={{color:"#fff",marginTop:0}}>About CategoryAI</h2>
         <p style={{maxWidth:760,fontSize:14,lineHeight:1.5,color:"#D9E5E1"}}>A portfolio & category management workbench in a single file. The premise: category and portfolio management is the optimal balancing of <b>internal demand with external supply</b> — value earned by both the business and its suppliers, risk shared sensibly, delivered collaboratively and in compliance with ethics, regulation and law. Two tracks share that core: an independent <b>Portfolio track</b> (charter & composition → strategic options → consolidated report) and the <b>Category track</b> (Define → Understand → Strategise → Source → Contract & Manage → Output). Every AI-assisted input declares its source in small print, and each strategy report closes with a References & Bibliography.</p>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>
           {["Single file · no install","Works fully offline (Sandbox)","Claude · Gemini · Sandbox","External-data-first"].map(c=>
@@ -1409,7 +1411,8 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
           <button className="btn" style={{background:"transparent",color:"#fff",borderColor:"#4A7E76"}} onClick={()=>jump("profile")}>Start your own category →</button>
         </div>
       </div>
-
+    )],
+    ["Management cycle", (
       <div className="card">
         <h3>The management cycle — and where feedback closes the loop</h3>
         <p style={{fontSize:13, maxWidth:820}}>
@@ -1424,7 +1427,8 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
           <JumpBtn id="profile" label="Category track →"/>
         </div>
       </div>
-
+    )],
+    ["The journey", (
       <div className="card">
         <h3>The journey — the two tracks, step by step</h3>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:10}}>
@@ -1436,7 +1440,8 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
             </div>))}
         </div>
       </div>
-
+    )],
+    ["AI your way", (
       <div className="card">
         <h3>AI your way — Sandbox, Claude or Gemini<Tip t="Same workflow in all three; only the source of the AI drafting changes. Live-API errors are always shown, never silently replaced by simulated content."/></h3>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10}}>
@@ -1450,7 +1455,8 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         </div>
         <div style={{marginTop:10}}><button className="btn" onClick={()=>setAiOpen(true)}>⚙ Choose your provider</button></div>
       </div>
-
+    )],
+    ["What AI drafts", (
       <div className="card">
         <h3>What the AI drafts — and the control you keep<Tip t="Every AI-generated section carries a banner explaining its sources; every value carries a User / AI-inferred / Assumed confidence flag with one-click confirmation."/></h3>
         <div style={{overflowX:"auto"}}>
@@ -1461,21 +1467,24 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
             <td><JumpBtn id={id}/></td></tr>))}
         </tbody></table></div>
       </div>
-
+    )],
+    ["Board-ready outputs", (
       <div className="card">
         <h3>Board-ready outputs</h3>
         <p className="hint" style={{maxWidth:820}}>Word strategy document (.docx with offline .doc fallback) · PowerPoint board deck · four fillable master templates · per-module Word reports from the Module Review · session .json files for full round-trip · autosave on every change. Confidence flags travel with the data into every export.</p>
         <JumpBtn id="strategy" label="Open the Output step →"/>
       </div>
-
+    )],
+    ["Data & devices", (
       <div className="card">
         <h3 style={{marginTop:0}}>💾 Data & devices — how workspaces work</h3>
         <div className="hint" style={{margin:"0 0 5px"}}>• <b>The principle: one person · one device · one browser profile = one private workspace.</b> Everything (sessions, portfolios, strategies, templates, API keys) lives in that browser's local storage. Nothing is sent anywhere; nothing is shared automatically.</div>
         <div className="hint" style={{margin:"0 0 5px"}}>• <b>Shared computers are the mixing risk.</b> Two people in the SAME browser profile see and overwrite each other's work — the Admin user register is a label, not a lock. Use separate operating-system logins or separate browser profiles (Chrome/Edge profiles work well); each gets its own clean workspace. Name yours in the sidebar (👤 Workspace) so it's always obvious whose data is loaded.</div>
         <div className="hint" style={{margin:"0 0 5px"}}>• <b>Laptop ↔ mobile: no automatic sync — by design, for now.</b> The honest bridge is the session file: ⬇ Backup session (.json) on device A → move it (drive, email, chat) → Load session on device B. The file is stamped with the workspace name, device type and time; importing <b>replaces</b> the target browser's workspace, so work on ONE device at a time and hand off with an export — like checking a file in and out. The portfolio library exports/imports the same way.</div>
-        <div className="hint" style={{margin:0}}>• <b>Real accounts and live sync belong to the server phase</b> (see the to-do box below) — a single file in a browser cannot provide them honestly, and pretending otherwise would risk exactly the data mix-ups this design avoids.</div>
+        <div className="hint" style={{margin:0}}>• <b>Real accounts and live sync belong to the server phase</b> (see the next section) — a single file in a browser cannot provide them honestly, and pretending otherwise would risk exactly the data mix-ups this design avoids.</div>
       </div>
-
+    )],
+    ["Roadmap", (
       <div className="card" style={{background:"var(--paper)",borderStyle:"dashed"}}>
         <h3 style={{marginTop:0}}>📌 To-do box — status</h3>
         <div className="hint" style={{margin:"0 0 5px"}}>✅ <b>Portfolio views — DELIVERED.</b> The Portfolio track (P1–P3) is the cross-category roll-up: composition & coverage, savings register, benefits register, risk register, maturity heatmap and the 12-section board-paper report; <b>Edit-&-confirm</b> on the Report Preview is the sign-off of record (declarations log who confirmed what, when). Standalone category builds can update their portfolio line with a stamped note (Step 14).</div>
@@ -1483,6 +1492,32 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
       </div>
+    )]
+  ];
+  return (
+    <div>
+      <div style={{position:"sticky", top:0, zIndex:5, background:"var(--bg)", paddingBottom:8, marginBottom:4}}>
+        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8, padding:"8px 12px", background:"#fff", border:"1px solid var(--line)", borderRadius:8}}>
+          <div style={{display:"flex", alignItems:"center", gap:6, flexWrap:"wrap"}}>
+            <b style={{fontSize:11, color:"var(--slate)", marginRight:4}}>{page+1} / {SECTIONS.length}</b>
+            {SECTIONS.map(([label],i)=>(
+              <button key={label} data-about-dot={i+1} onClick={()=>setPage(i)} title={label}
+                style={{width:26, height:26, borderRadius:99, border:"1px solid "+(i===page?"var(--petrol)":"var(--line)"),
+                  background:i===page?"var(--petrol)":"#fff", color:i===page?"#fff":"var(--slate)",
+                  fontSize:11.5, fontWeight:700, cursor:"pointer"}}>{i+1}</button>
+            ))}
+            <span style={{fontSize:12, fontWeight:700, color:"var(--petrol)", marginLeft:6}}>{SECTIONS[page][0]}</span>
+          </div>
+          <div style={{display:"flex", gap:6, alignItems:"center"}}>
+            <button className="btn" data-about-prev="1" disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Prev</button>
+            {page<SECTIONS.length-1
+              ? <button className="btn primary" data-about-next="1" onClick={()=>setPage(p=>p+1)}>Next →</button>
+              : <span data-about-end="1" style={{fontSize:11, color:"var(--slate)", padding:"0 6px"}}>End</span>}
+            <button className="btn" onClick={onClose} aria-label="Close About and return to the app" style={{marginLeft:4}}>✕ Close</button>
+          </div>
+        </div>
+      </div>
+      {SECTIONS[page][1]}
     </div>
   );
 }
@@ -7837,7 +7872,7 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.23.3</span></div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.24.0</span></div>
           <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.21.0 · baseline v1.2.1 frozen · portfolio frozen at v2.12.0 (bbf2fc5c…) · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
