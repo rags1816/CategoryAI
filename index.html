@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.21.2</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.23.2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -1472,21 +1472,87 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
 }
 function TourOverlay({tour,setTour,setStep}){
   const [min,setMin]=useState(false);   /* v1.1.0: minimisable tour card, esp. for mobile */
+  /* v2.23 — freely draggable tour card (like a freemium app's floating
+     widget): drag the header anywhere, position clamped to the viewport and
+     remembered per browser. Falls back to a sensible default (top on
+     mobile, so it never sits over the bottom action buttons; bottom-right
+     on desktop) until the user drags it themselves. */
+  const isMobile = typeof navigator!=="undefined" && /Mobi|Android|iPhone/i.test(navigator.userAgent||"");
+  const CARD_W=400, CARD_H_EST=210, MIN_W=180, MIN_H_EST=44, MARGIN=16;
+  const clamp=(x,y,w,h)=>({
+    x:Math.max(MARGIN,Math.min(x,(typeof window!=="undefined"?window.innerWidth:1200)-w-MARGIN)),
+    y:Math.max(MARGIN,Math.min(y,(typeof window!=="undefined"?window.innerHeight:800)-h-MARGIN))
+  });
+  const savedFull=(()=>{ try{ return JSON.parse(storageGet("categoryai_tour_xy")||"null"); }catch(e){ return null; } })();
+  const savedMin=(()=>{ try{ return JSON.parse(storageGet("categoryai_tour_xy_min")||"null"); }catch(e){ return null; } })();
+  const defaultFull=()=>clamp(window.innerWidth-CARD_W-MARGIN, isMobile?MARGIN:window.innerHeight-CARD_H_EST-MARGIN, CARD_W, CARD_H_EST);
+  const defaultMin=()=>clamp(window.innerWidth-160-MARGIN, isMobile?MARGIN:window.innerHeight-MIN_H_EST-MARGIN, 160, MIN_H_EST);
+  const [xy,setXy]=useState(savedFull||{x:0,y:0});
+  const [xyMin,setXyMin]=useState(savedMin||{x:0,y:0});
+  const [ready,setReady]=useState(false);
+  const dragRef=useRef(null);
+  useEffect(()=>{
+    if(typeof window==="undefined") return;
+    if(!savedFull) setXy(defaultFull());
+    if(!savedMin) setXyMin(defaultMin());
+    setReady(true);
+    const onResize=()=>{ setXy(p=>clamp(p.x,p.y,CARD_W,CARD_H_EST)); setXyMin(p=>clamp(p.x,p.y,160,MIN_H_EST)); };
+    window.addEventListener("resize",onResize);
+    return ()=>window.removeEventListener("resize",onResize);
+  },[]);
+  const startDrag=(e,which)=>{
+    e.preventDefault();
+    const isTouch=e.type==="touchstart";
+    const pt=isTouch?e.touches[0]:e;
+    const cur=which==="min"?xyMin:xy;
+    const w=which==="min"?160:CARD_W, h=which==="min"?MIN_H_EST:CARD_H_EST;
+    dragRef.current={which,startX:pt.clientX,startY:pt.clientY,origX:cur.x,origY:cur.y,w,h,moved:false};
+    const move=(ev)=>{
+      const d=dragRef.current; if(!d) return;
+      const p2=ev.type==="touchmove"?ev.touches[0]:ev;
+      const dx=p2.clientX-d.startX, dy=p2.clientY-d.startY;
+      if(Math.abs(dx)>3||Math.abs(dy)>3) d.moved=true;
+      const next=clamp(d.origX+dx,d.origY+dy,d.w,d.h);
+      d.lastX=next.x; d.lastY=next.y;   /* v2.23 fix — track the LIVE position on the drag ref itself, not React state (which the "end" closure below would otherwise read stale) */
+      if(d.which==="min") setXyMin(next); else setXy(next);
+    };
+    const end=()=>{
+      window.removeEventListener("mousemove",move); window.removeEventListener("mouseup",end);
+      window.removeEventListener("touchmove",move); window.removeEventListener("touchend",end);
+      const d=dragRef.current;
+      if(d && d.lastX!=null){ storageSet(d.which==="min"?"categoryai_tour_xy_min":"categoryai_tour_xy",JSON.stringify({x:d.lastX,y:d.lastY})); }
+      /* v2.23.2 fix — mouseup/touchend is immediately followed by a browser
+         "click" event on the SAME element (that's how pointer drags work: the
+         element hasn't left the cursor, so the browser treats it as a click
+         too). If we null dragRef.current here, the click handler's "was this
+         a drag?" guard reads a value that's already gone, so every drag also
+         fired a spurious click — re-expanding the minimised pill right after
+         moving it. Keep the flag alive one tick past the click by clearing it
+         in a timeout instead of synchronously. */
+      if(d) setTimeout(()=>{ if(dragRef.current===d) dragRef.current=null; },0);
+    };
+    window.addEventListener("mousemove",move); window.addEventListener("mouseup",end);
+    window.addEventListener("touchmove",move,{passive:false}); window.addEventListener("touchend",end);
+  };
   if(tour===null) return null;
   const t=TOUR[tour];
   const go=n=>{ if(n<0||n>=TOUR.length){ setTour(null); return; } setTour(n); setStep(TOUR[n].step); };
+  if(!ready) return null;
   if(min) return (
-    <button onClick={()=>setMin(false)} aria-label="Show the guided tour panel"
-      style={{position:"fixed",right:16,bottom:16,zIndex:1000,background:"var(--petrol)",color:"#fff",border:"none",borderRadius:99,
-        padding:"10px 16px",fontSize:12.5,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 20px rgba(0,0,0,.3)",fontFamily:"inherit"}}>
-      🎓 Tour {tour+1}/{TOUR.length} — show
+    <button onMouseDown={e=>startDrag(e,"min")} onTouchStart={e=>startDrag(e,"min")}
+      onClick={(e)=>{ if(dragRef.current&&dragRef.current.moved) return; setMin(false); }} aria-label="Show the guided tour panel — drag to move"
+      style={{position:"fixed",left:xyMin.x,top:xyMin.y,zIndex:1000,background:"var(--petrol)",color:"#fff",border:"none",borderRadius:99,
+        padding:"10px 16px",fontSize:12.5,fontWeight:700,cursor:"grab",boxShadow:"0 6px 20px rgba(0,0,0,.3)",fontFamily:"inherit",touchAction:"none",userSelect:"none"}}>
+      🎓 Tour {tour+1}/{TOUR.length} — show <span style={{opacity:.6,fontSize:10}}>(drag me)</span>
     </button>);
   return (
-    <div style={{position:"fixed",right:16,bottom:16,width:400,maxWidth:"calc(100vw - 32px)",zIndex:1000,
+    <div style={{position:"fixed",left:xy.x,top:xy.y,width:400,maxWidth:"calc(100vw - 32px)",zIndex:1000,
       background:"#fff",border:"2px solid var(--petrol)",borderRadius:12,boxShadow:"0 12px 40px rgba(0,0,0,.25)",padding:"14px 16px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-        <span style={{fontSize:10.5,fontWeight:800,letterSpacing:".08em",color:"var(--petrol)"}}>GUIDED DEMO TOUR · STEP {tour+1} OF {TOUR.length}</span>
-        <span style={{display:"flex",gap:2}}>
+      <div onMouseDown={e=>startDrag(e,"full")} onTouchStart={e=>startDrag(e,"full")}
+        style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,cursor:"grab",touchAction:"none",userSelect:"none",margin:"-4px -4px 0",padding:"4px 4px 6px"}}
+        title="Drag to move this panel anywhere on screen">
+        <span style={{fontSize:10.5,fontWeight:800,letterSpacing:".08em",color:"var(--petrol)"}}>⠿ GUIDED DEMO TOUR · STEP {tour+1} OF {TOUR.length}</span>
+        <span style={{display:"flex",gap:2}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
         <button onClick={()=>setMin(true)} aria-label="Hide the tour panel (keeps your place)" style={{border:"none",background:"none",cursor:"pointer",fontSize:15,color:"var(--slate)",lineHeight:1}} title="Hide — keeps your place">–</button>
         <button onClick={()=>setTour(null)} aria-label="End the tour" style={{border:"none",background:"none",cursor:"pointer",fontSize:14,color:"var(--slate)"}} title="End tour">✕</button>
         </span>
@@ -7769,7 +7835,7 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.21.2</span></div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.23.2</span></div>
           <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.21.0 · baseline v1.2.1 frozen · portfolio frozen at v2.12.0 (bbf2fc5c…) · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
