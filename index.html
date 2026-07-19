@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.24.0</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.25.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -1730,11 +1730,82 @@ function AISettings({open,setOpen}){
    Everything a client-only file can manage locally: API keys, a local user
    list, custom templates, and custom category archetypes (JSON). True
    multi-user auth/roles need the server phase — flagged in the To-Do box. */
-const CUSTOM={templates:{},archetypes:{},users:[]};
+const CUSTOM={templates:{},archetypes:{},users:[],channels:{}};
+/* ================= v2.25 ROUTE-TO-MARKET ENGINE =================
+   Kraljic quadrant is the primary lens; specialization, volume/frequency,
+   existing MSP/panel coverage and credible-supplier count are modifiers.
+   Pure, rule-based, fully testable — an optional AI narrative layer can sit
+   on top later without changing this contract. Recommendations are ranked
+   suggestions; the category manager always makes the final choice. */
+const DEFAULT_CHANNELS={
+  msp:{name:"MSP / Vendor Management System", short:"MSP",
+    blurb:"Route through an existing Managed Service Provider or VMS panel — rate-card discipline, compliance control and speed at scale."},
+  niche:{name:"Niche / Specialist Consultancy", short:"Niche Consultancy",
+    blurb:"Engage a specialist directly — scarce expertise, relationship and IP transfer matter more than price competition."},
+  contingent:{name:"Contingent / Temp Labour Market", short:"Contingent Labour",
+    blurb:"Open market or agency direct for ad hoc or panel-uncovered needs — faster and cheaper than standing up MSP overhead for occasional demand."},
+  rfx:{name:"RFx (Formal Competitive Tender)", short:"RFx",
+    blurb:"Structured competitive process — justified where there's enough qualified supply and enough value at stake for contractual rigor."}
+};
+function channelLibrary(){ return {...DEFAULT_CHANNELS, ...(typeof CUSTOM!=="undefined"?CUSTOM.channels:{})}; }
+
+/* Base score per quadrant × channel (0-100). Modifiers below adjust these. */
+const QUADRANT_BASE={
+  "Non-critical": {msp:70, contingent:55, rfx:25, niche:10},
+  "Leverage":     {rfx:70, msp:55, contingent:20, niche:15},
+  "Bottleneck":   {niche:75, rfx:35, msp:15, contingent:15},
+  "Strategic":    {niche:60, rfx:55, msp:20, contingent:10}
+};
+function recommendChannels(opts){
+  const {quadrant="Strategic", specialization="Moderate", volume="Periodic", coverage="None", supplierCount=null}=opts||{};
+  const base={...(QUADRANT_BASE[quadrant]||QUADRANT_BASE.Strategic)};
+  const lib=channelLibrary();
+  Object.keys(lib).forEach(k=>{ if(base[k]==null) base[k]=10; });   /* custom channels start neutral-low */
+  const notes={}; Object.keys(base).forEach(k=>notes[k]=[]);
+  const bump=(k,d,why)=>{ if(base[k]==null) return; base[k]=Math.max(0,Math.min(100,base[k]+d)); notes[k].push(why); };
+
+  if(specialization==="Scarce"){ bump("niche",22,"scarce specialization favours a direct specialist relationship"); bump("msp",-18,"panels rarely carry scarce/bespoke expertise"); bump("contingent",-15,"open market unlikely to carry this expertise"); }
+  else if(specialization==="Commodity"){ bump("msp",12,"commodity skill suits standardised panel rate cards"); bump("contingent",10,"readily available in the open market"); bump("niche",-15,"not worth a specialist premium for commodity work"); }
+
+  if(volume==="Continuous"){ bump("msp",15,"continuous/repeat demand suits an MSP relationship"); bump("rfx",-10,"a one-off tender is disproportionate to ongoing demand"); }
+  else if(volume==="One-off"){ bump("rfx",10,"one-off, project-based work suits a discrete competitive process"); bump("msp",-8,"MSP overhead is disproportionate to a single engagement"); }
+
+  if(coverage==="Yes"){ bump("msp",20,"an existing panel/MSP already covers this requirement"); bump("rfx",-8,"a live panel makes a fresh tender largely redundant"); bump("contingent",-8,"the panel is the faster, already-vetted route"); }
+  else if(coverage==="None"){ bump("msp",-15,"no panel exists to route through today"); bump("rfx",5,"open market — a structured process protects competition"); }
+
+  if(typeof supplierCount==="number"){
+    if(supplierCount<=2){ bump("niche",10,"very few credible providers — direct engagement is more realistic than a competition"); bump("rfx",-12,"too few bidders for a genuinely competitive tender"); }
+    else if(supplierCount>=6){ bump("rfx",10,"enough credible providers to run a genuinely competitive process"); bump("contingent",6,"a deep, liquid market suits open-market sourcing"); }
+  }
+
+  const ranked=Object.entries(base).map(([id,score])=>({id, name:(lib[id]||{}).name||id, short:(lib[id]||{}).short||id, score, rationale:notes[id].length?notes[id].join("; "):"base fit for a "+quadrant.toLowerCase()+" position"}))
+    .sort((a,b)=>b.score-a.score);
+  return ranked;
+}
+
+/* Value/Effort — a SEPARATE governance-intensity signal (maps onto the
+   existing Tier 1/2/3 scheme). Value = Kraljic business impact (0-5, already
+   computed). Effort = scarcity + one-off-ness + thin-market friction. Never
+   changes the channel; only how much process weight to apply within it. */
+function deriveGovernanceTier(businessImpact, specialization, volume, supplierCount){
+  const value=Math.max(0,Math.min(5,Number(businessImpact)||0));
+  let effort=1;
+  if(specialization==="Scarce") effort+=2; else if(specialization==="Moderate") effort+=1;
+  if(volume==="One-off") effort+=1.5; else if(volume==="Periodic") effort+=0.5;
+  if(typeof supplierCount==="number" && supplierCount<=2) effort+=1;
+  effort=Math.max(0,Math.min(5,effort));
+  let tier, note;
+  if(value>=3.2 && effort<2.2){ tier="Tier 1 (fast-track)"; note="High value but low effort — full priority, lightweight process (e.g. panel call-off, not a bespoke tender)."; }
+  else if(value>=3.2){ tier="Tier 1"; note="High value, justified effort — full category management rigor."; }
+  else if(value>=1.6){ tier="Tier 2"; note="Moderate value — proportionate process, standard governance."; }
+  else { tier="Tier 3"; note="Lower value — minimise transaction cost; don't over-process this line regardless of channel."; }
+  return {value, effort, tier, note};
+}
 (function loadCustom(){ try{ Object.assign(CUSTOM,JSON.parse(storageGet("categoryai_custom")||"{}")); }catch(e){} })();
 function saveCustom(){ storageSet("categoryai_custom",JSON.stringify(CUSTOM)); }
 
 function AdminPanel({open,setOpen}){
+  const [chId,setChId]=useState(""); const [chShort,setChShort]=useState(""); const [chName,setChName]=useState("");   /* v2.25 route-to-market channel library */
   const [,force]=useState(0); const R=()=>force(x=>x+1);
   const [tab,setTab]=useState("keys");
   const [uName,setUName]=useState(""); const [uRole,setURole]=useState("Category Manager");
@@ -1805,6 +1876,23 @@ function AdminPanel({open,setOpen}){
           </div>
         </div>)}
         {tab==="data" && (<div>
+          <h3>Route-to-market channel library<Tip t="Extend the four default channels (MSP, Niche Consultancy, Contingent Labour, RFx) with your own — e.g. Framework/Panel Call-off, Distributor/Reseller. New channels appear immediately as an option in P1's Route-to-market ranking, starting from a neutral score that the usual quadrant/specialization/volume/coverage modifiers then adjust."/></h3>
+          <div style={{fontSize:11.5, marginBottom:6}}>
+            <b>Default channels (always available):</b> {Object.values(DEFAULT_CHANNELS).map(c=>c.short).join(" · ")}
+          </div>
+          {Object.entries(CUSTOM.channels||{}).map(([id,c])=>(
+            <div key={id} style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"4px 8px", border:"1px solid var(--line)", borderRadius:6, marginBottom:4, fontSize:12}}>
+              <span><b>{c.short||c.name}</b> — {c.name}</span>
+              <button className="btn ghost" style={{border:"none", fontSize:11}} onClick={()=>{delete CUSTOM.channels[id]; saveCustom(); R();}}>✕</button>
+            </div>
+          ))}
+          <div style={{display:"flex", gap:6, flexWrap:"wrap", marginTop:6}}>
+            <input type="text" placeholder="id (e.g. panel)" value={chId} onChange={e=>setChId(e.target.value)} style={{width:110, padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11.5}}/>
+            <input type="text" placeholder="Short label (e.g. Panel)" value={chShort} onChange={e=>setChShort(e.target.value)} style={{width:140, padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11.5}}/>
+            <input type="text" placeholder="Full name" value={chName} onChange={e=>setChName(e.target.value)} style={{flex:1, minWidth:160, padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11.5}}/>
+            <button className="btn" onClick={()=>{ const id=(chId||"").trim().toLowerCase().replace(/[^a-z0-9]/g,""); if(!id||!chName.trim()){ alert("Need an id and a full name."); return; } if(DEFAULT_CHANNELS[id]){ alert("That id collides with a default channel — pick another."); return; } CUSTOM.channels=CUSTOM.channels||{}; CUSTOM.channels[id]={name:chName.trim(), short:(chShort||chName).trim()}; saveCustom(); setChId(""); setChShort(""); setChName(""); R(); }}>+ Add channel</button>
+          </div>
+
           <h3>Custom category archetypes<Tip t="Extend the archetype library with your own categories. Paste JSON in the same shape as the built-in library."/></h3>
           {Object.keys(CUSTOM.archetypes).map(n=>(
             <div key={n} className="hint" style={{display:"flex",justifyContent:"space-between",margin:"0 0 4px"}}>
@@ -4586,7 +4674,7 @@ function StepSevenPs({profile, sp, setSp, next}){
 /* ================= REFERENCE LIBRARY CHAT BUBBLE (contextual) ================= */
 const STEP_GUIDE={
   portfolio_setup:{intro:"You're on P1 · Portfolio charter & composition — the start of the independent Portfolio track. Ask about any charter field, the composition table, or the seed buttons.",
-    kb:"SCREEN: Portfolio charter & composition (P1, portfolio track — independent of any category). MULTIPLE PORTFOLIOS: the 📁 My portfolios library at the top saves complete snapshots (charter, composition, assessment, plans, options, questions, declarations, confirmed report AND that portfolio's line strategies); switching always snapshots the active portfolio first so nothing is lost; new blank / duplicate / delete / export-import (.json) supported; the library lives in this browser. Main parts of the screen: (1) PARENT CHARTER — 19 fields covering demand (current spend, future demand), supply (current suppliers, technology landscape, regulatory environment), value (strategic objectives, business outcomes, KPIs, benefits framework), risk appetite, sustainability & social value, AI & digital strategy, governance and stakeholders. (2) PORTFOLIO COMPOSITION — the categories/service lines that make up the portfolio: name, annual spend, risk (Low/Medium/High), Kraljic quadrant, archetype, notes. (3) PORTFOLIO ASSESSMENT (Stage 3 fact base) — four blocks: Spend (forecast, volatility, budget ownership, demand patterns), Supply market (maturity, capable suppliers, competitive intensity, innovation, concentration, SME participation, geographic risks), Business criticality (operational, regulatory, security, customer, ESG impact), Commercial (existing contracts, expiry, pricing mechanisms, inflation exposure, leverage). Per-block ⚡ assist drafts EMPTY fields only, flags uncertainty as 'To validate:', never touches user text; positions feed the P2 strategic questions and option generation, and Section 2 of the report. (4) ASSESSMENT & PLANS — six narrative sections (current state, future state, capability & skills gap, supplier dependency, lotting strategy, transition strategy), each ⚡ AI-draftable from the charter + composition + ingested documents with per-field source tracking; they form Section 2 of the report. Lotting has a rule-based Kraljic-grouping fallback offline; the other five require AI or direct writing. 'Seed from ESS template' fills the composition with the built-in NESO Engineering Support Services worked example (6 lines) to show the expected shape — then edit or delete rows; 'Seed from demo template' loads a generic 3-line demo. Both replace the current list after a confirm and are starting points, not your data. The charter heads Section 1 of the Portfolio Strategy report; every service line inherits the charter when deep-dived. Continue → P2 Strategic options, or 'Standalone category' to leave the portfolio track."},
+    kb:"SCREEN: Portfolio charter & composition (P1, portfolio track — independent of any category). ROUTE TO MARKET (v2.25): a panel beneath Composition ranks 4 default channels (MSP, Niche/Specialist Consultancy, Contingent/Temp Labour, RFx) per line — Kraljic quadrant is the PRIMARY signal, refined by specialization/volume/panel-coverage/supplier-count modifiers the manager sets (gut-feel is fine, or ⚡ AI-assist estimates from market knowledge). Recommendations are ranked SUGGESTIONS the manager chooses from — never locked. A separate Value/Effort governance tier (from Kraljic business impact + effort) recommends process rigor (Tier 1 fast-track / Tier 1 / Tier 2 / Tier 3) — it never changes the channel, only how much rigor to apply. Channel library is Admin-extensible (Admin → Custom archetypes tab). Feeds §3 of the board-paper report and a live-view on P3. MULTIPLE PORTFOLIOS: the 📁 My portfolios library at the top saves complete snapshots (charter, composition, assessment, plans, options, questions, declarations, confirmed report AND that portfolio's line strategies); switching always snapshots the active portfolio first so nothing is lost; new blank / duplicate / delete / export-import (.json) supported; the library lives in this browser. Main parts of the screen: (1) PARENT CHARTER — 19 fields covering demand (current spend, future demand), supply (current suppliers, technology landscape, regulatory environment), value (strategic objectives, business outcomes, KPIs, benefits framework), risk appetite, sustainability & social value, AI & digital strategy, governance and stakeholders. (2) PORTFOLIO COMPOSITION — the categories/service lines that make up the portfolio: name, annual spend, risk (Low/Medium/High), Kraljic quadrant, archetype, notes. (3) PORTFOLIO ASSESSMENT (Stage 3 fact base) — four blocks: Spend (forecast, volatility, budget ownership, demand patterns), Supply market (maturity, capable suppliers, competitive intensity, innovation, concentration, SME participation, geographic risks), Business criticality (operational, regulatory, security, customer, ESG impact), Commercial (existing contracts, expiry, pricing mechanisms, inflation exposure, leverage). Per-block ⚡ assist drafts EMPTY fields only, flags uncertainty as 'To validate:', never touches user text; positions feed the P2 strategic questions and option generation, and Section 2 of the report. (4) ASSESSMENT & PLANS — six narrative sections (current state, future state, capability & skills gap, supplier dependency, lotting strategy, transition strategy), each ⚡ AI-draftable from the charter + composition + ingested documents with per-field source tracking; they form Section 2 of the report. Lotting has a rule-based Kraljic-grouping fallback offline; the other five require AI or direct writing. 'Seed from ESS template' fills the composition with the built-in NESO Engineering Support Services worked example (6 lines) to show the expected shape — then edit or delete rows; 'Seed from demo template' loads a generic 3-line demo. Both replace the current list after a confirm and are starting points, not your data. The charter heads Section 1 of the Portfolio Strategy report; every service line inherits the charter when deep-dived. Continue → P2 Strategic options, or 'Standalone category' to leave the portfolio track."},
   portfolio_options:{intro:"You're on P2 — four stages: 1 questions (challenge assumptions), 2 options (generated from charter+fact base+answers; adopt one or several), 3 weighted assessment (scores the Stage-2 options, editable weights & cells, advisory leader), 4 risk heat (stress-tests the same options). Ask about any stage, the four balances. Ask what the four balances mean, how scores work, or which sourcing philosophy fits a service type.",
     kb:"SCREEN: Portfolio strategic options (P2). Purpose per the methodology: determine the best MIX of commercial models, sourcing approaches and market structures — not 'one contract or six'. Three stages on this screen: (Stage 1) STRATEGIC QUESTIONS — AI-tailored assumption-challenging questions across Business/Market/Delivery/Commercial/Procurement (standard practitioner set offline); the user answers what they can and answers become constraints for generation and appear in the report. (Stage 2) OPTIONS — generates 3-4 named ways of sourcing and managing the WHOLE portfolio (typically spanning independent category strategies / integrated portfolio procurement / hybrid / capability-based model — procuring business capabilities rather than spend categories), each scored 1-5 on the FOUR BALANCES: value to the business, value to suppliers, risk balance, compliance & ethics. All sliders are editable (drag to rescore — the option is then marked user-modified); '+ attribute' adds custom scored attributes to any single option (options need not share attributes); MULTIPLE options can be adopted (e.g. different directions for different portfolio segments) with a decision rationale recorded. (Stage 3) WEIGHTED ASSESSMENT MATRIX — standard criteria (Business Value 20, Cost 15, Risk 20, Capability 15, Supplier Market 10, Innovation 10, AI Readiness 5, Regulatory/PA23 Compliance 5; weights editable) scored 1-5 per option with an automatic weighted assessment naming the leading option; adoption remains the user's decision. (Stage 4) OPTION RISK HEAT MAP — ten risk dimensions per option (business, commercial, supply, operational, transition, financial, technology & AI disruption, cyber, regulatory, ESG; 1=low 5=high), AI-suggested and editable, rendered in the report and read against the parent risk appetite. Generation is AI-first from the P1 charter + composition + answered questions with a rule-based fallback, and every option and score declares its source in small print. Sourcing philosophy reference: critical operational managed services → strategic partner with outcome-based KPIs; modular technical services → multi-supplier competitive framework; specialist expertise → SME panel or dynamic resource pool; AI & automation → innovation framework with proof-of-concept funding; data science/analytics → flexible capability-based sourcing; short-term surge → staff augmentation or call-off framework."},
   ess:{intro:"You're on P3 · Portfolio roll-up, report & bibliography. Ask what each tab does, where the report gets its content, or what the readiness and maturity figures mean.",
@@ -5199,7 +5287,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
     return {...prev, categories: typeof updater === "function" ? updater(cur) : updater};
   });
   const updateCat = (i, field, val) => setCats(list => list.map((c, idx) => idx === i ? {...c, [field]: field === "spend" ? (val === "" ? "" : (Number(val) || 0)) : val} : c));
-  const addCat = () => setCats(list => [...list, {name: "", spend: "", risk: "Medium", quadrant: "Strategic", archetype: "", notes: ""}]);
+  const addCat = () => setCats(list => [...list, {name: "", spend: "", risk: "Medium", quadrant: "Strategic", archetype: "", notes: "", volume: "Periodic", specialization: "Moderate", specSource:"user", coverage: "None", supplierCount:"", channel:"", channelSource:""}]);
   const removeCat = (i) => setCats(list => list.filter((_, idx) => idx !== i));
   const seedCats = (key) => {
     if (cats.length && !confirm("Replace the current service-line list with the " + (key === "ess" ? "ESS" : "demo") + " template?")) return;
@@ -5462,6 +5550,28 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
       <textarea rows={rows} value={portfolioDetails[k]||""} onChange={e=>handleChange(k,e.target.value)} placeholder={placeholder} style={inputStyle}/>
     </label>
   );
+
+  /* v2.25 — route-to-market: bulk AI-assist for specialization (gut-feel
+     default is fine; this offers a research-informed alternative for lines
+     the manager hasn't set explicitly). Never overwrites a user-set value. */
+  const [rtmBusy,setRtmBusy]=useState(false);
+  async function assistSpecialization(){
+    const targets=cats.map((c,i)=>({i,name:c.name})).filter(t=>t.name && (cats[t.i].specSource!=="user"));
+    if(!targets.length){ alert("No lines to assess — either add service lines, or every line's specialization is already user-set."); return; }
+    setRtmBusy(true);
+    try{
+      const out=await askClaude(`For each of these procurement categories/service lines, estimate the SUPPLY MARKET SPECIALIZATION (how scarce is capable supply) and a rough count of credible providers. Categories: ${JSON.stringify(targets.map(t=>t.name))}. Respond ONLY with JSON, no fences: {"items":[{"name":"...","specialization":"Commodity|Moderate|Scarce","supplierCount":<int 1-20>,"why":"one line"}]}`);
+      if(out&&Array.isArray(out.items)&&out.items.length){
+        setCats(list=>list.map(c=>{
+          const m=out.items.find(x=>String(x.name||"").trim().toLowerCase()===String(c.name||"").trim().toLowerCase());
+          if(!m || c.specSource==="user") return c;
+          return {...c, specialization:["Commodity","Moderate","Scarce"].includes(m.specialization)?m.specialization:c.specialization, specSource:"ai", supplierCount: c.supplierCount===""||c.supplierCount==null? (Number(m.supplierCount)||""): c.supplierCount};
+        }));
+        logDeclaration(setPortfolioDetails, "Route-to-market specialization AI-assisted for "+out.items.length+" line(s) — review and confirm each", "AI research assist");
+      } else throw new Error("no usable JSON");
+    }catch(e){ alert("AI-assist unavailable ("+(e.message||"error")+") — set specialization manually per line; a gut-feel estimate is a valid starting point."); }
+    finally{ setRtmBusy(false); }
+  }
 
   /* v2.17 — custom label overrides state */
   const [labelOv,setLabelOv]=useState(loadLabelOverrides());
@@ -5838,6 +5948,72 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
         </div>
       </div>
       </Collapse>
+
+      {cats.length>0 && (
+      <Collapse title="🧭 Route to market — channel recommendations by Kraljic quadrant" defaultOpen={false} right={<span style={{fontSize:10.5,color:"var(--slate)"}}>{cats.filter(c=>c.channel).length} / {cats.length} chosen</span>}>
+        <p className="hint" style={{marginTop:6}}><b>How this works:</b> the Kraljic quadrant each line already carries is the primary signal; specialization, volume/frequency, existing panel coverage and credible-supplier count refine it. These are <b>ranked suggestions</b> — you choose, nothing is locked. Value/Effort (right-most column) is a separate governance signal: it says how much process rigor the line deserves, not which channel to use.</p>
+        <div style={{display:"flex", justifyContent:"flex-end", margin:"4px 0"}}>
+          <button className="btn" style={{fontSize:11, padding:"3px 8px"}} disabled={rtmBusy} onClick={assistSpecialization} title="AI-estimates specialization and supplier count for lines you haven't set yourself (gut-feel is a perfectly valid alternative — this is optional research assistance).">{rtmBusy?"Assessing…":"⚡ AI-assist specialization (unset lines only)"}</button>
+        </div>
+        <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%", borderCollapse:"collapse", fontSize:11.5}}>
+          <thead>
+            <tr style={{background:"var(--card)"}}>
+              <th style={{border:"1px solid var(--line)", padding:5, textAlign:"left"}}>Line</th>
+              <th style={{border:"1px solid var(--line)", padding:5, textAlign:"left", width:90}}>Kraljic</th>
+              <th style={{border:"1px solid var(--line)", padding:5, textAlign:"left", width:100}}>Volume</th>
+              <th style={{border:"1px solid var(--line)", padding:5, textAlign:"left", width:110}}>Specialization</th>
+              <th style={{border:"1px solid var(--line)", padding:5, textAlign:"left", width:90}}>Panel coverage</th>
+              <th style={{border:"1px solid var(--line)", padding:5, textAlign:"left", width:70}}># suppliers</th>
+              <th style={{border:"1px solid var(--line)", padding:5, textAlign:"left", width:190}}>Suggested → chosen channel</th>
+              <th style={{border:"1px solid var(--line)", padding:5, textAlign:"left", width:150}}>Value/Effort tier</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cats.map((c,i)=>{
+              if(!(c.name||"").trim()) return null;
+              const ranked=recommendChannels({quadrant:c.quadrant, specialization:c.specialization||"Moderate", volume:c.volume||"Periodic", coverage:c.coverage||"None", supplierCount:c.supplierCount===""?null:Number(c.supplierCount)});
+              const top=ranked[0];
+              const businessImpact = c.risk==="High"?4.2:c.risk==="Medium"?3:1.8;   /* composition-level estimate; a deep-dived line's own Kraljic score supersedes this once available */
+              const gov=deriveGovernanceTier(businessImpact, c.specialization||"Moderate", c.volume||"Periodic", c.supplierCount===""?null:Number(c.supplierCount));
+              return (
+                <tr key={i}>
+                  <td style={{border:"1px solid var(--line)", padding:4, fontWeight:700}}>{c.name}</td>
+                  <td style={{border:"1px solid var(--line)", padding:4}}>{c.quadrant}</td>
+                  <td style={{border:"1px solid var(--line)", padding:4}}>
+                    <select value={c.volume||"Periodic"} onChange={e=>updateCat(i,"volume",e.target.value)} style={{width:"100%", padding:"3px", border:"1px solid var(--line)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11}}>
+                      <option value="One-off">One-off</option><option value="Periodic">Periodic/project</option><option value="Continuous">Continuous</option>
+                    </select>
+                  </td>
+                  <td style={{border:"1px solid var(--line)", padding:4}}>
+                    <select value={c.specialization||"Moderate"} onChange={e=>updateCat(i,"specialization",e.target.value)} onFocus={()=>{ if(c.specSource!=="user") setCats(list=>list.map((x,idx)=>idx===i?{...x,specSource:"user"}:x)); }} style={{width:"100%", padding:"3px", border:"1px solid var(--line)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11}}>
+                      <option value="Commodity">Commodity</option><option value="Moderate">Moderate</option><option value="Scarce">Scarce</option>
+                    </select>
+                    {c.specSource==="ai" && <div style={{fontSize:9.5, color:"var(--slate)", fontStyle:"italic"}}>AI-estimated · click to confirm</div>}
+                  </td>
+                  <td style={{border:"1px solid var(--line)", padding:4}}>
+                    <select value={c.coverage||"None"} onChange={e=>updateCat(i,"coverage",e.target.value)} style={{width:"100%", padding:"3px", border:"1px solid var(--line)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11}}>
+                      <option value="None">None</option><option value="Partial">Partial</option><option value="Yes">Yes</option>
+                    </select>
+                  </td>
+                  <td style={{border:"1px solid var(--line)", padding:4}}><input type="number" min="0" value={c.supplierCount===undefined?"":c.supplierCount} onChange={e=>updateCat(i,"supplierCount",e.target.value)} placeholder="?" style={{width:"100%", padding:"3px 4px", border:"1px solid var(--line)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11}}/></td>
+                  <td style={{border:"1px solid var(--line)", padding:4}}>
+                    <div style={{fontSize:10, color:"var(--slate)"}} title={ranked.map(r=>r.short+": "+r.rationale).join(" · ")}>Suggested: <b style={{color:"var(--petrol)"}}>{top.short}</b> ({top.score})</div>
+                    <select value={c.channel||""} onChange={e=>{ const v=e.target.value; setCats(list=>list.map((x,idx)=>idx===i?{...x,channel:v,channelSource:v?"user":""}:x)); if(v) logDeclaration(setPortfolioDetails,"Route-to-market channel chosen for \""+c.name+"\": "+(channelLibrary()[v]||{}).name, "User choice ("+ranked.find(r=>r.id===v)?.short+(v===top.id?" · top suggestion":" · overrode the top suggestion")+")"); }} style={{width:"100%", padding:"3px", marginTop:2, border:"1px solid var(--petrol)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11, fontWeight:700}}>
+                      <option value="">— choose —</option>
+                      {ranked.map(r=><option key={r.id} value={r.id}>{r.short} ({r.score})</option>)}
+                    </select>
+                  </td>
+                  <td style={{border:"1px solid var(--line)", padding:4, fontSize:10.5}} title={gov.note}><b>{gov.tier}</b><div style={{color:"var(--slate)"}}>value {gov.value.toFixed(1)} · effort {gov.effort.toFixed(1)}</div></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        </div>
+        <p className="hint" style={{marginTop:8}}>Rationale for the top suggestion is in each row's tooltip. This table feeds the P3 report's Route-to-Market section; for a deep-dived line, the category's own (more precise) Kraljic score and chessboard position supersede this composition-level estimate.</p>
+      </Collapse>
+      )}
 
       <div id="p1-factbase"></div>
       {/* v2.6.0/v2.7.0 — Stage 3 Portfolio Assessment: four separate collapsed banners */}
@@ -6693,6 +6869,23 @@ function StepPortfolioWorkflow({
     L.push("");
     if (catList.length) { L.push("@@CHART:composition@@"); L.push("@@CHART:kraljic@@"); L.push(""); }
 
+    /* v2.25 — Route to market: Kraljic-quadrant-led channel choice per line,
+       with the Value/Effort governance tier alongside (a separate signal). */
+    if (catList.some(c => c.channel)) {
+      L.push("### Route to market — channel by service line");
+      L.push("_Kraljic quadrant is the primary lens; specialization, volume, panel coverage and supplier depth refine the ranked suggestions. The category manager's chosen channel is shown; a blank means not yet decided._");
+      L.push("| Line | Kraljic | Chosen channel | Basis |");
+      L.push("|---|---|---|---|");
+      const lib = channelLibrary();
+      catList.forEach(c => {
+        if (!c.channel) return;
+        const chosen = (lib[c.channel] || {}).name || c.channel;
+        const basis = c.channelSource === "user" ? "User choice" : "Suggested";
+        L.push(`| ${c.name} | ${c.quadrant || "Strategic"} | **${chosen}** | ${basis} |`);
+      });
+      L.push("");
+    }
+
     /* ---- 4. Portfolio assessment — fact base ---- */
     L.push("## 4. Portfolio Assessment — Fact Base");
     {
@@ -7480,6 +7673,19 @@ function StepPortfolioWorkflow({
           </table>
           </Collapse>
           
+          <Collapse title="🧭 Route to Market by line — feeds §3 (Composition)" defaultOpen={false}>
+            <p className="hint">Chosen channels per line, set on P1's Route-to-market panel. Edit choices there — this is a read-only view of what will appear in §3.</p>
+            {(() => { const catList = Array.isArray(portfolioDetails.categories) ? portfolioDetails.categories : []; const withChoice = catList.filter(c => c.channel); const lib = channelLibrary();
+              if (!withChoice.length) return <p className="hint" style={{fontStyle:"italic"}}>No channel choices made yet — open P1 → Route to market to review the ranked suggestions per line and choose.</p>;
+              return (
+                <table style={{width:"100%", borderCollapse:"collapse", fontSize:12}}>
+                  <thead><tr style={{background:"var(--card)"}}><th style={{border:"1px solid var(--line)", padding:5, textAlign:"left"}}>Line</th><th style={{border:"1px solid var(--line)", padding:5, textAlign:"left"}}>Kraljic</th><th style={{border:"1px solid var(--line)", padding:5, textAlign:"left"}}>Chosen channel</th><th style={{border:"1px solid var(--line)", padding:5, textAlign:"left"}}>Basis</th></tr></thead>
+                  <tbody>{withChoice.map((c,i) => (<tr key={i}><td style={{border:"1px solid var(--line)", padding:5, fontWeight:700}}>{c.name}</td><td style={{border:"1px solid var(--line)", padding:5}}>{c.quadrant}</td><td style={{border:"1px solid var(--line)", padding:5, color:"var(--petrol)", fontWeight:700}}>{(lib[c.channel]||{}).name||c.channel}</td><td style={{border:"1px solid var(--line)", padding:5}}>{c.channelSource==="user"?"User choice":"Suggested"}</td></tr>))}</tbody>
+                </table>
+              );
+            })()}
+          </Collapse>
+
           <Collapse title="🔍 Individual Line Strategy Sheets — feeds §10 (appendix)" defaultOpen={false}>
           {cats.filter(c => strategies[c.name]).length === 0 ? (
             <p style={{fontStyle:"italic", color:"#5A6068", fontSize:13}}>No categories sourced yet. Run sourcing in the roll-up tab to see individual category details.</p>
@@ -7872,8 +8078,8 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.24.0</span></div>
-          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.21.0 · baseline v1.2.1 frozen · portfolio frozen at v2.12.0 (bbf2fc5c…) · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.25.0</span></div>
+          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.25.0 · baseline v1.2.1 frozen · portfolio frozen at v2.12.0 (bbf2fc5c…) · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <AIStatusChip/>
