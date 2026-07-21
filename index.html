@@ -15,7 +15,7 @@
   --ink:#1B2026; --paper:#F7F6F2; --card:#FFFFFF; --line:#E3E1DA;
   --petrol:#0F5E56; --petrolSoft:#E4EFED; --mulberry:#7D3B5E; --mulberrySoft:#F2E7ED;
   --amber:#C98A12; --amberSoft:#F8EED8; --slate:#5A6068; --red:#B3402E;
-  --user:#0F5E56; --ai:#C98A12; --assumed:#B3402E;
+  --user:#0F5E56; --ai:#C98A12; --assumed:#B3402E; --aidraft:#6B4FA0;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);
@@ -38,6 +38,7 @@ input[type=range]{width:100%;accent-color:var(--petrol)}
 .badge{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;
   padding:2px 7px;border-radius:99px;color:#fff;text-transform:uppercase;white-space:nowrap}
 .badge.user{background:var(--user)} .badge.ai{background:var(--ai)} .badge.assumed{background:var(--assumed)}
+.badge.ai_draft{background:var(--aidraft);border:1.5px dashed #fff}
 .step-btn{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:transparent;
   border:none;border-left:3px solid transparent;padding:7px 12px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--slate)}
 .nav-group{display:flex;justify-content:space-between;align-items:center;width:100%;background:transparent;border:none;cursor:pointer;
@@ -101,7 +102,7 @@ const INTERNAL_VARS = [
 ];
 
 const ALL_VARS = [...MARKET_VARS, ...INTERNAL_VARS];
-const CONF = {user:{label:"User",cls:"user"}, ai:{label:"AI-inferred",cls:"ai"}, assumed:{label:"Assumed",cls:"assumed"}};
+const CONF = {user:{label:"User",cls:"user"}, ai:{label:"AI-inferred",cls:"ai"}, assumed:{label:"Assumed",cls:"assumed"}, ai_draft:{label:"AI Draft — unconfirmed",cls:"ai_draft"}};
 const initVars = () => Object.fromEntries(ALL_VARS.map(v=>[v.id,{value:3,conf:"assumed",rationale:"Default midpoint — not yet assessed."}]));
 
 /* ================= COST DRIVER & PURCHASING LEVER LIBRARY =================
@@ -424,9 +425,13 @@ function getArchetype(key){ return CATEGORY_ARCHETYPES[key]||(typeof CUSTOM!=="u
 
 /* ================= DERIVED SCORES ================= */
 const avg = a => a.reduce((s,x)=>s+x,0)/a.length;
+/* Shared with the Kraljic "AI-draft the missing scores" panel below, so the
+   set of variables that decide each axis stays in exactly one place. */
+const SUPPLY_RISK_VAR_IDS=["supplierConcentration","switchingDifficulty","geoRisk","substituteScarcity","capacityTightness"];
+const BUSINESS_IMPACT_VAR_IDS=["spendShare","criticality","visibility","valuePotential"];
 function deriveScores(vars, generic){
   const g = id => vars[id].value;
-  const supplyRisk = avg([g("supplierConcentration"),g("switchingDifficulty"),g("geoRisk"),g("substituteScarcity"),g("capacityTightness")]);
+  const supplyRisk = avg(SUPPLY_RISK_VAR_IDS.map(g));
   /* v2.26 fix: business impact must always be DERIVED from the internal
      variables (spendShare/criticality/visibility/valuePotential), never
      hard-pinned to the midpoint. Those variables already default to
@@ -435,7 +440,7 @@ function deriveScores(vars, generic){
      internal vars the user DID score (even without finishing the step,
      even in generic mode) now count, and both Bottleneck and Non-critical
      become reachable. "generic" remains a pure UI/labelling flag. */
-  const businessImpact = avg([g("spendShare"),g("criticality"),g("visibility"),g("valuePotential")]);
+  const businessImpact = avg(BUSINESS_IMPACT_VAR_IDS.map(g));
   const porter = {
     "Supplier power":     avg([g("supplierConcentration"),g("switchingDifficulty"),g("capacityTightness")]),
     "Buyer power (yours)": avg([6-g("supplierConcentration"),6-g("switchingDifficulty"), g("spendShare")]),
@@ -450,10 +455,14 @@ function deriveScores(vars, generic){
      never scored (see initVars). That default renders identically to a
      real assessment, so an untouched category silently looks like a real
      "Strategic" placement. Surface which axis (if any) is still 100%
-     default so the UI can flag it instead of presenting it as fact. */
-  const isAssumed = id => (vars[id].conf||"assumed")==="assumed";
-  const supplyRiskAssumed = ["supplierConcentration","switchingDifficulty","geoRisk","substituteScarcity","capacityTightness"].every(isAssumed);
-  const businessImpactAssumed = ["spendShare","criticality","visibility","valuePotential"].every(isAssumed);
+     default so the UI can flag it instead of presenting it as fact.
+     v2.27: an AI-drafted-but-not-yet-accepted score (conf:"ai_draft") is
+     NOT a confirmed assessment either — it counts as unconfirmed here too,
+     so the axis stays flagged and the Kraljic marker stays dashed until
+     the user actually reviews and accepts (or edits) it. */
+  const isUnconfirmed = id => { const c=vars[id].conf||"assumed"; return c==="assumed"||c==="ai_draft"; };
+  const supplyRiskAssumed = SUPPLY_RISK_VAR_IDS.every(isUnconfirmed);
+  const businessImpactAssumed = BUSINESS_IMPACT_VAR_IDS.every(isUnconfirmed);
   return {supplyRisk,businessImpact,porter,quadrant,supplyRiskAssumed,businessImpactAssumed};
 }
 
@@ -1990,13 +1999,18 @@ function AISettingsBody(){
 }
 
 function Ledger({vars}){
-  const c = {user:0,ai:0,assumed:0};
+  /* v2.27 fix: ai_draft needs its own bucket — without one, Object.values
+     incrementing c[v.conf] on an unlisted key silently produces NaN, and a
+     drafted-but-unconfirmed variable would vanish from the ledger instead
+     of being counted anywhere. */
+  const c = {user:0,ai:0,assumed:0,ai_draft:0};
   Object.values(vars).forEach(v=>c[v.conf]++);
   return (
-    <div className="ledger" title={"The Confidence Ledger counts every input in your strategy by its source. User ("+c.user+") = you set or confirmed it. AI ("+c.ai+") = AI-generated, awaiting your review. Assumed ("+c.assumed+") = untouched defaults. Aim to convert Assumed and AI into User before sign-off — you can do this on each step or in the assumption register."}>
+    <div className="ledger" title={"The Confidence Ledger counts every input in your strategy by its source. User ("+c.user+") = you set or confirmed it. AI ("+c.ai+") = AI-generated, awaiting your review. AI Draft ("+c.ai_draft+") = AI-proposed, awaiting your explicit accept/edit — does not yet count as a real assessment. Assumed ("+c.assumed+") = untouched defaults. Aim to convert Assumed, AI Draft and AI into User before sign-off — you can do this on each step or in the assumption register."}>
       <span style={{fontSize:10,color:"#8A9096",letterSpacing:".08em"}}>CONFIDENCE<br/>LEDGER ⓘ</span>
       <span style={{color:"#9FD9CE"}}><b>{c.user}</b> user</span>
       <span style={{color:"#F0C556"}}><b>{c.ai}</b> AI</span>
+      {c.ai_draft>0 && <span style={{color:"#C9A9E8"}}><b>{c.ai_draft}</b> AI draft</span>}
       <span style={{color:"#F0A08F"}}><b>{c.assumed}</b> assumed</span>
     </div>
   );
@@ -2015,8 +2029,19 @@ function VarRow({def, entry, onChange}){
       </div>
       <div className="hint" style={{margin:0}}>{def.help}</div>
       <ScalePicker value={entry.value} lo={def.lo} hi={def.hi}
-        onChange={v=>onChange({...entry, value:v, conf:"user",
-          rationale: entry.conf==="user" ? entry.rationale : "Manually set by user"+(entry.conf==="ai" ? " (overriding AI: "+entry.rationale+")" : ".")})} />
+        onChange={v=>{
+          /* v2.27 fix: for an unreviewed AI draft, re-tapping the SAME
+             already-selected value must not silently count as review —
+             "I clicked to look" and "I reviewed and confirmed" need to be
+             different actions, or the explicit Accept button is pointless.
+             Only promote via the picker here if the value actually
+             changes; otherwise use "✓ Accept as reviewed". Note: assumed
+             and ai states still promote on any tap, same as before —
+             that's a separate, lower-stakes gap left for later. */
+          if(entry.conf==="ai_draft" && v===entry.value) return;
+          onChange({...entry, value:v, conf:"user",
+            rationale: entry.conf==="user" ? entry.rationale : "Manually set by user"+(entry.conf==="ai" ? " (overriding AI: "+entry.rationale+")" : entry.conf==="ai_draft" ? " (overriding AI draft: "+entry.rationale+")" : ".")});
+        }} />
       {entry.rationale && (
         <div>
           <button className="btn ghost" style={{padding:"2px 6px",fontSize:11,border:"none",color:"var(--slate)"}}
@@ -2032,7 +2057,7 @@ function Spinner({label}){ return <div className="hint" style={{margin:"8px 0"}}
 
 function Tip({t}){ return <span className="info" title={t}>i</span>; }
 
-const CONF_HELP="Confidence = where this value came from and how much to trust it. User (you set or confirmed it — most defensible), AI-inferred (the AI generated it, awaiting your review), Assumed (an untouched default). Change it here, or click ✓ to confirm the AI's value as your own.";
+const CONF_HELP="Confidence = where this value came from and how much to trust it. User (you set or confirmed it — most defensible), AI-inferred (the AI generated it, awaiting your review), AI Draft — unconfirmed (a proposed score awaiting explicit accept/edit — does not yet count as assessed), Assumed (an untouched default). Change it here, or click ✓ to confirm the AI's value as your own.";
 function ConfHeader(){ return <th title={CONF_HELP}>Confidence <span className="info" style={{marginLeft:2}}>i</span></th>; }
 function ConfCell({conf,onChange}){
   return (
@@ -2411,7 +2436,7 @@ function Step3({vars,setVar,internal,setInternal,next,skip}){
 const SWOT_KEYS=["Strengths","Weaknesses","Opportunities","Threats"];
 const PESTLE_KEYS=["Political","Economic","Social","Technological","Legal","Environmental"];
 
-function Step4({mode,profile,vars,generic,internal,marketBrief,models,setModels,next,goSevenPs,research}){
+function Step4({mode,profile,vars,generic,internal,marketBrief,models,setModels,next,goSevenPs,research,setVar}){
   /* v2.14 — evidence from the Step-3 research assistant, folded into generation */
   const researchBrief = research ? [
     (research.overview?"Market overview: "+String(research.overview).slice(0,400):""),
@@ -2422,6 +2447,40 @@ function Step4({mode,profile,vars,generic,internal,marketBrief,models,setModels,
   const d=useMemo(()=>deriveScores(vars,generic),[vars,generic]);
   const [busy,setBusy]=useState("");
   const [err,setErr]=useState("");
+  /* v2.27 — "AI-draft the missing scores": reuses the same single-call,
+     JSON-scoring pattern as Step2.assess(), but writes conf:"ai_draft"
+     instead of conf:"ai" — deriveScores treats ai_draft as still
+     unconfirmed (see isUnconfirmed above), so the Kraljic marker and the
+     "not yet assessed" banner don't move until the user explicitly
+     accepts (or edits) each drafted value via acceptVar below. Separate
+     busy/err state from genSwot/genPestle's so the two actions never
+     cross-talk within this same component. */
+  const [draftBusy,setDraftBusy]=useState(false);
+  const [draftErr,setDraftErr]=useState("");
+  async function draftMissingScores(){
+    const targetIds=[...(d.supplyRiskAssumed?SUPPLY_RISK_VAR_IDS:[]), ...(d.businessImpactAssumed?BUSINESS_IMPACT_VAR_IDS:[])];
+    if(!targetIds.length) return;
+    setDraftBusy(true); setDraftErr("");
+    try{
+      const defs=ALL_VARS.filter(v=>targetIds.includes(v.id));
+      const prompt=`You are a procurement analyst drafting an INITIAL assessment for a category — a human will review and explicitly accept or edit every score before it counts, so give your honest best estimate even with limited information. Category: "${profile.name}". Sector: "${profile.sector||"unspecified"}". Region: "${profile.region||"Global"}". Incumbent suppliers: ${profile.suppliers?.length?profile.suppliers.join(", "):"not stated"}. Context: "${profile.notes||"none"}".
+Score each variable 1–5 (5 = high) with a one-sentence rationale:
+${defs.map(v=>`- ${v.id}: ${v.label} (1=${v.lo}, 5=${v.hi})`).join("\n")}
+Respond ONLY with JSON, no markdown fences: {"variables":{"<id>":{"score":n,"rationale":"..."}}}`;
+      const out=await askClaude(prompt,false);
+      let any=false;
+      defs.forEach(v=>{
+        const r=out.variables&&out.variables[v.id];
+        if(r&&r.score>=1&&r.score<=5){ any=true; setVar(v.id,{value:Math.round(r.score),conf:"ai_draft",rationale:(r.rationale||"AI-drafted — awaiting your review.")}); }
+      });
+      if(!any) setDraftErr("The AI didn't return usable scores — you can retry, or score these manually.");
+    }catch(e){ setDraftErr("AI draft failed — you can retry, or score these manually. ("+e.message+")"); }
+    setDraftBusy(false);
+  }
+  const acceptVar=(id)=>{
+    const e=vars[id];
+    setVar(id,{...e, conf:"user", rationale:(e.rationale||"")+" — AI draft, accepted by user."});
+  };
   async function genSwot(){
     setBusy("swot"); setErr("");
     try{
@@ -2468,11 +2527,47 @@ function Step4({mode,profile,vars,generic,internal,marketBrief,models,setModels,
       {mode==="kraljic" && <div className="card">
         <h2 className="display">Kraljic positioning<Tip t="Positions the category by supply risk vs business impact to pick the right overall posture. Strategic = partner; Leverage = compete; Bottleneck = secure supply; Non-critical = simplify."/></h2>
         <div className="banner" style={{background:"var(--petrolSoft)", borderColor:"var(--petrol)", marginBottom:10}}>📊 <b>Real-Time Sourcing Position:</b> Your Kraljic position is computed mathematically from the <b>Market Info Hub</b> risk factors and <b>Spend Profile</b> impact scores. Move the sliders in Step 3 to dynamically update the matrix position and recommendations.</div>
-        {(d.supplyRiskAssumed||d.businessImpactAssumed) && (
+        {(()=>{
+          /* v2.27: draftIds tracks EVERY relevant variable still sitting in
+             ai_draft state, independent of the axis-level supplyRiskAssumed/
+             businessImpactAssumed flags (which are all-or-nothing — true
+             only while EVERY variable on that axis is unconfirmed). Gating
+             the review list on those flags meant accepting just one of five
+             supply-risk drafts flipped the flag and made the other four
+             vanish from the panel, orphaned with no way to accept them here.
+             Each drafted item now stays visible until it is individually
+             accepted or edited, regardless of its siblings' state. */
+          const allTargetIds=[...SUPPLY_RISK_VAR_IDS, ...BUSINESS_IMPACT_VAR_IDS];
+          const draftIds=allTargetIds.filter(id=>vars[id].conf==="ai_draft");
+          if(!d.supplyRiskAssumed && !d.businessImpactAssumed && !draftIds.length) return null;
+          return (
           <div className="banner" style={{background:"var(--amberSoft)", borderColor:"var(--amber)", marginBottom:10}}>
-            ⚠ <b>Not yet assessed</b> — {d.supplyRiskAssumed&&d.businessImpactAssumed?"both supply risk and business impact are":(d.businessImpactAssumed?"business impact is":"supply risk is")} still at the default midpoint (no {d.businessImpactAssumed&&!d.supplyRiskAssumed?"internal":d.supplyRiskAssumed&&!d.businessImpactAssumed?"market":"internal or market"} variables scored yet). <b>{d.quadrant}</b> is not a real placement — score the {d.businessImpactAssumed&&!d.supplyRiskAssumed?"internal assessment":d.supplyRiskAssumed&&!d.businessImpactAssumed?"market info hub":"market info hub and internal assessment"} to move it.
+            {(d.supplyRiskAssumed||d.businessImpactAssumed) ? <>⚠ <b>Not yet assessed</b> — {d.supplyRiskAssumed&&d.businessImpactAssumed?"both supply risk and business impact are":(d.businessImpactAssumed?"business impact is":"supply risk is")} still at the default midpoint (no {d.businessImpactAssumed&&!d.supplyRiskAssumed?"internal":d.supplyRiskAssumed&&!d.businessImpactAssumed?"market":"internal or market"} variables scored yet). <b>{d.quadrant}</b> is not a real placement — score the {d.businessImpactAssumed&&!d.supplyRiskAssumed?"internal assessment":d.supplyRiskAssumed&&!d.businessImpactAssumed?"market info hub":"market info hub and internal assessment"} to move it.</> : <>⚠ <b>{draftIds.length} AI draft{draftIds.length>1?"s":""} still awaiting review</b> below.</>}
+            <div style={{marginTop:8, display:"flex", gap:10, alignItems:"center", flexWrap:"wrap"}}>
+              {(d.supplyRiskAssumed||d.businessImpactAssumed) && <button className="btn dark" disabled={draftBusy} onClick={draftMissingScores}>
+                {draftBusy?"Drafting…":(draftIds.length?"⚡ Re-draft the remaining scores":"⚡ AI-draft the missing scores")}
+              </button>}
+              {draftIds.length>0 && <span className="hint" style={{margin:0}}>{draftIds.length} AI draft{draftIds.length>1?"s":""} awaiting your review below — {d.quadrant} still won't count as real until you accept them.</span>}
+            </div>
+            {draftBusy && <Spinner label={getAIName()+" is drafting an initial assessment…"}/>}
+            {draftErr && <div className="err" style={{marginTop:6}}>{draftErr}</div>}
+            {draftIds.length>0 && (
+              <div style={{marginTop:8, border:"1.5px dashed var(--aidraft)", borderRadius:8, padding:"8px 10px", background:"#fff"}}>
+                {draftIds.map(id=>{
+                  const def=ALL_VARS.find(v=>v.id===id);
+                  return (
+                    <div key={id} style={{marginBottom:6, paddingBottom:6, borderBottom:"1px solid var(--line)"}}>
+                      <VarRow def={def} entry={vars[id]} onChange={e=>setVar(id,e)}/>
+                      <button className="btn" style={{marginTop:4, background:"var(--petrolSoft)", color:"var(--petrol)", border:"none"}}
+                        onClick={()=>acceptVar(id)}>✓ Accept as reviewed</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+          );
+        })()}
         <p className="hint">Supply risk {d.supplyRisk.toFixed(1)}/5{d.supplyRiskAssumed?" (assumed)":""} · business impact {d.businessImpact.toFixed(1)}/5{d.businessImpactAssumed?" (assumed)":""} → <b style={{color:QUADRANT_META[d.quadrant].color}}>{d.quadrant}</b>{(d.supplyRiskAssumed||d.businessImpactAssumed)&&<span style={{color:"var(--amber)",fontWeight:600}}> (not yet assessed)</span>} — {QUADRANT_META[d.quadrant].advice}</p>
         <div style={{display:"flex",gap:20,flexWrap:"wrap",alignItems:"flex-start"}}>
           <div style={{flex:"1 1 300px"}}>
@@ -8439,7 +8534,7 @@ function App(){
           {step==="forces" && <Step4 mode="forces" profile={profile} vars={vars} generic={generic&&!internalTouched} internal={internal}
             marketBrief={marketBrief} models={models} setModels={setModels} research={research} next={()=>setStep("kraljic")}/>}
           {step==="kraljic" && <Step4 mode="kraljic" profile={profile} vars={vars} generic={generic&&!internalTouched} internal={internal}
-            marketBrief={marketBrief} models={models} setModels={setModels} research={research} next={()=>setStep("suppliers")}/>}
+            marketBrief={marketBrief} models={models} setModels={setModels} research={research} setVar={setVar} next={()=>setStep("suppliers")}/>}
           {step==="suppliers" && <StepSuppliers profile={profile} internal={internal} suppliers={suppliers} setSuppliers={setSuppliers} tierScheme={tierScheme} setTierScheme={setTierScheme} srmReviews={srmReviews} setSrmReviews={setSrmReviews} next={()=>setStep("risk")}/>}
           {step==="risk" && <StepRisk profile={profile} research={research} risks={risks} setRisks={setRisks} esgOps={esgOps} setEsgOps={setEsgOps} next={()=>setStep("chess")}/>}
           {step==="chess" && <StepChess profile={profile} vars={vars} generic={generic&&!internalTouched} chess={chess} setChess={setChess} next={()=>setStep("costlevers")}/>}
