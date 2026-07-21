@@ -1,37 +1,46 @@
-# CLM / Category AI
+# Category AI
 
-An AI-assisted category strategy tool that applies portfolio and competitive
-positioning frameworks to procurement category management — helping build
-category strategies faster and with more structured rigour than manual
-workshop-based approaches.
+An AI-assisted end-to-end category management suite — applying portfolio
+and competitive positioning frameworks (Kraljic-style tiering, Porter's
+Five Forces, and an original 64-cell purchasing chessboard) to procurement
+category strategy, with AI-assisted scoring throughout.
 
 ## What it does
 
 - Takes category/spend inputs and guides the user through a structured
   positioning exercise (see `METHODOLOGY.md` for the underlying model)
-- Produces a visual quadrant/matrix placement for a category, similar in
-  spirit to a Kraljic-style portfolio view, adapted with AI-assisted scoring
-- Surfaces suggested category strategy directions based on quadrant placement
-- [Add/adjust as the tool develops — e.g. supplier risk scoring, negotiation
-  lever suggestions, integration with CLM data]
+- Produces a visual quadrant/matrix placement for a category, in the spirit
+  of a Kraljic-style portfolio view, adapted with AI-assisted scoring
+- Includes an original 64-cell purchasing chessboard tool — conceptually
+  related to, but independent of, A.T. Kearney's trademarked Purchasing
+  Chessboard® (see `METHODOLOGY.md` and `docs/THIRD-PARTY-NOTICES.md` for
+  the full attribution/trademark note)
+- Surfaces suggested category strategy directions based on quadrant
+  placement
+- Exports and reporting support via CDN-loaded libraries (docx, pptxgenjs,
+  PapaParse, pdf.js, JSZip, mammoth) — see `docs/THIRD-PARTY-NOTICES.md`
 
 ## Status
 
-In development / demo stage. [Update as it matures — e.g. "Live demo",
-"Pilot with X category team", etc.]
+Live. Actively developed — see `archive/` for prior version snapshots
+(`v1.1.0`, `v1.2.0`, frozen releases) kept for reference.
 
 ## Tech stack
 
-[Fill in — e.g. HTML/JS front end, Flask backend, Claude/Gemini API for
-scoring assistance, hosted via GitHub Pages]
+Single `index.html` front end (React via CDN, Babel Standalone), no build
+step required. AI-assisted scoring via Claude/Gemini. Hosted via GitHub
+Pages.
 
 ## How to run locally
 
-[Fill in once finalised — e.g. open index.html directly, or `python app.py`
-if there's a backend component]
+Download and open `index.html` directly in a browser — no install or
+server required.
 
 ## Related
 
-See [`METHODOLOGY.md`](./METHODOLOGY.md) for the strategic framework this tool
-applies, and how it differs from a standard Kraljic matrix or Five Forces
-analysis.
+- [`METHODOLOGY.md`](./METHODOLOGY.md) — the strategic frameworks this tool
+  applies (Kraljic, Five Forces, purchasing chessboard) and how the AI
+  layer adapts them
+- [`docs/`](./docs) — user, admin, and reference guides, plus third-party
+  notices
+- [`archive/`](./archive) — prior version snapshots
