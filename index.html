@@ -5445,6 +5445,7 @@ function reconcileCategoriesIntoTree(tree, categories, legacyStrategies, keepIds
       ...node,
       spend: node.spendSource==="derived" ? node.spend : (c.spend===""||c.spend==null ? node.spend : c.spend),
       archetype: c.archetype ?? node.archetype,
+      unspscCode: c.unspscCode ?? node.unspscCode, cpvCode: c.cpvCode ?? node.cpvCode,
       channel: c.channel ?? node.channel, channelSource: c.channelSource ?? node.channelSource,
       specialization: c.specialization ?? node.specialization, specSource: c.specSource ?? node.specSource,
       coverage: c.coverage ?? node.coverage,
@@ -5946,7 +5947,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
     return {...prev, categories: typeof updater === "function" ? updater(cur) : updater};
   });
   const updateCat = (i, field, val) => setCats(list => list.map((c, idx) => idx === i ? {...c, [field]: field === "spend" ? (val === "" ? "" : (Number(val) || 0)) : val} : c));
-  const addCat = () => setCats(list => [...list, {name: "", spend: "", risk: "Medium", quadrant: "Strategic", archetype: "", notes: "", volume: "Periodic", specialization: "Moderate", specSource:"user", coverage: "None", supplierCount:"", channel:"", channelSource:""}]);
+  const addCat = () => setCats(list => [...list, {name: "", spend: "", risk: "Medium", quadrant: "Strategic", archetype: "", notes: "", volume: "Periodic", specialization: "Moderate", specSource:"user", coverage: "None", supplierCount:"", channel:"", channelSource:"", unspscCode:"", cpvCode:""}]);
   const removeCat = (i) => setCats(list => list.filter((_, idx) => idx !== i));
   const seedCats = (key) => {
     if (cats.length && !confirm("Replace the current service-line list with the " + (key === "ess" ? "ESS" : "demo") + " template?")) return;
@@ -6580,6 +6581,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
                 <th style={{border:"1px solid var(--line)", padding:6, textAlign:"left", width:90}}>Risk</th>
                 <th style={{border:"1px solid var(--line)", padding:6, textAlign:"left", width:120}}>Kraljic</th>
                 <th style={{border:"1px solid var(--line)", padding:6, textAlign:"left", width:130}}>Archetype</th>
+                <th style={{border:"1px solid var(--line)", padding:6, textAlign:"left", width:110}}>UNSPSC / CPV<Tip t="Optional classification codes — manual entry only, no lookup or validation in this phase."/></th>
                 <th style={{border:"1px solid var(--line)", padding:6, textAlign:"left"}}>Notes (context inherited by the wizard)</th>
                 <th style={{border:"1px solid var(--line)", padding:6, width:34}}></th>
               </tr>
@@ -6610,6 +6612,10 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
                     </select>
                   </td>
                   <td style={{border:"1px solid var(--line)", padding:4}}><input type="text" value={c.archetype || ""} onChange={e=>updateCat(i, "archetype", e.target.value)} placeholder="e.g. consulting" style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}/></td>
+                  <td style={{border:"1px solid var(--line)", padding:4}}>
+                    <input type="text" value={c.unspscCode || ""} onChange={e=>updateCat(i, "unspscCode", e.target.value)} placeholder="UNSPSC" style={{width:"100%", padding:"3px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:11.5}}/>
+                    <input type="text" value={c.cpvCode || ""} onChange={e=>updateCat(i, "cpvCode", e.target.value)} placeholder="CPV" style={{width:"100%", padding:"3px 6px", marginTop:2, border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:11.5}}/>
+                  </td>
                   <td style={{border:"1px solid var(--line)", padding:4}}><input type="text" value={c.notes || ""} onChange={e=>updateCat(i, "notes", e.target.value)} placeholder="Criticality, incumbents, constraints..." style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}/></td>
                   <td style={{border:"1px solid var(--line)", padding:4, textAlign:"center"}}><button className="btn ghost" style={{border:"none", color:"var(--red)", padding:"2px 6px"}} title="Remove this service line" onClick={()=>removeCat(i)}>✕</button></td>
                 </tr>
@@ -8069,6 +8075,14 @@ function StepPortfolioWorkflow({
             ? <span style={{color:"#0F5E56", fontWeight:"bold"}}>🎯 Custom (deep-dived)</span>
             : <span style={{color:"var(--slate)"}}>Pending</span>}</td>
           <td>
+            <input type="text" value={node.unspscCode || ""} placeholder="UNSPSC"
+              onChange={e => { const v = e.target.value; setCategoryTree(tree => tree.map(n => n.id === node.id ? {...n, unspscCode: v} : n)); }}
+              style={{width:78, padding:"3px 5px", border:"1px solid var(--line)", borderRadius:4, fontSize:11}}/>
+            <input type="text" value={node.cpvCode || ""} placeholder="CPV"
+              onChange={e => { const v = e.target.value; setCategoryTree(tree => tree.map(n => n.id === node.id ? {...n, cpvCode: v} : n)); }}
+              style={{width:78, padding:"3px 5px", marginTop:2, border:"1px solid var(--line)", borderRadius:4, fontSize:11}}/>
+          </td>
+          <td>
             <div style={{display:"flex", gap:6, alignItems:"center"}}>
               <button className="btn" onClick={() => customizeCategoryInWizard(node.name)} style={{borderColor:"var(--petrol)", color:"var(--petrol)"}} title="Opens the Category track (Steps 1–14) for this node, with the parent charter inherited.">
                 ✏️ Deep-dive (manual · 1–14)
@@ -8292,6 +8306,7 @@ function StepPortfolioWorkflow({
                 <th>Annual Spend</th>
                 <th>Kraljic Quadrant</th>
                 <th>Status</th>
+                <th>UNSPSC / CPV<Tip t="Optional classification codes — manual entry only, no lookup or validation in this phase. Level-1 lines are edited in P1's composition table; children (no other editing surface) are edited directly here."/></th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -8337,6 +8352,9 @@ function StepPortfolioWorkflow({
                       ) : (
                         <span style={{color:"var(--slate)"}}>Pending</span>
                       )}
+                    </td>
+                    <td style={{fontSize:11, color:"var(--slate)"}}>
+                      {(c.unspscCode || c.cpvCode) ? <>{c.unspscCode && <div>U: {c.unspscCode}</div>}{c.cpvCode && <div>C: {c.cpvCode}</div>}</> : <span title="Edit in P1's composition table">—</span>}
                     </td>
                     <td>
                       <div style={{display:"flex", gap:6, alignItems:"center"}}>
