@@ -4973,6 +4973,159 @@ function normalizeVars(saved){
 }
 
 
+/* ================= CATEGORY TREE (v2.28, Phase A — data model only) =================
+   Phase A of the portfolio hierarchy feature (see CategoryAI_Portfolio_Strategy_
+   Requirements): a flat, id-linked tree of category nodes PLUS an explicit
+   Portfolio entity as a real top-level container above it, meant to eventually
+   replace the single-active-wizard-session + flat portfolioDetails.categories
+   model below. This phase adds ONLY the data model, migration of existing
+   sessions/portfolios, and the reconciliation plumbing needed to keep existing
+   UI reading correct data — no portfolio matrix, rollup engine, or any UI for
+   switching/creating/comparing multiple portfolios yet. The pre-existing
+   "portfolio library" (save/load snapshots, categoryai_portfolio_library) is a
+   SEPARATE, untouched mechanism — this Portfolio entity is not merged with it
+   in this phase; they simply coexist.
+
+   A node's `record` (the full wizard bundle: profile/vars/models/suppliers/
+   chess/...) is null until that node has actually been opened and scored —
+   same convention as an unscored variable defaulting to {value:3,
+   conf:"assumed"}: existing-but-unscored, not absent. */
+let _idSeq = 0;
+function makeId(prefix){
+  _idSeq += 1;
+  return prefix+"_"+Date.now().toString(36)+_idSeq.toString(36)+Math.random().toString(36).slice(2,7);
+}
+/* Real top-level container above the Level 1 category tree. Phase A always
+   has exactly one of these (kept in sync with categoryTree — see the
+   portfolios-sync effect in App()); the shape exists now so a later phase can
+   introduce genuine multiple portfolios without another data-model migration. */
+function newPortfolio(overrides){
+  return {
+    id: makeId("p"),
+    name: "",
+    description: "",
+    level1CategoryIds: [],
+    ...overrides
+  };
+}
+function newCategoryNode(overrides){
+  return {
+    id: makeId("n"),
+    name: "",
+    level: 1,
+    parentId: null,
+    unspscCode: "",
+    cpvCode: "",
+    spend: "",
+    spendSource: "manual",        // "manual" | "derived" — becomes "derived" once children exist (Phase B rollup)
+    archetype: "",
+    channel: "", channelSource: "",
+    specialization: "Moderate", specSource: "user",
+    coverage: "None",
+    supplierCount: "",
+    volume: "Periodic",
+    notes: "",
+    stubRisk: "Medium",            // only meaningful while record is null
+    stubQuadrant: "Strategic",
+    legacyDeepDiveSnapshot: null,  // pre-tree deep-dive narrative (old buildWizardStrategy() output), preserved read-only
+    record: null,
+    ...overrides
+  };
+}
+/* The full wizard bundle a node's `record` holds once it's been scored. */
+const NODE_RECORD_KEYS = ["profile","vars","generic","models","research","suppliers","srmReviews","matCheck","risks","chess","nego","exec","value","esgOps","benefits","pitch","tierScheme","marketBrief","internal","strategy","opps","sevenPs","cl"];
+function buildNodeRecord(state){
+  const record={};
+  NODE_RECORD_KEYS.forEach(k=>{ record[k]=state[k]; });
+  return record;
+}
+
+/* Merge a flat portfolioDetails.categories row (+ an optional legacy per-name
+   strategies blob, i.e. an old buildWizardStrategy() output) into the tree as
+   level-1 nodes. Used both for one-time app-boot migration of pre-tree sessions
+   AND every time an existing (pre-tree) saved portfolio is loaded from the
+   library — loading an old portfolio re-introduces exactly the same old-shaped
+   data the boot migration handles, just at a different moment, so both funnel
+   through this one function rather than duplicating the logic.
+   - Matches existing nodes by name (case-insensitive) so re-running this
+     against the same categories list is idempotent, not additive.
+   - Never touches a node that already has a full `record` — a live, actually-
+     scored node always wins over a legacy stub/snapshot.
+   - `keepIds`, if given, is a Set of node ids to preserve untouched and NOT
+     remove even if absent from `categories` (used to protect the current
+     in-progress active node when switching portfolios). */
+function reconcileCategoriesIntoTree(tree, categories, legacyStrategies, keepIds){
+  legacyStrategies = legacyStrategies || {};
+  keepIds = keepIds || new Set();
+  const keyOf = n => (n.name||"").trim().toLowerCase();
+  const incoming = (categories||[]).filter(c=>c && (c.name||"").trim());
+  const incomingKeys = new Set(incoming.map(c=>keyOf({name:c.name})));
+  /* Drop existing level-1 nodes that belonged to the previous composition and
+     aren't in the new one — mirrors setPortfolioDetails(entry.details) replacing
+     portfolioDetails.categories wholesale today. Nodes explicitly protected via
+     keepIds (e.g. the active wizard node) survive regardless. */
+  const survivors = (tree||[]).filter(n => n.level!==1 || keepIds.has(n.id) || incomingKeys.has(keyOf(n)));
+  const byKey = new Map(survivors.map(n=>[keyOf(n), n]));
+  const result = [...survivors];
+  incoming.forEach(c=>{
+    const key=keyOf({name:c.name});
+    let node=byKey.get(key);
+    if(!node){
+      node=newCategoryNode({name:c.name.trim(), level:1});
+      byKey.set(key,node);
+      result.push(node);
+    }
+    if(node.record) return; // a real scored node's data is never overwritten by a legacy stub
+    const idx=result.findIndex(n=>n.id===node.id);
+    const legacy=legacyStrategies[c.name];
+    result[idx]={
+      ...node,
+      spend: node.spendSource==="derived" ? node.spend : (c.spend===""||c.spend==null ? node.spend : c.spend),
+      archetype: c.archetype ?? node.archetype,
+      channel: c.channel ?? node.channel, channelSource: c.channelSource ?? node.channelSource,
+      specialization: c.specialization ?? node.specialization, specSource: c.specSource ?? node.specSource,
+      coverage: c.coverage ?? node.coverage,
+      supplierCount: c.supplierCount ?? node.supplierCount,
+      volume: c.volume ?? node.volume,
+      notes: c.notes ?? node.notes,
+      stubRisk: (legacy&&legacy.risk) || c.risk || node.stubRisk,
+      stubQuadrant: (legacy&&legacy.quadrant) || c.quadrant || node.stubQuadrant,
+      legacyDeepDiveSnapshot: legacy || node.legacyDeepDiveSnapshot,
+    };
+  });
+  return result;
+}
+
+/* One-time migration of a pre-tree session: the single active wizard bundle
+   becomes one level-1 node (with a full record — no data loss for the category
+   actually in progress); the flat portfolioDetails.categories list becomes
+   sibling level-1 stub nodes via reconcileCategoriesIntoTree, folding in any
+   matching legacy per-name deep-dive snapshot. If the active wizard's profile
+   name matches a portfolio line, reconcileCategoriesIntoTree's name-matching
+   merges them into ONE node rather than duplicating.
+
+   The existing session's implicit single portfolio also becomes an explicit
+   Portfolio entity wrapping every migrated level-1 node — not "categories
+   with no portfolio concept," per the schema decision above. */
+function migrateToCategoryTree({profile, hasWizardContent, portfolioDetails, legacyStrategies, buildActiveRecord}){
+  let tree=[];
+  let activeNodeId=null;
+  const activeName=(profile&&profile.name||"").trim();
+  if(hasWizardContent && activeName){
+    const node=newCategoryNode({name:activeName, level:1, record:buildActiveRecord()});
+    tree.push(node);
+    activeNodeId=node.id;
+  }
+  const cats=Array.isArray(portfolioDetails&&portfolioDetails.categories)?portfolioDetails.categories:[];
+  tree=reconcileCategoriesIntoTree(tree, cats, legacyStrategies||{}, new Set(activeNodeId?[activeNodeId]:[]));
+  const portfolio=newPortfolio({
+    name: (portfolioDetails&&portfolioDetails.name)||"Default Portfolio",
+    description: (portfolioDetails&&portfolioDetails.description)||"",
+    level1CategoryIds: tree.filter(n=>n.level===1).map(n=>n.id)
+  });
+  return {tree, activeNodeId, portfolios:[portfolio]};
+}
+
 /* ---------- v1.2.0 Portfolio composition (user-definable) ----------
    PORTFOLIO_CATEGORIES holds SEED TEMPLATES only. The authoritative list of
    categories/service lines for the active portfolio lives in
@@ -5416,7 +5569,7 @@ async function summariseDocumentText(text, fileName, portfolioName){
   }
 }
 
-function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPortfolioDetails, next, nextCategory, goEss}){
+function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPortfolioDetails, next, nextCategory, goEss, categoryTree, setCategoryTree, activeNodeId}){
   const isDefault = portfolioId === "default";
   
   const handleChange = (field, val) => {
@@ -5560,6 +5713,19 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
     snapshotCurrent(activePid||newPortfolioId());
     storageSet("categoryai_portfolio_strategies", entry.strategies||"{}");
     setPortfolioDetails(entry.details||{name:entry.name, categories:[], pid});
+    /* v2.28 Phase A — additive only: also reconcile the loaded portfolio's
+       composition + its frozen legacy strategies blob into the category tree,
+       so the tree stays a faithful mirror of whichever portfolio is active.
+       The raw storageSet above is left completely untouched, so existing UI
+       (which still reads that key directly) is unaffected either way — this
+       is purely building up the tree in parallel, not yet the source of truth
+       for anything. activeNodeId is protected so an in-progress deep-dive
+       isn't dropped just because a different portfolio was loaded (matches
+       today's behavior: switching portfolios never touches profile/vars). */
+    if(setCategoryTree){
+      let legacy={}; try{ legacy=JSON.parse(entry.strategies||"{}"); }catch(e){}
+      setCategoryTree(t=>reconcileCategoriesIntoTree(t||[], (entry.details&&entry.details.categories)||[], legacy, new Set(activeNodeId?[activeNodeId]:[])));
+    }
     logDeclaration(setPortfolioDetails, "Portfolio loaded from the library (previous portfolio snapshotted first)", "User action: switch");
     setIoMsg({ok:true,msg:"Loaded \""+entry.name+"\" — its charter, composition, assessment, options and line strategies are now active."});
   };
@@ -5569,6 +5735,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
     storageSet("categoryai_portfolio_strategies","{}");
     const pid=newPortfolioId();
     setPortfolioDetails({name:"", categories:[], pid, declarations:[{when:new Date().toISOString(), what:"New blank portfolio created (previous portfolio snapshotted to the library)", source:"User action"}]});
+    if(setCategoryTree) setCategoryTree(t=>reconcileCategoriesIntoTree(t||[], [], {}, new Set(activeNodeId?[activeNodeId]:[])));
   };
   const duplicateCurrent=()=>{
     const srcPid=activePid||newPortfolioId();
@@ -8014,13 +8181,54 @@ function App(){
   const [opps,setOpps]=useState(sv("opps",[]));   /* v2.15 options & opportunities */
   const [sevenPs,setSevenPs]=useState(sv("sevenPs",{sector:SECTORS[0],questions:null,answers:{},canvas:null,narrative:""}));
   const [cl,setCl]=useState(sv("cl",{drivers:{},levers:[],demandDrivers:[],risks:[],savings:[],kpis:[],notes:"",source:""}));
-  
+  /* v2.28 Phase A — category tree (see CATEGORY TREE section above). `null`
+     is a one-time sentinel meaning "this session predates the tree and needs
+     migrating"; the effect below runs exactly once on mount and replaces it.
+     A pre-tree session ALREADY restores profile/vars/portfolioDetails/etc via
+     the sv(...) calls above — migration just wraps that already-restored
+     state into tree nodes, so it reuses those values directly rather than
+     re-deriving its own defaults (which would drift from the ones above). */
+  const [categoryTree,setCategoryTree]=useState(()=>sv("categoryTree",null));
+  const [activeNodeId,setActiveNodeId]=useState(()=>sv("activeNodeId",null));
+  /* v2.28 Phase A schema addition — an explicit Portfolio entity, a real
+     top-level container above the Level 1 category tree ({id, name,
+     description, level1CategoryIds[]}), rather than treating "portfolio" as
+     an implicit single "default" concept. Phase A keeps exactly one; see the
+     sync effect below. This is a schema-level change only — no UI for
+     switching/creating/comparing multiple portfolios yet, and it is a
+     SEPARATE concept from the pre-existing "portfolio library" (save/load
+     snapshots), which is untouched. */
+  const [portfolios,setPortfolios]=useState(()=>sv("portfolios",null));
+  useEffect(()=>{
+    if(categoryTree!==null) return;
+    let legacyStrategies={}; try{ legacyStrategies=JSON.parse(storageGet("categoryai_portfolio_strategies")||"{}"); }catch(e){}
+    const {tree,activeNodeId:newActiveId,portfolios:newPortfolios}=migrateToCategoryTree({
+      profile, hasWizardContent: !!(profile.name||"").trim(), portfolioDetails, legacyStrategies,
+      buildActiveRecord: ()=>buildNodeRecord({profile,vars,generic,models,research,suppliers,srmReviews,matCheck,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,strategy,opps,sevenPs,cl})
+    });
+    setCategoryTree(tree);
+    setActiveNodeId(newActiveId);
+    setPortfolios(newPortfolios);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+  /* Keeps the (single, for now) Portfolio's level1CategoryIds in sync with
+     whatever the tree actually contains, centrally — so nothing that touches
+     categoryTree (reconciliation on portfolio-library switch, future
+     duplicate-as-child, etc.) also has to remember to update this separately. */
+  useEffect(()=>{
+    if(categoryTree===null || !portfolios || !portfolios.length) return;
+    const ids=categoryTree.filter(n=>n.level===1).map(n=>n.id);
+    const same=JSON.stringify(ids)===JSON.stringify(portfolios[0].level1CategoryIds||[]);
+    if(same) return;
+    setPortfolios(prev=>[{...prev[0], level1CategoryIds:ids}, ...prev.slice(1)]);
+  },[categoryTree]);
+
   useEffect(()=>{
     const t=setTimeout(()=>{
-      storageSet("categoryai_session",JSON.stringify({step,profile,vars,models,research,suppliers,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,generic,strategy,sevenPs,cl,portfolio,essCompleted,portfolioActiveCategory,portfolioDetails,portfolioStrategies:portfolioStrategiesPayload(),when:new Date().toISOString()}));
+      storageSet("categoryai_session",JSON.stringify({step,profile,vars,models,research,suppliers,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,generic,strategy,sevenPs,cl,portfolio,essCompleted,portfolioActiveCategory,portfolioDetails,categoryTree,activeNodeId,portfolios,portfolioStrategies:portfolioStrategiesPayload(),when:new Date().toISOString()}));
     },600);
     return ()=>clearTimeout(t);
-  },[step,profile,vars,models,research,suppliers,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,generic,strategy,opps,sevenPs,cl,srmReviews,matCheck,portfolio,essCompleted,portfolioActiveCategory,portfolioDetails]);
+  },[step,profile,vars,models,research,suppliers,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,generic,strategy,opps,sevenPs,cl,srmReviews,matCheck,portfolio,essCompleted,portfolioActiveCategory,portfolioDetails,categoryTree,activeNodeId,portfolios]);
 
   /* v2.14 — one builder for wizard->portfolio strategies, used by both the
      deep-dive live sync and the end-of-flow "update portfolio" action. */
@@ -8134,7 +8342,7 @@ function App(){
   function portfolioStrategiesPayload(){ try{ return JSON.parse(storageGet("categoryai_portfolio_strategies")||"{}"); }catch(e){ return {}; } }
   function sessionPayload(){
     return {version:"categoryai-session-v1",when:new Date().toISOString(),
-      step,profile,vars,models,research,suppliers,srmReviews,matCheck,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,generic,strategy,opps,sevenPs,cl,portfolio,essCompleted,portfolioActiveCategory,portfolioDetails,portfolioStrategies:portfolioStrategiesPayload()};
+      step,profile,vars,models,research,suppliers,srmReviews,matCheck,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,generic,strategy,opps,sevenPs,cl,portfolio,essCompleted,portfolioActiveCategory,portfolioDetails,categoryTree,activeNodeId,portfolios,portfolioStrategies:portfolioStrategiesPayload()};
   }
   function saveSessionNow(){ return storageSet("categoryai_session",JSON.stringify(sessionPayload())); }
   /* v2.18 — workspace identity: a name for THIS browser's workspace, so on
@@ -8462,7 +8670,7 @@ function App(){
             }
             return null;
           })()}
-          {step==="portfolio_setup" && <StepPortfolioSetup portfolioId={portfolio} setPortfolio={setPortfolio} portfolioDetails={portfolioDetails} setPortfolioDetails={setPortfolioDetails} next={()=>setStep("portfolio_options")} nextCategory={()=>setStep("profile")} goEss={()=>setStep("ess")}/>}
+          {step==="portfolio_setup" && <StepPortfolioSetup portfolioId={portfolio} setPortfolio={setPortfolio} portfolioDetails={portfolioDetails} setPortfolioDetails={setPortfolioDetails} next={()=>setStep("portfolio_options")} nextCategory={()=>setStep("profile")} goEss={()=>setStep("ess")} categoryTree={categoryTree} setCategoryTree={setCategoryTree} activeNodeId={activeNodeId}/>}
           {step==="portfolio_options" && <StepPortfolioOptions portfolioId={portfolio} portfolioDetails={portfolioDetails} setPortfolioDetails={setPortfolioDetails} next={()=>setStep("ess")}/>}
           {(()=>{ /* v2.19 — guided entry for fresh sessions */
             const fresh=!(profile.name||"").trim() && !((portfolioDetails&&portfolioDetails.name)||"").trim() && !(portfolioDetails&&(portfolioDetails.categories||[]).length) && storageGet("categoryai_start_dismissed")!=="1";
