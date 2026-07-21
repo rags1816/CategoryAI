@@ -1236,7 +1236,7 @@ function MiniScatter({points,xLabel,yLabel}){
 function ModuleReview(props){
   const {step,profile,vars,generic,models,research,suppliers,risks,esgOps,chess,cl,nego,exec,value,benefits,sevenPs,strategy,pitch,internal,tierScheme}=props;
   const d=deriveScores(vars,generic);
-  const confTxt=c=>({user:"User",ai:"AI-inferred",assumed:"Assumed"})[c]||c;
+  const confTxt=c=>({user:"User",ai:"AI-inferred",ai_draft:"AI Draft — unconfirmed",assumed:"Assumed"})[c]||c;
   const keptM=chess?(chess.methods||[]).filter(m=>m.keep!==false):[];
   const tierNames=TIER_SCHEMES[tierScheme]||TIER_SCHEMES.standard;
   const tl=t=>tierNames[["Tier 1","Tier 2","Tier 3"].indexOf(t)]||t;
@@ -1483,7 +1483,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
     )],
     ["What AI drafts", (
       <div className="card">
-        <h3>What the AI drafts — and the control you keep<Tip t="Every AI-generated section carries a banner explaining its sources; every value carries a User / AI-inferred / Assumed confidence flag with one-click confirmation."/></h3>
+        <h3>What the AI drafts — and the control you keep<Tip t="Every AI-generated section carries a banner explaining its sources; every value carries a User / AI-inferred / AI Draft — unconfirmed / Assumed confidence flag, with one-click confirmation to promote any of them to User."/></h3>
         <div style={{overflowX:"auto"}}>
         <table style={{width:"100%"}}><thead><tr><th style={{textAlign:"left"}}>Module</th><th style={{textAlign:"left"}}>AI drafts</th><th style={{textAlign:"left"}}>You control</th><th></th></tr></thead>
         <tbody>{ABOUT_AI_ROWS.map(([m,id,ai,you])=>(
@@ -7250,7 +7250,7 @@ function StepPortfolioWorkflow({
     }
     L.push("- **Charter & fact base:** user input in P1 (AI assists append or fill empty fields only, as declared).");
     L.push("- **AI-generated content:** produced by " + aiSourceLabel() + " from the declared inputs only.");
-    L.push("- **Custom line strategies:** built via Steps 1–14; per-field User / AI-inferred / Assumed confidence flags live in each line's own document.");
+    L.push("- **Custom line strategies:** built via Steps 1–14; per-field User / AI-inferred / AI Draft — unconfirmed / Assumed confidence flags live in each line's own document.");
     L.push("");
 
     /* ---- 12. References & bibliography ---- */
@@ -8072,7 +8072,7 @@ function App(){
           },
           isCustomSourced: true,
           source: "custom",
-          sourceDetail: sourceNote || "User-built via the detailed Steps 1–14 wizard. Underlying inputs carry User / AI-inferred / Assumed confidence flags inside this category's own strategy document.",
+          sourceDetail: sourceNote || "User-built via the detailed Steps 1–14 wizard. Underlying inputs carry User / AI-inferred / AI Draft — unconfirmed / Assumed confidence flags inside this category's own strategy document.",
           basis: ["Steps 1–14 wizard outputs (profile, SWOT, Kraljic scores, suppliers, chessboard, negotiation plan, execution plan, savings pipeline)", "Parent charter inheritance (Step 0)"],
           generatedAt: new Date().toISOString()
         };
@@ -8091,7 +8091,7 @@ function App(){
   function updatePortfolioLine(m){
     const stamp=new Date().toLocaleString();
     if(!confirm("Update \""+m.line+"\" in portfolio \""+m.portfolio+"\" with THIS category strategy?\n\nThe line becomes a deep-dived custom strategy, stamped "+stamp+". Its previous strategy is replaced (the portfolio report will use the new one).")) return;
-    const note="Deep-dived via a standalone category build; user-confirmed portfolio update on "+stamp+". Underlying inputs carry User / AI-inferred / Assumed confidence flags in the category's own strategy document.";
+    const note="Deep-dived via a standalone category build; user-confirmed portfolio update on "+stamp+". Underlying inputs carry User / AI-inferred / AI Draft — unconfirmed / Assumed confidence flags in the category's own strategy document.";
     try{
       const strat=buildWizardStrategy(m.line, note);
       if(m.isActive){
