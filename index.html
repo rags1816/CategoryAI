@@ -7039,7 +7039,12 @@ function StepPortfolioWorkflow({
     setPortfolioActiveCategory(catName);
     if (setPortfolioDetails) logDeclaration(setPortfolioDetails, "Deep-dive started for line \"" + catName + "\" — charter inherited into the Category track (Steps 1–14)", "User action");
     const key = (catName||"").trim().toLowerCase();
-    const existing = (categoryTree||[]).find(n => n.level===1 && (n.name||"").trim().toLowerCase()===key);
+    /* v2.29 Phase B Step 5 — no longer restricted to level:1. Child nodes
+       (created via "duplicate as child") are deep-dived through this same
+       function, via the same name lookup, so the level filter that made
+       sense when only level-1 nodes existed would otherwise miss them and
+       wrongly create a second, duplicate level-1 node with the same name. */
+    const existing = (categoryTree||[]).find(n => (n.name||"").trim().toLowerCase()===key);
     if (existing && existing.record) {
       setActiveNodeId(existing.id);
       setStep("profile");
@@ -7086,6 +7091,61 @@ function StepPortfolioWorkflow({
 
     setStep("profile");
   };
+
+  /* v2.29 Phase B Step 5 — "duplicate as child": copies a node's descriptive
+     context (notes, archetype, channel, specialization, coverage, supplier
+     count, volume) one level down, NOT its scores — the child always starts
+     with record:null, exactly like any brand-new, never-assessed category
+     (deliberately not the parent's stubRisk/stubQuadrant either, since those
+     are score stand-ins, not context). Works from any node, at any level —
+     the child's level is simply parent.level+1, so repeating the action on
+     a child produces a grandchild, and so on. */
+  function duplicateNodeAsChild(parentNode) {
+    const child = newCategoryNode({
+      name: (parentNode.name || "Category") + " (copy)",
+      level: (parentNode.level || 1) + 1,
+      parentId: parentNode.id,
+      notes: parentNode.notes,
+      archetype: parentNode.archetype,
+      channel: parentNode.channel,
+      channelSource: parentNode.channelSource,
+      specialization: parentNode.specialization,
+      specSource: parentNode.specSource,
+      coverage: parentNode.coverage,
+      supplierCount: parentNode.supplierCount,
+      volume: parentNode.volume
+    });
+    setCategoryTree(tree => [...(tree||[]), child]);
+  }
+  /* Level-1 rows come from portfolioDetails.categories (P1 composition), not
+     directly from categoryTree — a composition row doesn't necessarily have
+     a matching tree node yet if it was just typed in and no reconciliation
+     has run since (same find-or-create pattern as customizeCategoryInWizard
+     above, done atomically in one setCategoryTree call so the child is never
+     added without its just-created parent). */
+  function duplicateLevel1CategoryAsChild(catName) {
+    const key = (catName || "").trim().toLowerCase();
+    const existing = (categoryTree || []).find(n => n.level === 1 && (n.name || "").trim().toLowerCase() === key);
+    if (existing) { duplicateNodeAsChild(existing); return; }
+    setCategoryTree(tree => {
+      const parent = newCategoryNode({ name: catName, level: 1 });
+      const child = newCategoryNode({
+        name: (parent.name || "Category") + " (copy)",
+        level: 2,
+        parentId: parent.id,
+        notes: parent.notes,
+        archetype: parent.archetype,
+        channel: parent.channel,
+        channelSource: parent.channelSource,
+        specialization: parent.specialization,
+        specSource: parent.specSource,
+        coverage: parent.coverage,
+        supplierCount: parent.supplierCount,
+        volume: parent.volume
+      });
+      return [...(tree || []), parent, child];
+    });
+  }
 
   useEffect(() => {
     localStorage.setItem("categoryai_portfolio_strategies", JSON.stringify(strategies));
@@ -7706,6 +7766,47 @@ function StepPortfolioWorkflow({
   const cats = getCats();
   const cur = portfolioDetails.currency || (portfolioId === "ess" ? "£" : "$");
 
+  /* v2.29 Phase B Step 5 — child nodes (from "duplicate as child") aren't in
+     portfolioDetails.categories, so they don't show up via `cats`/getCats().
+     Rendered here directly from categoryTree instead, indented beneath their
+     parent row, recursively (so grandchildren etc. show too — "any level").
+     Quadrant/status come straight from the node's own record (once it has
+     one), NOT from the `strategies` legacy blob — that blob is level-1-only
+     until Phase B's rollup engine (Step 7) extends it. */
+  const childNodesOf = (parentId) => (categoryTree || []).filter(n => n.parentId === parentId);
+  function childNodeQuadrant(node) {
+    if (!node.record) return null;
+    try { return buildStrategyFromRecord(node.record, node.name, portfolioDetails, null).quadrant; } catch(e) { return null; }
+  }
+  function renderNodeRow(node, depth) {
+    const quadrant = childNodeQuadrant(node);
+    return (
+      <React.Fragment key={node.id}>
+        <tr>
+          <td style={{paddingLeft: 12 + depth * 20}}>{depth > 0 && "↳ "}{node.name || <i style={{color:"var(--slate)"}}>(unnamed)</i>}</td>
+          <td>{node.spend ? cur + Number(node.spend).toLocaleString() : "—"}</td>
+          <td>{quadrant
+            ? <span className="badge ai" style={{background: quadrant === "Strategic" ? "var(--mulberry)" : "var(--petrol)"}}>{quadrant}</span>
+            : <span style={{color:"var(--slate)", fontSize:11}}>Not yet assessed</span>}</td>
+          <td>{node.record
+            ? <span style={{color:"#0F5E56", fontWeight:"bold"}}>🎯 Custom (deep-dived)</span>
+            : <span style={{color:"var(--slate)"}}>Pending</span>}</td>
+          <td>
+            <div style={{display:"flex", gap:6, alignItems:"center"}}>
+              <button className="btn" onClick={() => customizeCategoryInWizard(node.name)} style={{borderColor:"var(--petrol)", color:"var(--petrol)"}} title="Opens the Category track (Steps 1–14) for this node, with the parent charter inherited.">
+                ✏️ Deep-dive (manual · 1–14)
+              </button>
+              <button className="btn" onClick={() => duplicateNodeAsChild(node)} title="Creates a new unassessed child under this node — copies its descriptive context (notes, archetype, channel, specialization, coverage, supplier count, volume), not its scores. The child starts unassessed, exactly like any new category.">
+                ➕ Duplicate as child
+              </button>
+            </div>
+          </td>
+        </tr>
+        {childNodesOf(node.id).map(child => renderNodeRow(child, depth + 1))}
+      </React.Fragment>
+    );
+  }
+
   return (
     <div className="card">
       <h2 className="display">💼 P3 · Portfolio Roll-up, Report & Bibliography<Tip t="Two tabs: the Portfolio Roll-up — the strategy engine that generates a strategy per service line and supplies Sections 2 & 4 of the report — and the Report Preview: the consolidated strategy on screen in collapsible sections, ending with the References & Bibliography. Downloads: Word (.docx) and HTML."/></h2>
@@ -7904,9 +8005,11 @@ function StepPortfolioWorkflow({
                 const isRunning = running[c.name];
                 const hasStrat = strategies[c.name];
                 const runLabels = ["Intake", "Assessment", "Strategy", "Bargaining", "Compiling"];
-                
+                const level1Node = (categoryTree || []).find(n => n.level === 1 && (n.name || "").trim().toLowerCase() === (c.name || "").trim().toLowerCase());
+
                 return (
-                  <tr key={c.name}>
+                  <React.Fragment key={c.name}>
+                  <tr>
                     <td><strong>{c.name}</strong></td>
                     <td>{cur}{(Number(c.spend) || 0).toLocaleString()}</td>
                     <td><span className="badge ai" style={{background: c.quadrant === "Strategic" ? "var(--mulberry)" : "var(--petrol)"}}>{c.quadrant}</span></td>
@@ -7942,9 +8045,14 @@ function StepPortfolioWorkflow({
                             👁 View Details
                           </button>
                         )}
+                        <button className="btn" onClick={() => duplicateLevel1CategoryAsChild(c.name)} title="Creates a new unassessed child under this line — copies its descriptive context (notes, archetype, channel, specialization, coverage, supplier count, volume), not its scores. The child starts unassessed, exactly like any new category.">
+                          ➕ Duplicate as child
+                        </button>
                       </div>
                     </td>
                   </tr>
+                  {level1Node && childNodesOf(level1Node.id).map(child => renderNodeRow(child, 1))}
+                  </React.Fragment>
                 );
               })}
             </tbody>
