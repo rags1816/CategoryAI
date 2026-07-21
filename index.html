@@ -1365,7 +1365,7 @@ const TOUR=[
   {step:"strategy",title:"🎉 Part 1 complete — the PORTFOLIO tour is next",text:"The rail on the left shows green dots for completed modules, amber for pending — with the demo loaded, everything is green. To start your own category: Admin → or simply edit the Category profile, and switch ⚙ AI settings from Sandbox to a live provider. Every simulated value stays labelled until you replace or confirm it."},
   {step:"portfolio_setup",title:"💼 Part 2 · PORTFOLIO tour — independent by design",text:"Everything so far was one category. The Portfolio track stands alone: P1 holds the charter (four collapsed groups), the Stage-3 fact base (21 one-line positions), the composition (your service lines), the portfolio library for running several portfolios, and three input routes — type online, Excel for numbers, Word template for narratives (blank or prefilled, with upload)."},
   {step:"portfolio_options",title:"⚖️ Part 2 · Options — the strategic decision",text:"P2 is the decision engine: AI-tailored strategic questions challenge your assumptions (unanswered ones become documented open questions); 2–5 genuinely distinct options are generated including a capability-based model; a weighted matrix (editable weights) produces an automatic assessment; a ten-dimension risk heat map sits beside it. Adoption — one or several options — is always yours."},
-  {step:"ess",title:"📄 Part 2 · Roll-up & the board paper — tour complete",text:"P3's Roll-up is the engine: AI drafts a strategy per line (labelled), or you deep-dive manually through Steps 1–14 with the charter inherited. The Report Preview is the single consolidation point: executive summary, edit-&-confirm, then one document in two formats — a 12-section board-paper .docx with embedded charts, and an identical HTML. Every input's source lands in the bibliography."}
+  {step:"ess",title:"📄 Part 2 · Roll-up & the board paper — tour complete",text:"P3's Roll-up is the engine: AI drafts a strategy per line (labelled), or you deep-dive manually through Steps 1–14 with the charter inherited. Any line can split into sub-categories (➕ Duplicate as child) — the 📊 Portfolio Matrix tab plots every level on one Value×Risk chart, and a line with assessed children shows a rolled-up position instead of one lump score. The Report Preview is the single consolidation point: executive summary, edit-&-confirm, then one document in two formats — a 12-section board-paper .docx with embedded charts, and an identical HTML. Every input's source lands in the bibliography."}
 ];
 /* ---------- About CategoryAI — in-app pitch & feature reference (v1.2.0) ---------- */
 /* ---------- v2.0.0-p1 shared UI: collapsible section + small-font source note ---------- */
@@ -1403,7 +1403,7 @@ const ABOUT_PHASES=[
  ["BARGAINING","nego",["Negotiation plan","BATNAs · issues matrix","Trading board"]],
  ["EXECUTION","exec",["Gantt & RACI","Savings pipeline & funnel","Benefits · maturity"]],
  ["OUTPUT","strategy",["Decision-first document: pitch → summary → strategy → evidence → FAQ","Business case: VM template (recommended) + Five Case Model","Composer, preflight check, opportunities, charts & matching PPT (7Ps optional add-on)"]],
- ["PORTFOLIO (independent)","portfolio_setup",["P1 · Charter, Stage-3 fact base, composition, library & input templates (Word + Excel round-trips)","P2 · Strategic questions, 2–5 options incl. capability-based, weighted matrix, risk heat","P3 · Roll-up engine + the 12-section board-paper report with charts, single download point"]]];
+ ["PORTFOLIO (independent)","portfolio_setup",["P1 · Charter, Stage-3 fact base, composition (UNSPSC/CPV optional), library & input templates (Word + Excel round-trips)","P2 · Strategic questions, 2–5 options incl. capability-based, weighted matrix, risk heat","P3 · Roll-up engine, Portfolio Matrix (multi-level Value×Risk chart with rollup), and the 12-section board-paper report — single download point"]]];
 const ABOUT_AI_ROWS=[
  ["Market info hub","market","Market variables, briefs & cited research answers","Adjust the nine sliders; re-ask anything"],
  ["SWOT · PESTLE","assess","Buyer-perspective analysis per factor","Edit any cell; confirm to flip flag to User"],
@@ -1441,7 +1441,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
       <div className="card">
         <h3>The management cycle — and where feedback closes the loop</h3>
         <p style={{fontSize:13, maxWidth:820}}>
-          <b>Category management</b> is the core discipline. It leads to <b>sourcing strategy & management</b>, which leads to <b>contract strategy & management</b> — and lessons from contract performance feed back into the category strategy, making it a cycle, not a line. A <b>portfolio</b> is a mix of categories/service lines sharing a common charter: define the common information once at portfolio level and each category inherits it, overriding only what genuinely differs. The Portfolio track stands alone — a full portfolio strategy (charter, fact base, composition, strategic questions, evaluated options, consolidated report) can be produced without building any detailed category strategy; its output is a 12-section board-paper .docx with embedded charts, and every input declares its source through to the bibliography. <span style={{fontSize:11, fontStyle:"italic", color:"var(--slate)"}}>Cycle per CIPS category management practice [B1]; the dedicated Review & Feedback module (contract lessons → category assumptions) arrives in Phase 3.</span>
+          <b>Category management</b> is the core discipline. It leads to <b>sourcing strategy & management</b>, which leads to <b>contract strategy & management</b> — and lessons from contract performance feed back into the category strategy, making it a cycle, not a line. A <b>portfolio</b> is a mix of categories/service lines sharing a common charter: define the common information once at portfolio level and each category inherits it, overriding only what genuinely differs. A category itself can be broken down further — <b>duplicate as child</b> on any line splits it into sub-categories (any depth), each independently assessable; a parent with assessed children shows a position rolled up from them (spend-weighted by default), so a large or complex line doesn't have to be scored as one lump. The Portfolio track stands alone — a full portfolio strategy (charter, fact base, composition, strategic questions, evaluated options, consolidated report) can be produced without building any detailed category strategy; its output is a 12-section board-paper .docx with embedded charts, and every input declares its source through to the bibliography. <span style={{fontSize:11, fontStyle:"italic", color:"var(--slate)"}}>Cycle per CIPS category management practice [B1]; the dedicated Review & Feedback module (contract lessons → category assumptions) arrives in Phase 3.</span>
         </p>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",fontSize:12,fontWeight:700,color:"var(--petrol)",margin:"8px 0"}}>
           {["Category management","→","Sourcing strategy","→","Contract management","↩ feedback","Category management"].map((x,i)=>
@@ -1513,6 +1513,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
       <div className="card" style={{background:"var(--paper)",borderStyle:"dashed"}}>
         <h3 style={{marginTop:0}}>📌 To-do box — status</h3>
         <div className="hint" style={{margin:"0 0 5px"}}>✅ <b>Portfolio views — DELIVERED.</b> The Portfolio track (P1–P3) is the cross-category roll-up: composition & coverage, savings register, benefits register, risk register, maturity heatmap and the 12-section board-paper report; <b>Edit-&-confirm</b> on the Report Preview is the sign-off of record (declarations log who confirmed what, when). Standalone category builds can update their portfolio line with a stamped note (Step 14).</div>
+        <div className="hint" style={{margin:"0 0 5px"}}>✅ <b>Category hierarchy — DELIVERED.</b> Any category can be split into sub-categories (➕ Duplicate as child, any depth) — descriptive context copies down, scores never do, each child starts unassessed like any new category. The 📊 Portfolio Matrix (on P3) plots every level together or filtered to one, and a parent with assessed children shows a rolled-up position (spend-weighted, simple-average fallback, or worst-case) rather than one lump score — unassessed children are excluded, flagged with a "rollup incomplete" indicator rather than blended in as a guess. Optional UNSPSC/CPV codes, manual entry, on every node.</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
@@ -2195,10 +2196,18 @@ function FiveForcesDiagram({porter}){
   );
 }
 
+/* v2.29 Phase B Step 6 — the 1-5 axis→pixel mapping, shared with the new
+   PortfolioMatrix sibling component below so both plot on identical axes
+   without duplicating the coordinate math (KraljicMatrix plots one
+   category's suppliers around its own position; PortfolioMatrix plots many
+   categories' positions against each other — different content, same
+   axes). Behaviour-preserving extraction: identical formula, just named. */
+function matrixAxisX(v,W,pad){ return pad+((v-1)/4)*(W-pad-12); }
+function matrixAxisY(v,H,pad){ return H-pad-((v-1)/4)*(H-pad-12); }
 function KraljicMatrix({supplyRisk,businessImpact,suppliers,generic,quadrant,supplyRiskAssumed,businessImpactAssumed}){
   const W=320,H=300,pad=34;
-  const x=v=>pad+((v-1)/4)*(W-pad-12);
-  const y=v=>H-pad-((v-1)/4)*(H-pad-12);
+  const x=v=>matrixAxisX(v,W,pad);
+  const y=v=>matrixAxisY(v,H,pad);
   const halfW=(W-pad-12)/2, halfH=(H-pad-12)/2;
   const maxSpend=Math.max(1,...(suppliers||[]).map(s=>s.spend||0));
   const qc=(QUADRANT_META[quadrant]||QUADRANT_META.Strategic).color;
@@ -2223,6 +2232,116 @@ function KraljicMatrix({supplyRisk,businessImpact,suppliers,generic,quadrant,sup
       <text x={W/2} y={H-8} fontSize="11" fill="var(--slate)" textAnchor="middle">Supply risk{supplyRiskAssumed?" (assumed)":""} →</text>
       <text x="12" y={H/2} fontSize="11" fill="var(--slate)" textAnchor="middle" transform={"rotate(-90 12 "+(H/2)+")"}>Business impact{(generic||businessImpactAssumed)?" (assumed)":""} →</text>
     </svg>
+  );
+}
+
+/* v2.29 Phase B Step 6 — Portfolio matrix: every category node in the active
+   portfolio plotted together on one Value×Risk chart. Sibling to
+   KraljicMatrix (reuses its axis math via matrixAxisX/matrixAxisY and its
+   QUADRANT_META colors) rather than a from-scratch chart — KraljicMatrix
+   shows one category's own suppliers scattered around ITS position; this
+   shows many categories' positions against each other, so the content
+   differs but the coordinate system and color language are the same chart
+   grammar the rest of the app already reads.
+   - Level selector: view one depth at a time, or "All levels" tangled
+     together (children under the same parent drawn connected by a line in
+     that view, since parents are on screen too to connect to).
+   - Root-ancestor ring color: every node's outer ring is colored by which
+     level-1 ancestor it ultimately belongs to (a small fixed palette,
+     cycling by index) — this keeps a portfolio's categories visually
+     grouped even when a single deeper level is selected and the immediate
+     parent isn't drawn to connect a line to.
+   - Bubble fill stays the EXISTING quadrant-color language (unchanged
+     meaning); bubble size scales by spend among whatever's on screen. */
+const PORTFOLIO_MATRIX_GROUP_COLORS = ["#0F5E56","#2E6FB3","var(--amber)","var(--mulberry)","#7A5C00","#4B3B78","#1E8E5A","#B3402A"];
+function PortfolioMatrix({categoryTree, portfolioDetails, setPortfolioDetails, onSelectNode}){
+  const tree = categoryTree || [];
+  const maxLevel = Math.max(1, ...tree.map(n => n.level || 1));
+  const [levelFilter, setLevelFilter] = useState("all");
+  const rollupMode = (portfolioDetails && portfolioDetails.rollupMode) || "weighted";
+  const setRollupMode = (m) => setPortfolioDetails && setPortfolioDetails(prev => ({...prev, rollupMode: m}));
+  const byId = new Map(tree.map(n => [n.id, n]));
+  const rootAncestorId = (node) => {
+    let cur = node, guard = 0;
+    while (cur.parentId && byId.has(cur.parentId) && guard < 50) { cur = byId.get(cur.parentId); guard++; }
+    return cur.id;
+  };
+  const rootIds = tree.filter(n => n.level === 1).map(n => n.id);
+  const groupColor = (node) => {
+    const idx = rootIds.indexOf(rootAncestorId(node));
+    return PORTFOLIO_MATRIX_GROUP_COLORS[idx >= 0 ? idx % PORTFOLIO_MATRIX_GROUP_COLORS.length : 0];
+  };
+  /* Excludes nameless nodes — the "always have an active node" bootstrap
+     node (see Phase A Step 4) is internal scaffolding, never a real
+     category; same reasoning treeToLegacyStrategiesBlob already applies. */
+  const plotted = tree.filter(n => (n.name||"").trim() && (levelFilter === "all" ? true : (n.level || 1) === Number(levelFilter)));
+  const W=560, H=460, pad=48;
+  const x = v => matrixAxisX(v, W, pad);
+  const y = v => matrixAxisY(v, H, pad);
+  const halfW=(W-pad-12)/2, halfH=(H-pad-12)/2;
+  /* v2.29 Phase B Step 7 — a node with children always shows its ROLLED-UP
+     position (and rolled-up spend for bubble sizing), not its own
+     individual record even if it has one; see effectiveNodePosition's own
+     comment for the reasoning. Nodes with no children are unaffected —
+     identical to Step 6. */
+  const positions = new Map(plotted.map(n => [n.id, effectiveNodePosition(n, tree, portfolioDetails, rollupMode)]));
+  const spends = new Map(plotted.map(n => [n.id, rolledUpSpend(n, tree)]));
+  const maxSpend = Math.max(1, ...plotted.map(n => spends.get(n.id)));
+  const incompleteCount = plotted.filter(n => positions.get(n.id).incomplete).length;
+  const cur = portfolioDetails && portfolioDetails.currency || "£";
+  return (
+    <div>
+      <div style={{display:"flex", gap:10, alignItems:"center", marginBottom:6, flexWrap:"wrap"}}>
+        <label style={{fontSize:11.5, fontWeight:700, color:"var(--slate)"}}>Level:</label>
+        <select value={levelFilter} onChange={e=>setLevelFilter(e.target.value)} style={{fontSize:12, padding:"4px 8px"}}>
+          <option value="all">All levels (tangled)</option>
+          {Array.from({length:maxLevel}, (_,i)=>i+1).map(lv => <option key={lv} value={lv}>Level {lv}{lv===1?" (top)":""}</option>)}
+        </select>
+        <label style={{fontSize:11.5, fontWeight:700, color:"var(--slate)"}}>Rollup:</label>
+        <select value={rollupMode} onChange={e=>setRollupMode(e.target.value)} style={{fontSize:12, padding:"4px 8px"}} title="How a parent's position is computed from its assessed children: spend-weighted average (falls back to a simple average if none have spend data), or the single highest-risk child's own position.">
+          <option value="weighted">Spend-weighted average</option>
+          <option value="worst">Worst-case (highest-risk child)</option>
+        </select>
+        <span style={{fontSize:11, color:"var(--slate)"}}>{plotted.length} node(s) plotted · ring color groups by top-level category · click a bubble to open it in the wizard</span>
+      </div>
+      {incompleteCount>0 && <div className="banner" style={{background:"var(--amberSoft)", borderColor:"var(--amber)", marginBottom:10, fontSize:11.5}}>⚠ {incompleteCount} node{incompleteCount>1?"s have":" has"} a rollup based on only SOME of its children — see each bubble's tooltip for how many are still unassessed. Unassessed children are excluded, never blended in as a default guess.</div>}
+      <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%", maxWidth:640, display:"block"}} role="img" aria-label="Portfolio matrix">
+        <rect x={pad} y={12} width={halfW} height={halfH} fill="#EAF1F8"/>
+        <rect x={pad+halfW} y={12} width={halfW} height={halfH} fill="var(--petrolSoft)"/>
+        <rect x={pad} y={12+halfH} width={halfW} height={halfH} fill="#F3F2EE"/>
+        <rect x={pad+halfW} y={12+halfH} width={halfW} height={halfH} fill="var(--amberSoft)"/>
+        <text x={pad+6} y={26} fontSize="10" fill="#2E6FB3" fontWeight="700">LEVERAGE</text>
+        <text x={W-12} y={26} fontSize="10" fill="var(--petrol)" fontWeight="700" textAnchor="end">STRATEGIC</text>
+        <text x={pad+6} y={H-pad-6} fontSize="10" fill="var(--slate)" fontWeight="700">NON-CRITICAL</text>
+        <text x={W-12} y={H-pad-6} fontSize="10" fill="var(--amber)" fontWeight="700" textAnchor="end">BOTTLENECK</text>
+        {levelFilter === "all" && plotted.filter(n => n.parentId && positions.has(n.parentId)).map(n => {
+          const p1 = positions.get(n.id), p2 = positions.get(n.parentId);
+          return <line key={"edge-"+n.id} x1={x(p1.supplyRisk)} y1={y(p1.businessImpact)} x2={x(p2.supplyRisk)} y2={y(p2.businessImpact)} stroke="var(--slate)" strokeWidth="1" strokeDasharray="2 2" opacity="0.5"/>;
+        })}
+        {plotted.map(n => {
+          const pos = positions.get(n.id);
+          const qc = (QUADRANT_META[pos.quadrant]||QUADRANT_META.Strategic).color;
+          const ring = groupColor(n);
+          const r = 7 + (spends.get(n.id)/maxSpend)*11;
+          const title = pos.totalChildren
+            ? n.name+" — rollup ("+pos.assessedChildren+" of "+pos.totalChildren+" children assessed)"+(pos.basis?": "+pos.basis:"")
+            : n.name;
+          return (
+            <g key={n.id} style={{cursor:"pointer"}} onClick={()=>onSelectNode(n)}>
+              <title>{title}</title>
+              <circle cx={x(pos.supplyRisk)} cy={y(pos.businessImpact)} r={r}
+                fill={pos.notAssessed?"none":qc} stroke={pos.notAssessed?qc:ring} strokeWidth={pos.notAssessed?2.5:3} strokeDasharray={pos.notAssessed?"3 2":"none"}/>
+              {pos.notAssessed && <text x={x(pos.supplyRisk)} y={y(pos.businessImpact)+4} fontSize="11" fontWeight="700" fill={qc} textAnchor="middle">?</text>}
+              {pos.incomplete && <text x={x(pos.supplyRisk)+r-2} y={y(pos.businessImpact)-r+2} fontSize="11" fontWeight="900" fill="var(--amber)" textAnchor="middle">⚠</text>}
+              <text x={x(pos.supplyRisk)} y={y(pos.businessImpact)-r-4} fontSize="9.5" fill="var(--ink)" textAnchor="middle">{n.name.length>30 ? n.name.slice(0,29)+"…" : n.name}</text>
+            </g>
+          );
+        })}
+        <text x={W/2} y={H-8} fontSize="11" fill="var(--slate)" textAnchor="middle">Supply risk →</text>
+        <text x="12" y={H/2} fontSize="11" fill="var(--slate)" textAnchor="middle" transform={"rotate(-90 12 "+(H/2)+")"}>Business impact →</text>
+      </svg>
+      {plotted.length===0 && <p className="hint">No nodes at this level yet.</p>}
+    </div>
   );
 }
 
@@ -4798,11 +4917,11 @@ function StepSevenPs({profile, sp, setSp, next}){
 /* ================= REFERENCE LIBRARY CHAT BUBBLE (contextual) ================= */
 const STEP_GUIDE={
   portfolio_setup:{intro:"You're on P1 · Portfolio charter & composition — the start of the independent Portfolio track. Ask about any charter field, the composition table, or the seed buttons.",
-    kb:"SCREEN: Portfolio charter & composition (P1, portfolio track — independent of any category). ROUTE TO MARKET (v2.25): a panel beneath Composition ranks 4 default channels (MSP, Niche/Specialist Consultancy, Contingent/Temp Labour, RFx) per line — Kraljic quadrant is the PRIMARY signal, refined by specialization/volume/panel-coverage/supplier-count modifiers the manager sets (gut-feel is fine, or ⚡ AI-assist estimates from market knowledge). Recommendations are ranked SUGGESTIONS the manager chooses from — never locked. A separate Value/Effort governance tier (from Kraljic business impact + effort) recommends process rigor (Tier 1 fast-track / Tier 1 / Tier 2 / Tier 3) — it never changes the channel, only how much rigor to apply. Channel library is Admin-extensible (Admin → Custom archetypes tab). Feeds §3 of the board-paper report and a live-view on P3. MULTIPLE PORTFOLIOS: the 📁 My portfolios library at the top saves complete snapshots (charter, composition, assessment, plans, options, questions, declarations, confirmed report AND that portfolio's line strategies); switching always snapshots the active portfolio first so nothing is lost; new blank / duplicate / delete / export-import (.json) supported; the library lives in this browser. Main parts of the screen: (1) PARENT CHARTER — 19 fields covering demand (current spend, future demand), supply (current suppliers, technology landscape, regulatory environment), value (strategic objectives, business outcomes, KPIs, benefits framework), risk appetite, sustainability & social value, AI & digital strategy, governance and stakeholders. (2) PORTFOLIO COMPOSITION — the categories/service lines that make up the portfolio: name, annual spend, risk (Low/Medium/High), Kraljic quadrant, archetype, notes. (3) PORTFOLIO ASSESSMENT (Stage 3 fact base) — four blocks: Spend (forecast, volatility, budget ownership, demand patterns), Supply market (maturity, capable suppliers, competitive intensity, innovation, concentration, SME participation, geographic risks), Business criticality (operational, regulatory, security, customer, ESG impact), Commercial (existing contracts, expiry, pricing mechanisms, inflation exposure, leverage). Per-block ⚡ assist drafts EMPTY fields only, flags uncertainty as 'To validate:', never touches user text; positions feed the P2 strategic questions and option generation, and Section 2 of the report. (4) ASSESSMENT & PLANS — six narrative sections (current state, future state, capability & skills gap, supplier dependency, lotting strategy, transition strategy), each ⚡ AI-draftable from the charter + composition + ingested documents with per-field source tracking; they form Section 2 of the report. Lotting has a rule-based Kraljic-grouping fallback offline; the other five require AI or direct writing. 'Seed from ESS template' fills the composition with the built-in NESO Engineering Support Services worked example (6 lines) to show the expected shape — then edit or delete rows; 'Seed from demo template' loads a generic 3-line demo. Both replace the current list after a confirm and are starting points, not your data. The charter heads Section 1 of the Portfolio Strategy report; every service line inherits the charter when deep-dived. Continue → P2 Strategic options, or 'Standalone category' to leave the portfolio track."},
+    kb:"SCREEN: Portfolio charter & composition (P1, portfolio track — independent of any category). ROUTE TO MARKET (v2.25): a panel beneath Composition ranks 4 default channels (MSP, Niche/Specialist Consultancy, Contingent/Temp Labour, RFx) per line — Kraljic quadrant is the PRIMARY signal, refined by specialization/volume/panel-coverage/supplier-count modifiers the manager sets (gut-feel is fine, or ⚡ AI-assist estimates from market knowledge). Recommendations are ranked SUGGESTIONS the manager chooses from — never locked. A separate Value/Effort governance tier (from Kraljic business impact + effort) recommends process rigor (Tier 1 fast-track / Tier 1 / Tier 2 / Tier 3) — it never changes the channel, only how much rigor to apply. Channel library is Admin-extensible (Admin → Custom archetypes tab). Feeds §3 of the board-paper report and a live-view on P3. MULTIPLE PORTFOLIOS: the 📁 My portfolios library at the top saves complete snapshots (charter, composition, assessment, plans, options, questions, declarations, confirmed report AND that portfolio's line strategies); switching always snapshots the active portfolio first so nothing is lost; new blank / duplicate / delete / export-import (.json) supported; the library lives in this browser. Main parts of the screen: (1) PARENT CHARTER — 19 fields covering demand (current spend, future demand), supply (current suppliers, technology landscape, regulatory environment), value (strategic objectives, business outcomes, KPIs, benefits framework), risk appetite, sustainability & social value, AI & digital strategy, governance and stakeholders. (2) PORTFOLIO COMPOSITION — the categories/service lines that make up the portfolio: name, annual spend, risk (Low/Medium/High), Kraljic quadrant, archetype, notes, and optional UNSPSC/CPV classification codes (manual entry only, no lookup or validation). A line can be split into sub-categories from P3 (➕ Duplicate as child, any depth) — once it has children its spend here becomes read-only, derived as their sum. (3) PORTFOLIO ASSESSMENT (Stage 3 fact base) — four blocks: Spend (forecast, volatility, budget ownership, demand patterns), Supply market (maturity, capable suppliers, competitive intensity, innovation, concentration, SME participation, geographic risks), Business criticality (operational, regulatory, security, customer, ESG impact), Commercial (existing contracts, expiry, pricing mechanisms, inflation exposure, leverage). Per-block ⚡ assist drafts EMPTY fields only, flags uncertainty as 'To validate:', never touches user text; positions feed the P2 strategic questions and option generation, and Section 2 of the report. (4) ASSESSMENT & PLANS — six narrative sections (current state, future state, capability & skills gap, supplier dependency, lotting strategy, transition strategy), each ⚡ AI-draftable from the charter + composition + ingested documents with per-field source tracking; they form Section 2 of the report. Lotting has a rule-based Kraljic-grouping fallback offline; the other five require AI or direct writing. 'Seed from ESS template' fills the composition with the built-in NESO Engineering Support Services worked example (6 lines) to show the expected shape — then edit or delete rows; 'Seed from demo template' loads a generic 3-line demo. Both replace the current list after a confirm and are starting points, not your data. The charter heads Section 1 of the Portfolio Strategy report; every service line inherits the charter when deep-dived. Continue → P2 Strategic options, or 'Standalone category' to leave the portfolio track."},
   portfolio_options:{intro:"You're on P2 — four stages: 1 questions (challenge assumptions), 2 options (generated from charter+fact base+answers; adopt one or several), 3 weighted assessment (scores the Stage-2 options, editable weights & cells, advisory leader), 4 risk heat (stress-tests the same options). Ask about any stage, the four balances. Ask what the four balances mean, how scores work, or which sourcing philosophy fits a service type.",
     kb:"SCREEN: Portfolio strategic options (P2). Purpose per the methodology: determine the best MIX of commercial models, sourcing approaches and market structures — not 'one contract or six'. Three stages on this screen: (Stage 1) STRATEGIC QUESTIONS — AI-tailored assumption-challenging questions across Business/Market/Delivery/Commercial/Procurement (standard practitioner set offline); the user answers what they can and answers become constraints for generation and appear in the report. (Stage 2) OPTIONS — generates 3-4 named ways of sourcing and managing the WHOLE portfolio (typically spanning independent category strategies / integrated portfolio procurement / hybrid / capability-based model — procuring business capabilities rather than spend categories), each scored 1-5 on the FOUR BALANCES: value to the business, value to suppliers, risk balance, compliance & ethics. All sliders are editable (drag to rescore — the option is then marked user-modified); '+ attribute' adds custom scored attributes to any single option (options need not share attributes); MULTIPLE options can be adopted (e.g. different directions for different portfolio segments) with a decision rationale recorded. (Stage 3) WEIGHTED ASSESSMENT MATRIX — standard criteria (Business Value 20, Cost 15, Risk 20, Capability 15, Supplier Market 10, Innovation 10, AI Readiness 5, Regulatory/PA23 Compliance 5; weights editable) scored 1-5 per option with an automatic weighted assessment naming the leading option; adoption remains the user's decision. (Stage 4) OPTION RISK HEAT MAP — ten risk dimensions per option (business, commercial, supply, operational, transition, financial, technology & AI disruption, cyber, regulatory, ESG; 1=low 5=high), AI-suggested and editable, rendered in the report and read against the parent risk appetite. Generation is AI-first from the P1 charter + composition + answered questions with a rule-based fallback, and every option and score declares its source in small print. Sourcing philosophy reference: critical operational managed services → strategic partner with outcome-based KPIs; modular technical services → multi-supplier competitive framework; specialist expertise → SME panel or dynamic resource pool; AI & automation → innovation framework with proof-of-concept funding; data science/analytics → flexible capability-based sourcing; short-term surge → staff augmentation or call-off framework."},
-  ess:{intro:"You're on P3 · Portfolio roll-up, report & bibliography. Ask what each tab does, where the report gets its content, or what the readiness and maturity figures mean.",
-    kb:"SCREEN: Portfolio roll-up, report & bibliography (P3). Two tabs. (1) PORTFOLIO ROLL-UP — the strategy engine. IMPORTANT terminology: '⚡ Draft strategy' generates a FIRST DRAFT from only two inputs (the line's P1 row + the parent charter) — NO category assessment is performed (no market analysis, supplier scoring or negotiation planning), which is why drafts are labelled by source and marked for review; the real assessment is the ✏️ Deep-dive, which opens the Category track (Steps 1–14) with the charter inherited (inherited: objectives, governance, risk appetite, sustainability, AI strategy, benefits framework; line-local: market, suppliers, skills, KPIs, contract structure, pricing model) and replaces the draft. In detail: generates a sourcing strategy per service line from the P1 composition (AI-first from charter+line, rule-based fallback, or Custom by deep-diving the line through the Category track Steps 1-14); these line strategies populate Sections 2 and 4 of the Portfolio Strategy report. Readiness % = lines sourced / total; maturity heatmap derives from spend coverage in P1, deep-dive count, and sourced share (hover each cell for its exact basis). (2) REPORT PREVIEW — the SINGLE consolidation and download point: each collapsed panel is a live view labelled with the .docx section(s) it feeds; 📝 executive summary (§1, AI-draftable); ✏️ edit-&-confirm freezes your text as the document of record; then 📥 HTML (quick check) and ⬇ .docx (final) — identical content, 12-section board-paper format, with charts (spend, Kraljic, weighted options, risk matrix) drawn from current data at download time. The roll-up tab also hosts the 📋 portfolio risk register (owners, likelihood × impact, mitigations). The portfolio track completes here — it never requires a category strategy."},
+  ess:{intro:"You're on P3 · Portfolio roll-up, report & bibliography. Ask what each tab does, where the report gets its content, what the readiness/maturity figures mean, or how the Portfolio Matrix and rollup work.",
+    kb:"SCREEN: Portfolio roll-up, report & bibliography (P3). Three tabs. (1) PORTFOLIO ROLL-UP — the strategy engine. IMPORTANT terminology: '⚡ Draft strategy' generates a FIRST DRAFT from only two inputs (the line's P1 row + the parent charter) — NO category assessment is performed (no market analysis, supplier scoring or negotiation planning), which is why drafts are labelled by source and marked for review; the real assessment is the ✏️ Deep-dive, which opens the Category track (Steps 1–14) with the charter inherited (inherited: objectives, governance, risk appetite, sustainability, AI strategy, benefits framework; line-local: market, suppliers, skills, KPIs, contract structure, pricing model) and replaces the draft. In detail: generates a sourcing strategy per service line from the P1 composition (AI-first from charter+line, rule-based fallback, or Custom by deep-diving the line through the Category track Steps 1-14); these line strategies populate Sections 2 and 4 of the Portfolio Strategy report. Readiness % = lines sourced / total; maturity heatmap derives from spend coverage in P1, deep-dive count, and sourced share (hover each cell for its exact basis). Any line can be split into sub-categories here (➕ Duplicate as child, any depth) — descriptive context copies down, scores never do; the child starts unassessed like any new category, shown indented beneath its parent with its own Deep-dive and further Duplicate-as-child actions, and its own UNSPSC/CPV code inputs (its only editing surface, since it isn't in the P1 composition list). A line with children shows a ROLLED-UP position instead of its own score: spend-weighted average of assessed children by default (falls back to a simple average if none have spend entered), or an alternate worst-case/highest-risk-child mode (toggle in the Portfolio Matrix tab); unassessed children are excluded outright — never blended in as a default guess — with a visible 'rollup incomplete — X of Y children not yet assessed' note when the rollup is partial. NOTE: child-level assessments don't yet feed the exported report or the legacy per-line strategies blob — that's tracked as future work; the roll-up/report figures still reflect level-1 lines only. (2) PORTFOLIO MATRIX — every category node in the portfolio plotted together on one Value×Risk (Kraljic-style) chart: filter to one level or view all levels at once (tangled, with a dashed line connecting each plotted child to its visible parent); a ring color around each bubble groups it with its top-level category, so a line's children stay visually tied to it even when viewing a single deeper level alone. Click any bubble to open that node in the Category track (resumes if already assessed, otherwise starts fresh). (3) REPORT PREVIEW — the SINGLE consolidation and download point: each collapsed panel is a live view labelled with the .docx section(s) it feeds; 📝 executive summary (§1, AI-draftable); ✏️ edit-&-confirm freezes your text as the document of record; then 📥 HTML (quick check) and ⬇ .docx (final) — identical content, 12-section board-paper format, with charts (spend, Kraljic, weighted options, risk matrix) drawn from current data at download time. The roll-up tab also hosts the 📋 portfolio risk register (owners, likelihood × impact, mitigations). The portfolio track completes here — it never requires a category strategy."},
   profile:{intro:"You're on Category profile. Ask about any field — e.g. what counts as a pain point, or how scope notes are used.",
     kb:"SCREEN: Category profile. Fields: category name (drives archetype matching & all AI), sector (adapts questions/benchmarks), region of supply (drives geo risk), incumbent suppliers (chips — feed market assessment & negotiation context), pain points (chips — strategy explicitly addresses them), scope & context notes (free text, can be AI-drafted from the other fields then edited)."},
   market:{intro:"You're on Market Intelligence. Ask what any of the nine market variables means or how to score it.",
@@ -4855,7 +4974,7 @@ CATEGORY ARCHETYPES:\n${Object.entries(CATEGORY_ARCHETYPES).map(([k,a])=>{const 
     setQ(""); setBusy(true);
     try{
       const text=await askClaude(
-        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / archetype questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v1.1.0): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v1.2.0 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in archetype library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, archetype, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
+        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / archetype questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v1.1.0): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v1.2.0 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in archetype library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, archetype, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
         false, false);
       setMsgs(m=>[...m,{role:"assistant",text}]);
     }catch(e){ setMsgs(m=>[...m,{role:"assistant",text:e.message}]); }
@@ -4946,7 +5065,7 @@ const STEP_HELP={
   costlevers:"Cost drivers and savings levers for the category archetype",
   nego:"Huthwaite-style negotiation plan, BATNAs and trading board",
   exec:"Gantt, RACI and implementation plan",
-  ess:"Portfolio roll-up, consolidated Portfolio Strategy report (.docx/HTML) and the References & Bibliography for every input",
+  ess:"Portfolio roll-up, the Portfolio Matrix (multi-level Value×Risk view with rollup), consolidated Portfolio Strategy report (.docx/HTML) and the References & Bibliography for every input",
   value:"Savings pipeline, KPIs, maturity and benefits",
   sevenps:"Optional sell-side commercial 7Ps",
   strategy:"Assemble and export the full strategy document"};
@@ -5132,6 +5251,123 @@ function buildStrategyFromRecord(record, lineName, portfolioDetails, sourceNote)
     generatedAt: new Date().toISOString()
   };
 }
+/* v2.29 Phase B Step 6 — a node's position on the Value×Risk (Kraljic) axes
+   for the portfolio matrix. A deep-dived node (record set) is derived
+   exactly like the single-category KraljicMatrix does, via the same
+   deriveScores — same "generic mode only applies when there's no internal
+   spend data" rule as buildStrategyFromRecord, so the two stay consistent.
+   An unassessed node (record:null, still just a stub) has no vars to derive
+   from — plotted instead from its manually-set stubRisk/stubQuadrant (the
+   same fields the old flat composition table already captured), placed at
+   a representative point inside that quadrant so it's still findable on
+   the chart, always flagged notAssessed so it renders with the same
+   hollow/dashed "not a real placement yet" marker convention as
+   KraljicMatrix uses for an unscored category. */
+function nodeAxisPosition(node, portfolioDetails){
+  if(node.record){
+    const {vars,generic,internal}=node.record;
+    const d=deriveScores(vars, generic && !(internal&&internal.spend));
+    return {supplyRisk:d.supplyRisk, businessImpact:d.businessImpact, quadrant:d.quadrant, notAssessed: !!(d.supplyRiskAssumed||d.businessImpactAssumed)};
+  }
+  const riskLevel = node.stubRisk==="Low"?1.5 : node.stubRisk==="High"?4.5 : 3;
+  const quadrant = node.stubQuadrant || "Strategic";
+  const highRiskQ = quadrant==="Strategic" || quadrant==="Bottleneck";
+  const highImpactQ = quadrant==="Strategic" || quadrant==="Leverage";
+  const supplyRisk = highRiskQ ? Math.max(3.05, riskLevel) : Math.min(2.95, riskLevel);
+  const businessImpact = highImpactQ ? 3.75 : 1.25;
+  return {supplyRisk, businessImpact, quadrant, notAssessed:true};
+}
+function childrenOf(node, tree){ return (tree||[]).filter(n => n.parentId === node.id); }
+/* A child counts as "assessed" only if it has a live record AND at least
+   one of the two axes isn't 100% default — matches deriveScores' own
+   supplyRiskAssumed/businessImpactAssumed convention exactly, so "assessed"
+   here means the same thing it means everywhere else in the app. A node
+   with a record where every variable is still the untouched {value:3,
+   conf:"assumed"} default (record: null OR effectively all-default) is
+   excluded, never blended in as if a placeholder guess were real input. */
+function isNodeAssessed(node){
+  if(!node.record) return false;
+  const {vars,generic,internal}=node.record;
+  const d=deriveScores(vars, generic && !(internal&&internal.spend));
+  return !(d.supplyRiskAssumed && d.businessImpactAssumed);
+}
+/* Spend rolls up bottom-up: once a node has children, ITS spend is simply
+   whatever they sum to (recursively, so a grandchild's own children count
+   too) — never an independently-typed figure that could disagree with the
+   children's total. A childless node still just reports its own spend. */
+function rolledUpSpend(node, tree){
+  const kids = childrenOf(node, tree);
+  if(!kids.length) return Number(node.spend)||0;
+  return kids.reduce((s,k) => s + rolledUpSpend(k, tree), 0);
+}
+function classifyQuadrant(supplyRisk, businessImpact){
+  return supplyRisk>=3
+    ? (businessImpact>=3 ? "Strategic" : "Bottleneck")
+    : (businessImpact>=3 ? "Leverage" : "Non-critical");
+}
+/* v2.29 Phase B Step 7 — the rollup engine. A parent's position is computed
+   from its ASSESSED children's own already-derived axis scores (never raw
+   variables — there are none at the parent level to derive from; each
+   child already went through deriveScores individually), aggregated per
+   `mode` and then classified with the SAME threshold logic deriveScores
+   uses internally (classifyQuadrant, extracted above so both stay
+   consistent) — not by re-deriving from vars.
+   mode: "weighted" (default) — spend-weighted average of assessed
+   children, falling back to a simple average automatically when none of
+   the assessed children have spend data to weight by. "worst" — the
+   single highest-supply-risk assessed child's own position, unblended.
+   Unassessed children are excluded outright (see isNodeAssessed) — a
+   node with children but none yet assessed reports hasRollup:false, never
+   a blended-in midpoint guess. `incomplete` flags a PARTIAL rollup (some
+   but not all children assessed) so the UI can show "rollup incomplete —
+   X of Y children not yet assessed" rather than presenting it as final. */
+function rollupPosition(node, tree, portfolioDetails, mode){
+  const kids = childrenOf(node, tree);
+  const assessedKids = kids.filter(isNodeAssessed);
+  if(!assessedKids.length){
+    return {hasRollup:false, incomplete: kids.length>0, totalChildren: kids.length, assessedChildren: 0};
+  }
+  const kidPositions = assessedKids.map(k => ({node:k, ...nodeAxisPosition(k, portfolioDetails)}));
+  let supplyRisk, businessImpact, basis;
+  if(mode === "worst"){
+    const worst = kidPositions.reduce((a,b) => b.supplyRisk > a.supplyRisk ? b : a);
+    supplyRisk = worst.supplyRisk; businessImpact = worst.businessImpact;
+    basis = "worst-case — highest supply-risk assessed child (\""+worst.node.name+"\")";
+  } else {
+    const spends = kidPositions.map(k => rolledUpSpend(k.node, tree));
+    const totalSpend = spends.reduce((s,v)=>s+v,0);
+    if(totalSpend > 0){
+      supplyRisk = kidPositions.reduce((s,k,i)=>s+k.supplyRisk*spends[i],0)/totalSpend;
+      businessImpact = kidPositions.reduce((s,k,i)=>s+k.businessImpact*spends[i],0)/totalSpend;
+      basis = "spend-weighted average of "+assessedKids.length+" assessed child(ren)";
+    } else {
+      supplyRisk = kidPositions.reduce((s,k)=>s+k.supplyRisk,0)/kidPositions.length;
+      businessImpact = kidPositions.reduce((s,k)=>s+k.businessImpact,0)/kidPositions.length;
+      basis = "simple average of "+assessedKids.length+" assessed child(ren) — no spend data to weight by";
+    }
+  }
+  return {
+    hasRollup:true, supplyRisk, businessImpact,
+    quadrant: classifyQuadrant(supplyRisk, businessImpact),
+    incomplete: assessedKids.length < kids.length,
+    totalChildren: kids.length, assessedChildren: assessedKids.length, basis
+  };
+}
+/* The one function everywhere-else should call for "what's this node's
+   position" — a childless node behaves exactly as it did before Step 7
+   (nodeAxisPosition, unchanged); a node WITH children always shows the
+   rollup instead of its own individual record, even if it happens to have
+   one (a container's position is its children's, once it has any — see
+   the Step 7 test notes for the reasoning), falling back to an honest
+   "not assessed" state (not a stale individual score) until at least one
+   child is scored. */
+function effectiveNodePosition(node, tree, portfolioDetails, mode){
+  const kids = childrenOf(node, tree);
+  if(!kids.length) return {...nodeAxisPosition(node, portfolioDetails), incomplete:false, totalChildren:0, assessedChildren:0};
+  const rollup = rollupPosition(node, tree, portfolioDetails, mode);
+  if(rollup.hasRollup) return {supplyRisk:rollup.supplyRisk, businessImpact:rollup.businessImpact, quadrant:rollup.quadrant, notAssessed:false, incomplete:rollup.incomplete, totalChildren:rollup.totalChildren, assessedChildren:rollup.assessedChildren, basis:rollup.basis};
+  return {supplyRisk:3, businessImpact:3, quadrant:"Strategic", notAssessed:true, incomplete:rollup.incomplete, totalChildren:rollup.totalChildren, assessedChildren:rollup.assessedChildren};
+}
 /* Recompute the legacy categoryai_portfolio_strategies shape FROM the tree.
    Every level-1 node either contributes a freshly-rebuilt strategy from its
    own full record, or falls back to its preserved legacyDeepDiveSnapshot.
@@ -5210,6 +5446,7 @@ function reconcileCategoriesIntoTree(tree, categories, legacyStrategies, keepIds
       ...node,
       spend: node.spendSource==="derived" ? node.spend : (c.spend===""||c.spend==null ? node.spend : c.spend),
       archetype: c.archetype ?? node.archetype,
+      unspscCode: c.unspscCode ?? node.unspscCode, cpvCode: c.cpvCode ?? node.cpvCode,
       channel: c.channel ?? node.channel, channelSource: c.channelSource ?? node.channelSource,
       specialization: c.specialization ?? node.specialization, specSource: c.specSource ?? node.specSource,
       coverage: c.coverage ?? node.coverage,
@@ -5711,7 +5948,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
     return {...prev, categories: typeof updater === "function" ? updater(cur) : updater};
   });
   const updateCat = (i, field, val) => setCats(list => list.map((c, idx) => idx === i ? {...c, [field]: field === "spend" ? (val === "" ? "" : (Number(val) || 0)) : val} : c));
-  const addCat = () => setCats(list => [...list, {name: "", spend: "", risk: "Medium", quadrant: "Strategic", archetype: "", notes: "", volume: "Periodic", specialization: "Moderate", specSource:"user", coverage: "None", supplierCount:"", channel:"", channelSource:""}]);
+  const addCat = () => setCats(list => [...list, {name: "", spend: "", risk: "Medium", quadrant: "Strategic", archetype: "", notes: "", volume: "Periodic", specialization: "Moderate", specSource:"user", coverage: "None", supplierCount:"", channel:"", channelSource:"", unspscCode:"", cpvCode:""}]);
   const removeCat = (i) => setCats(list => list.filter((_, idx) => idx !== i));
   const seedCats = (key) => {
     if (cats.length && !confirm("Replace the current service-line list with the " + (key === "ess" ? "ESS" : "demo") + " template?")) return;
@@ -6345,15 +6582,26 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
                 <th style={{border:"1px solid var(--line)", padding:6, textAlign:"left", width:90}}>Risk</th>
                 <th style={{border:"1px solid var(--line)", padding:6, textAlign:"left", width:120}}>Kraljic</th>
                 <th style={{border:"1px solid var(--line)", padding:6, textAlign:"left", width:130}}>Archetype</th>
+                <th style={{border:"1px solid var(--line)", padding:6, textAlign:"left", width:110}}>UNSPSC / CPV<Tip t="Optional classification codes — manual entry only, no lookup or validation in this phase."/></th>
                 <th style={{border:"1px solid var(--line)", padding:6, textAlign:"left"}}>Notes (context inherited by the wizard)</th>
                 <th style={{border:"1px solid var(--line)", padding:6, width:34}}></th>
               </tr>
             </thead>
             <tbody>
-              {cats.map((c, i) => (
+              {cats.map((c, i) => {
+                /* v2.29 Phase B Step 7 — once a line has children, its spend is
+                   derived (rolled up from them), never independently typed —
+                   see the App()-level sync effect that keeps c.spend equal to
+                   rolledUpSpend() for exactly this case. */
+                const node = (categoryTree||[]).find(n => n.level===1 && (n.name||"").trim().toLowerCase() === (c.name||"").trim().toLowerCase());
+                const hasKids = !!(node && childrenOf(node, categoryTree||[]).length);
+                return (
                 <tr key={i}>
                   <td style={{border:"1px solid var(--line)", padding:4}}><input type="text" value={c.name || ""} onChange={e=>updateCat(i, "name", e.target.value)} placeholder="e.g. Network Modelling" style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}/></td>
-                  <td style={{border:"1px solid var(--line)", padding:4}}><input type="number" value={c.spend === "" ? "" : (c.spend || 0)} onChange={e=>updateCat(i, "spend", e.target.value)} placeholder="0" style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}/></td>
+                  <td style={{border:"1px solid var(--line)", padding:4}}>
+                    <input type="number" disabled={hasKids} value={c.spend === "" ? "" : (c.spend || 0)} onChange={e=>updateCat(i, "spend", e.target.value)} placeholder="0" title={hasKids?"Derived from this line's children — edit their spend instead.":undefined} style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background: hasKids?"var(--paper)":"var(--card)", color:"var(--ink)", fontSize:12, cursor: hasKids?"not-allowed":"text"}}/>
+                    {hasKids && <div style={{fontSize:9.5, color:"var(--slate)", marginTop:2}}>↳ derived from children</div>}
+                  </td>
                   <td style={{border:"1px solid var(--line)", padding:4}}>
                     <select value={c.risk || "Medium"} onChange={e=>updateCat(i, "risk", e.target.value)} style={{width:"100%", padding:"4px 4px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}>
                       <option>Low</option><option>Medium</option><option>High</option>
@@ -6365,10 +6613,15 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
                     </select>
                   </td>
                   <td style={{border:"1px solid var(--line)", padding:4}}><input type="text" value={c.archetype || ""} onChange={e=>updateCat(i, "archetype", e.target.value)} placeholder="e.g. consulting" style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}/></td>
+                  <td style={{border:"1px solid var(--line)", padding:4}}>
+                    <input type="text" value={c.unspscCode || ""} onChange={e=>updateCat(i, "unspscCode", e.target.value)} placeholder="UNSPSC" style={{width:"100%", padding:"3px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:11.5}}/>
+                    <input type="text" value={c.cpvCode || ""} onChange={e=>updateCat(i, "cpvCode", e.target.value)} placeholder="CPV" style={{width:"100%", padding:"3px 6px", marginTop:2, border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:11.5}}/>
+                  </td>
                   <td style={{border:"1px solid var(--line)", padding:4}}><input type="text" value={c.notes || ""} onChange={e=>updateCat(i, "notes", e.target.value)} placeholder="Criticality, incumbents, constraints..." style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}/></td>
                   <td style={{border:"1px solid var(--line)", padding:4, textAlign:"center"}}><button className="btn ghost" style={{border:"none", color:"var(--red)", padding:"2px 6px"}} title="Remove this service line" onClick={()=>removeCat(i)}>✕</button></td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -6995,7 +7248,7 @@ function StepPortfolioWorkflow({
   activeNodeId,
   setActiveNodeId
 }){
-  const [activeSubTab, setActiveSubTab] = useState("rollUp"); // "rollUp" or "reportPreview" (v2.0.2: case-study tab removed — it was hardcoded illustrative content with no data source)
+  const [activeSubTab, setActiveSubTab] = useState("rollUp"); // "rollUp", "reportPreview", or "matrix" (v2.29 Phase B Step 6) (v2.0.2: case-study tab removed — it was hardcoded illustrative content with no data source)
   /* v1.2.0 — the roll-up now reads the user-defined composition from Step 0
      (portfolioDetails.categories); archetype templates are only a fallback. */
   const getCats = () => activePortfolioCats(portfolioDetails, portfolioId);
@@ -7039,7 +7292,12 @@ function StepPortfolioWorkflow({
     setPortfolioActiveCategory(catName);
     if (setPortfolioDetails) logDeclaration(setPortfolioDetails, "Deep-dive started for line \"" + catName + "\" — charter inherited into the Category track (Steps 1–14)", "User action");
     const key = (catName||"").trim().toLowerCase();
-    const existing = (categoryTree||[]).find(n => n.level===1 && (n.name||"").trim().toLowerCase()===key);
+    /* v2.29 Phase B Step 5 — no longer restricted to level:1. Child nodes
+       (created via "duplicate as child") are deep-dived through this same
+       function, via the same name lookup, so the level filter that made
+       sense when only level-1 nodes existed would otherwise miss them and
+       wrongly create a second, duplicate level-1 node with the same name. */
+    const existing = (categoryTree||[]).find(n => (n.name||"").trim().toLowerCase()===key);
     if (existing && existing.record) {
       setActiveNodeId(existing.id);
       setStep("profile");
@@ -7086,6 +7344,81 @@ function StepPortfolioWorkflow({
 
     setStep("profile");
   };
+
+  /* v2.29 Phase B Step 5 — "duplicate as child": copies a node's descriptive
+     context (notes, archetype, channel, specialization, coverage, supplier
+     count, volume) one level down, NOT its scores — the child always starts
+     with record:null, exactly like any brand-new, never-assessed category
+     (deliberately not the parent's stubRisk/stubQuadrant either, since those
+     are score stand-ins, not context). Works from any node, at any level —
+     the child's level is simply parent.level+1, so repeating the action on
+     a child produces a grandchild, and so on.
+     v2.29 Phase B Step 7 fix — duplicating the SAME node twice used to
+     produce two children with the identical name "<name> (copy)". Every
+     lookup elsewhere (customizeCategoryInWizard, the legacy strategies
+     blob) is name-based, so the second child silently aliased to the
+     first one and was unreachable — found by testing the rollup with two
+     real children under one parent. childCopyName numbers duplicates
+     against the CURRENT tree snapshot (computed inside the functional
+     setCategoryTree updater, not a closed-over value) so this is correct
+     even for rapid repeated clicks. */
+  function childCopyName(baseName, tree){
+    const used = new Set((tree||[]).map(n => (n.name||"").trim().toLowerCase()));
+    const base = (baseName || "Category").trim();
+    const first = base+" (copy)";
+    if(!used.has(first.trim().toLowerCase())) return first;
+    let i = 2;
+    while(used.has((base+" (copy "+i+")").trim().toLowerCase())) i++;
+    return base+" (copy "+i+")";
+  }
+  function duplicateNodeAsChild(parentNode) {
+    setCategoryTree(tree => {
+      const child = newCategoryNode({
+        name: childCopyName(parentNode.name, tree),
+        level: (parentNode.level || 1) + 1,
+        parentId: parentNode.id,
+        notes: parentNode.notes,
+        archetype: parentNode.archetype,
+        channel: parentNode.channel,
+        channelSource: parentNode.channelSource,
+        specialization: parentNode.specialization,
+        specSource: parentNode.specSource,
+        coverage: parentNode.coverage,
+        supplierCount: parentNode.supplierCount,
+        volume: parentNode.volume
+      });
+      return [...(tree||[]), child];
+    });
+  }
+  /* Level-1 rows come from portfolioDetails.categories (P1 composition), not
+     directly from categoryTree — a composition row doesn't necessarily have
+     a matching tree node yet if it was just typed in and no reconciliation
+     has run since (same find-or-create pattern as customizeCategoryInWizard
+     above, done atomically in one setCategoryTree call so the child is never
+     added without its just-created parent). */
+  function duplicateLevel1CategoryAsChild(catName) {
+    const key = (catName || "").trim().toLowerCase();
+    const existing = (categoryTree || []).find(n => n.level === 1 && (n.name || "").trim().toLowerCase() === key);
+    if (existing) { duplicateNodeAsChild(existing); return; }
+    setCategoryTree(tree => {
+      const parent = newCategoryNode({ name: catName, level: 1 });
+      const child = newCategoryNode({
+        name: childCopyName(parent.name, [...(tree||[]), parent]),
+        level: 2,
+        parentId: parent.id,
+        notes: parent.notes,
+        archetype: parent.archetype,
+        channel: parent.channel,
+        channelSource: parent.channelSource,
+        specialization: parent.specialization,
+        specSource: parent.specSource,
+        coverage: parent.coverage,
+        supplierCount: parent.supplierCount,
+        volume: parent.volume
+      });
+      return [...(tree || []), parent, child];
+    });
+  }
 
   useEffect(() => {
     localStorage.setItem("categoryai_portfolio_strategies", JSON.stringify(strategies));
@@ -7706,6 +8039,66 @@ function StepPortfolioWorkflow({
   const cats = getCats();
   const cur = portfolioDetails.currency || (portfolioId === "ess" ? "£" : "$");
 
+  /* v2.29 Phase B Step 5 — child nodes (from "duplicate as child") aren't in
+     portfolioDetails.categories, so they don't show up via `cats`/getCats().
+     Rendered here directly from categoryTree instead, indented beneath their
+     parent row, recursively (so grandchildren etc. show too — "any level").
+     v2.29 Phase B Step 7 — quadrant/spend come from effectiveNodePosition/
+     rolledUpSpend, which roll up from children whenever a node has any
+     (see their own comments) rather than the node's own individual record. */
+  const childNodesOf = (parentId) => (categoryTree || []).filter(n => n.parentId === parentId);
+  const rollupMode = portfolioDetails.rollupMode || "weighted";
+  function renderNodeRow(node, depth) {
+    const pos = effectiveNodePosition(node, categoryTree||[], portfolioDetails, rollupMode);
+    const spend = rolledUpSpend(node, categoryTree||[]);
+    /* v2.29 Phase B Step 7 — a child node has no OTHER way to enter its own
+       spend (portfolioDetails.categories only covers level-1 rows), so
+       without this the spend-weighted rollup mode could never actually be
+       weighted by anything — every child would silently read as 0 and the
+       "simple average" fallback would fire every time. Read-only once the
+       node itself has children (its own spend is THEIR rollup, same rule
+       as a level-1 row with children). */
+    const ownKids = childNodesOf(node.id).length > 0;
+    return (
+      <React.Fragment key={node.id}>
+        <tr>
+          <td style={{paddingLeft: 12 + depth * 20}}>{depth > 0 && "↳ "}{node.name || <i style={{color:"var(--slate)"}}>(unnamed)</i>}</td>
+          <td>{ownKids
+            ? (spend ? cur + spend.toLocaleString() : "—")
+            : <input type="number" value={node.spend === "" || node.spend == null ? "" : (node.spend || 0)}
+                onChange={e => { const v = e.target.value; setCategoryTree(tree => tree.map(n => n.id === node.id ? {...n, spend: v === "" ? "" : (Number(v) || 0)} : n)); }}
+                placeholder="0" style={{width:80, padding:"3px 5px", border:"1px solid var(--line)", borderRadius:4, fontSize:11.5}}/>}</td>
+          <td>{!pos.notAssessed
+            ? <span className="badge ai" style={{background: pos.quadrant === "Strategic" ? "var(--mulberry)" : "var(--petrol)"}}>{pos.quadrant}</span>
+            : <span style={{color:"var(--slate)", fontSize:11}}>Not yet assessed</span>}
+            {pos.incomplete && <div style={{fontSize:10, color:"var(--amber)", fontWeight:700, marginTop:2}}>⚠ rollup incomplete — {pos.assessedChildren} of {pos.totalChildren} children not yet assessed</div>}</td>
+          <td>{node.record
+            ? <span style={{color:"#0F5E56", fontWeight:"bold"}}>🎯 Custom (deep-dived)</span>
+            : <span style={{color:"var(--slate)"}}>Pending</span>}</td>
+          <td>
+            <input type="text" value={node.unspscCode || ""} placeholder="UNSPSC"
+              onChange={e => { const v = e.target.value; setCategoryTree(tree => tree.map(n => n.id === node.id ? {...n, unspscCode: v} : n)); }}
+              style={{width:78, padding:"3px 5px", border:"1px solid var(--line)", borderRadius:4, fontSize:11}}/>
+            <input type="text" value={node.cpvCode || ""} placeholder="CPV"
+              onChange={e => { const v = e.target.value; setCategoryTree(tree => tree.map(n => n.id === node.id ? {...n, cpvCode: v} : n)); }}
+              style={{width:78, padding:"3px 5px", marginTop:2, border:"1px solid var(--line)", borderRadius:4, fontSize:11}}/>
+          </td>
+          <td>
+            <div style={{display:"flex", gap:6, alignItems:"center"}}>
+              <button className="btn" onClick={() => customizeCategoryInWizard(node.name)} style={{borderColor:"var(--petrol)", color:"var(--petrol)"}} title="Opens the Category track (Steps 1–14) for this node, with the parent charter inherited.">
+                ✏️ Deep-dive (manual · 1–14)
+              </button>
+              <button className="btn" onClick={() => duplicateNodeAsChild(node)} title="Creates a new unassessed child under this node — copies its descriptive context (notes, archetype, channel, specialization, coverage, supplier count, volume), not its scores. The child starts unassessed, exactly like any new category.">
+                ➕ Duplicate as child
+              </button>
+            </div>
+          </td>
+        </tr>
+        {childNodesOf(node.id).map(child => renderNodeRow(child, depth + 1))}
+      </React.Fragment>
+    );
+  }
+
   return (
     <div className="card">
       <h2 className="display">💼 P3 · Portfolio Roll-up, Report & Bibliography<Tip t="Two tabs: the Portfolio Roll-up — the strategy engine that generates a strategy per service line and supplies Sections 2 & 4 of the report — and the Report Preview: the consolidated strategy on screen in collapsible sections, ending with the References & Bibliography. Downloads: Word (.docx) and HTML."/></h2>
@@ -7748,6 +8141,24 @@ function StepPortfolioWorkflow({
           title="The consolidated Portfolio Strategy on screen, in collapsible sections: charter, roll-up, strategic options & adopted direction(s), line sheets, References & Bibliography. What you see here is what the Word/HTML downloads contain."
         >
           📄 Report Preview
+        </button>
+        <button
+          style={{
+            flex: 1,
+            border: "none",
+            background: activeSubTab === "matrix" ? "var(--petrol)" : "transparent",
+            color: activeSubTab === "matrix" ? "#fff" : "var(--ink)",
+            fontWeight: 700,
+            borderRadius: 6,
+            padding: "8px 12px",
+            cursor: "pointer",
+            fontSize: 12.5,
+            transition: "all 0.2s"
+          }}
+          onClick={()=>setActiveSubTab("matrix")}
+          title="Every category node in this portfolio plotted together on one Value×Risk chart — filter by level, click a bubble to open it in the Category track."
+        >
+          📊 Portfolio Matrix
         </button>
       </div>
 
@@ -7896,6 +8307,7 @@ function StepPortfolioWorkflow({
                 <th>Annual Spend</th>
                 <th>Kraljic Quadrant</th>
                 <th>Status</th>
+                <th>UNSPSC / CPV<Tip t="Optional classification codes — manual entry only, no lookup or validation in this phase. Level-1 lines are edited in P1's composition table; children (no other editing surface) are edited directly here."/></th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -7904,12 +8316,25 @@ function StepPortfolioWorkflow({
                 const isRunning = running[c.name];
                 const hasStrat = strategies[c.name];
                 const runLabels = ["Intake", "Assessment", "Strategy", "Bargaining", "Compiling"];
-                
+                const level1Node = (categoryTree || []).find(n => n.level === 1 && (n.name || "").trim().toLowerCase() === (c.name || "").trim().toLowerCase());
+                /* v2.29 Phase B Step 7 — once this line has children, ITS
+                   quadrant/spend come from the rollup, not the manually-set
+                   c.quadrant/c.spend (which stop being editable at that
+                   point — see the read-only spend field in P1). No
+                   children: unchanged from before Step 7. */
+                const hasKids = !!(level1Node && childNodesOf(level1Node.id).length);
+                const rollup = hasKids ? effectiveNodePosition(level1Node, categoryTree||[], portfolioDetails, rollupMode) : null;
+                const rowSpend = hasKids ? rolledUpSpend(level1Node, categoryTree||[]) : (Number(c.spend) || 0);
+
                 return (
-                  <tr key={c.name}>
+                  <React.Fragment key={c.name}>
+                  <tr>
                     <td><strong>{c.name}</strong></td>
-                    <td>{cur}{(Number(c.spend) || 0).toLocaleString()}</td>
-                    <td><span className="badge ai" style={{background: c.quadrant === "Strategic" ? "var(--mulberry)" : "var(--petrol)"}}>{c.quadrant}</span></td>
+                    <td>{cur}{rowSpend.toLocaleString()}</td>
+                    <td>{(!hasKids || !rollup.notAssessed)
+                      ? <span className="badge ai" style={{background: (hasKids?rollup.quadrant:c.quadrant) === "Strategic" ? "var(--mulberry)" : "var(--petrol)"}}>{hasKids?rollup.quadrant:c.quadrant}</span>
+                      : <span style={{color:"var(--slate)", fontSize:11}}>Not yet assessed</span>}
+                      {hasKids && rollup.incomplete && <div style={{fontSize:10, color:"var(--amber)", fontWeight:700, marginTop:2}}>⚠ rollup incomplete — {rollup.assessedChildren} of {rollup.totalChildren} children not yet assessed</div>}</td>
                     <td>
                       {isRunning ? (
                         <span style={{color:"var(--amber)", fontWeight:"bold"}}>
@@ -7929,6 +8354,9 @@ function StepPortfolioWorkflow({
                         <span style={{color:"var(--slate)"}}>Pending</span>
                       )}
                     </td>
+                    <td style={{fontSize:11, color:"var(--slate)"}}>
+                      {(c.unspscCode || c.cpvCode) ? <>{c.unspscCode && <div>U: {c.unspscCode}</div>}{c.cpvCode && <div>C: {c.cpvCode}</div>}</> : <span title="Edit in P1's composition table">—</span>}
+                    </td>
                     <td>
                       <div style={{display:"flex", gap:6, alignItems:"center"}}>
                         <button className="btn" disabled={isRunning} onClick={() => runStrategy(c.name)} title="First-draft strategy from this line's P1 row + the parent charter only (AI-first, rule-based fallback). No assessment is performed; the draft is labelled with its source and meant to be reviewed — or replaced by a deep-dive.">
@@ -7942,9 +8370,14 @@ function StepPortfolioWorkflow({
                             👁 View Details
                           </button>
                         )}
+                        <button className="btn" onClick={() => duplicateLevel1CategoryAsChild(c.name)} title="Creates a new unassessed child under this line — copies its descriptive context (notes, archetype, channel, specialization, coverage, supplier count, volume), not its scores. The child starts unassessed, exactly like any new category.">
+                          ➕ Duplicate as child
+                        </button>
                       </div>
                     </td>
                   </tr>
+                  {level1Node && childNodesOf(level1Node.id).map(child => renderNodeRow(child, 1))}
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -8019,6 +8452,15 @@ function StepPortfolioWorkflow({
               <div style={{fontSize:16, fontWeight:"bold", color:"#1E8E5A"}}>{cur}{selectedStrategy.savings.plannedSavings.toLocaleString()}</div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeSubTab === "matrix" && (
+        <div className="animate-fade" style={{marginTop: 10}}>
+          <div className="banner" style={{background:"var(--petrolSoft)", borderColor:"var(--petrol)", marginBottom:14, fontSize:12.5}}>
+            <b>How this chart works:</b> every category node in this portfolio, plotted by supply risk (x) and business impact (y) — filled bubble color is its Kraljic quadrant; the outer ring groups it with its top-level category (useful once you have children under a line). A node with a dashed hollow marker and "?" hasn't been assessed yet (deep-dived nodes plot their real derived position; stubs plot an approximate position from their P1 risk/quadrant). Click any bubble to open that node in the Category track.
+          </div>
+          <PortfolioMatrix categoryTree={categoryTree} portfolioDetails={portfolioDetails} setPortfolioDetails={setPortfolioDetails} onSelectNode={(node)=>customizeCategoryInWizard(node.name)}/>
         </div>
       )}
 
@@ -8468,6 +8910,30 @@ function App(){
     if(same) return;
     setPortfolios(prev=>[{...prev[0], level1CategoryIds:ids}, ...prev.slice(1)]);
   },[categoryTree]);
+  /* v2.29 Phase B Step 7 — keeps portfolioDetails.categories' spend column
+     in sync with children's rolled-up total for any level-1 node that has
+     them, centrally (same reasoning as the level1CategoryIds sync above).
+     Deliberately does NOT cache the total onto the tree node itself
+     (node.spend/spendSource) — rolledUpSpend recomputes live from
+     children every time it's called, so there's nothing to keep in sync
+     or let go stale there; only the OLD flat portfolioDetails.categories
+     UI (P1's composition table, which predates the tree) needs this push
+     to stay honest once a line has children. */
+  useEffect(()=>{
+    if(!Array.isArray(portfolioDetails.categories) || !portfolioDetails.categories.length) return;
+    const level1WithKids = categoryTree.filter(n => n.level===1 && childrenOf(n, categoryTree).length>0);
+    if(!level1WithKids.length) return;
+    let changed=false;
+    const nextCats = portfolioDetails.categories.map(c=>{
+      const node = level1WithKids.find(n => (n.name||"").trim().toLowerCase() === (c.name||"").trim().toLowerCase());
+      if(!node) return c;
+      const total = rolledUpSpend(node, categoryTree);
+      if(Number(c.spend)===total) return c;
+      changed=true;
+      return {...c, spend: total};
+    });
+    if(changed) setPortfolioDetails(prev=>({...prev, categories: nextCats}));
+  },[categoryTree, portfolioDetails.categories]);
 
   useEffect(()=>{
     const t=setTimeout(()=>{
