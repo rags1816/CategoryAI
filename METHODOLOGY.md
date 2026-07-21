@@ -35,6 +35,15 @@ full workshop each time.
     (not a separate output) to inform the AI's supply-risk weighting, rather
     than presenting it as a standalone analysis
 
+- **Framework: Purchasing Chessboard concept** (conceptually related to A.T.
+  Kearney's trademarked Purchasing Chessboard®)
+  - What it contributes: a matrix-based approach to category sourcing
+    strategy
+  - How this tool differs: CategoryAI implements its own original 64-cell
+    board — no licensed A.T. Kearney dataset is included, and "Purchasing
+    Chessboard" as a mark remains Kearney's. A licence would be required
+    before wiring in official Kearney data.
+
 ## Core framework (your original model)
 
 [This is the section to develop most as you refine the tool — describe your
