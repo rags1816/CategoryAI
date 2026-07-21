@@ -5040,6 +5040,99 @@ function buildNodeRecord(state){
   return record;
 }
 
+/* v2.28 Phase A Step 3 — pulled out of the old buildWizardStrategy() closure
+   so it can run against ANY node's record (a pure function of its
+   arguments), not just whatever's currently live in App() state. Same
+   output shape as before; App()'s buildWizardStrategy is now a thin wrapper
+   around this for the currently-active wizard, and treeToLegacyStrategiesBlob
+   (below) calls it per-node for every OTHER scored node in the tree. */
+function buildStrategyFromRecord(record, lineName, portfolioDetails, sourceNote){
+  const {profile,vars,generic,internal,models,chess,exec,suppliers,nego,value}=record;
+  const d = deriveScores(vars, generic && !(internal&&internal.spend));
+  const spendValue = (internal&&internal.spend&&internal.spend.total) || Number((portfolioDetails&&portfolioDetails.currentSpend)||0) || 500000;
+  const sw = (models&&models.swot) || {};
+  const normalSwot = {
+    strengths: sw.strengths || sw.Strengths?.text?.split("\n").filter(Boolean) || sw.Strengths || ["Custom category strategy completed"],
+    weaknesses: sw.weaknesses || sw.Weaknesses?.text?.split("\n").filter(Boolean) || sw.Weaknesses || ["See detailed category assumptions"],
+    opportunities: sw.opportunities || sw.Opportunities?.text?.split("\n").filter(Boolean) || sw.Opportunities || ["See detailed category opportunities"],
+    threats: sw.threats || sw.Threats?.text?.split("\n").filter(Boolean) || sw.Threats || ["See detailed category risks"]
+  };
+  const keptChess = (chess?.methods || []).filter(m => m.keep !== false).map(m => m.name || m.method || m.approach).filter(Boolean);
+  const plannedPct = value?.pipeline?.reduce((s,p)=>s+(+p.pct||0),0) || 8;
+  return {
+    name: lineName,
+    spend: spendValue,
+    quadrant: d.quadrant,
+    risk: d.supplyRisk >= 3.6 ? "High" : d.supplyRisk >= 2.4 ? "Medium" : "Low",
+    projects: exec?.gantt?.map(g => ({ name: g.workstream, timeline: `Q${g.startQ}-Q${g.endQ}`, status: g.owner })) || [
+      { name: `${profile.name} Sourcing Consolidation Event`, timeline: "Q3-Q4", status: "Planned" },
+      { name: `AI Process Automation Integration`, timeline: "Q1-Q2", status: "Proposed" }
+    ],
+    contracts: suppliers?.filter(s => (s.share || s.spend || 0) > 0).map(s => ({ supplier: s.name, type: "Supply Agreement", term: "3 Years", value: Math.round((s.share ? s.share/100 : 1) * spendValue) })) || [
+      { supplier: `${profile.name} Lead Supplier`, type: "Service Agreement", term: "3 Years", value: Math.round(spendValue * 0.75) },
+      { supplier: `${profile.name} Backup / Specialist Provider`, type: "Contingency or niche support", term: "1 Year", value: Math.round(spendValue * 0.25) }
+    ],
+    swot: normalSwot,
+    chessboard: {
+      quadrant: chess?.quad || d.quadrant,
+      recommendedLevers: keptChess
+    },
+    negotiation: {
+      batna: nego?.batnaUs || "Use a phased transition, incumbent knowledge transfer and qualified alternatives.",
+      objectives: [nego?.objectivesUs, ...(nego?.issues || []).slice(0,3).map(i=>`${i.issue}: target ${i.target}`)].filter(Boolean)
+    },
+    savings: {
+      initiative: value?.pipeline?.[0]?.initiative || `${profile.name} Sourcing Event`,
+      expectedPercent: plannedPct,
+      plannedSavings: Math.round(spendValue * plannedPct / 100)
+    },
+    parentPortfolio: portfolioDetails&&portfolioDetails.name,
+    inheritedContext: {
+      governance: portfolioDetails&&portfolioDetails.governance,
+      riskAppetite: portfolioDetails&&portfolioDetails.riskAppetite,
+      benefitsFramework: portfolioDetails&&portfolioDetails.benefitsFramework,
+      aiDigitalStrategy: portfolioDetails&&portfolioDetails.digitalStrategy
+    },
+    isCustomSourced: true,
+    source: "custom",
+    sourceDetail: sourceNote || "User-built via the detailed Steps 1–14 wizard. Underlying inputs carry User / AI-inferred / AI Draft — unconfirmed / Assumed confidence flags inside this category's own strategy document.",
+    basis: ["Steps 1–14 wizard outputs (profile, SWOT, Kraljic scores, suppliers, chessboard, negotiation plan, execution plan, savings pipeline)", "Parent charter inheritance (Step 0)"],
+    generatedAt: new Date().toISOString()
+  };
+}
+/* Recompute the legacy categoryai_portfolio_strategies shape FROM the tree.
+   A node is SKIPPED (the tree contributes nothing for it, leaving whatever
+   the caller already had for that key untouched) if either:
+   - its name matches `protectedName` (portfolioActiveCategory — the old
+     per-keystroke auto-sync effect's own key, kept even after a rename since
+     that effect always writes under the name captured when deep-dive started), or
+   - its id matches `protectedNodeId` (activeNodeId — the node currently open
+     in the wizard, full stop, regardless of whether it's linked to a
+     portfolio line right now).
+   Both protections exist for the same reason: until Phase A's Step 4 wires
+   up live record updates, the active node's `record` is frozen at whatever
+   it was at migration time. Skipping by name alone isn't enough — exiting
+   deep-dive mode (setPortfolioActiveCategory(null), an existing, unrelated
+   action) removes the name-based protection while the node is STILL the
+   frozen-record active node, so without the id-based check the tree-shim
+   would immediately rebuild it from the stale record and undo whatever the
+   auto-sync effect had been keeping fresh live. Verified by testing exactly
+   this transition (see the Step 3 test notes).
+   Every OTHER level-1 node either contributes a freshly-rebuilt strategy
+   from its own full record, or falls back to its preserved
+   legacyDeepDiveSnapshot. */
+function treeToLegacyStrategiesBlob(tree, protectedName, protectedNodeId, portfolioDetails){
+  const out={};
+  (tree||[]).forEach(n=>{
+    if(n.level!==1) return;
+    if(protectedName && n.name===protectedName) return;
+    if(protectedNodeId && n.id===protectedNodeId) return;
+    if(n.record){ out[n.name]=buildStrategyFromRecord(n.record, n.name, portfolioDetails, null); return; }
+    if(n.legacyDeepDiveSnapshot) out[n.name]=n.legacyDeepDiveSnapshot;
+  });
+  return out;
+}
+
 /* Merge a flat portfolioDetails.categories row (+ an optional legacy per-name
    strategies blob, i.e. an old buildWizardStrategy() output) into the tree as
    level-1 nodes. Used both for one-time app-boot migration of pre-tree sessions
@@ -5711,17 +5804,17 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
     const entry=loadPortfolioLibrary()[pid]; if(!entry) return;
     if(!confirm("Switch to \""+entry.name+"\"?\n\nThe current portfolio is snapshotted to the library first (including its line strategies), then \""+entry.name+"\" is loaded with its own strategies.")) return;
     snapshotCurrent(activePid||newPortfolioId());
-    storageSet("categoryai_portfolio_strategies", entry.strategies||"{}");
     setPortfolioDetails(entry.details||{name:entry.name, categories:[], pid});
-    /* v2.28 Phase A — additive only: also reconcile the loaded portfolio's
-       composition + its frozen legacy strategies blob into the category tree,
-       so the tree stays a faithful mirror of whichever portfolio is active.
-       The raw storageSet above is left completely untouched, so existing UI
-       (which still reads that key directly) is unaffected either way — this
-       is purely building up the tree in parallel, not yet the source of truth
-       for anything. activeNodeId is protected so an in-progress deep-dive
-       isn't dropped just because a different portfolio was loaded (matches
-       today's behavior: switching portfolios never touches profile/vars). */
+    /* v2.28 Phase A Step 3 — the tree is now the sole writer of
+       categoryai_portfolio_strategies (see the sole-writer effect in App()):
+       reconciling the loaded portfolio's composition + legacy strategies
+       into the tree is enough — that effect derives and writes the key from
+       categoryTree whenever it changes, so no direct storageSet is needed
+       here anymore (removed; was: storageSet("categoryai_portfolio_strategies",
+       entry.strategies||"{}")). activeNodeId is protected so an in-progress
+       deep-dive isn't dropped just because a different portfolio was loaded
+       (matches today's behavior: switching portfolios never touches
+       profile/vars). */
     if(setCategoryTree){
       let legacy={}; try{ legacy=JSON.parse(entry.strategies||"{}"); }catch(e){}
       setCategoryTree(t=>reconcileCategoriesIntoTree(t||[], (entry.details&&entry.details.categories)||[], legacy, new Set(activeNodeId?[activeNodeId]:[])));
@@ -5732,7 +5825,6 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
   const newBlankPortfolio=()=>{
     if(!confirm("Start a new blank portfolio?\n\nThe current one is snapshotted to the library first.")) return;
     snapshotCurrent(activePid||newPortfolioId());
-    storageSet("categoryai_portfolio_strategies","{}");
     const pid=newPortfolioId();
     setPortfolioDetails({name:"", categories:[], pid, declarations:[{when:new Date().toISOString(), what:"New blank portfolio created (previous portfolio snapshotted to the library)", source:"User action"}]});
     if(setCategoryTree) setCategoryTree(t=>reconcileCategoriesIntoTree(t||[], [], {}, new Set(activeNodeId?[activeNodeId]:[])));
@@ -8231,60 +8323,47 @@ function App(){
   },[step,profile,vars,models,research,suppliers,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,generic,strategy,opps,sevenPs,cl,srmReviews,matCheck,portfolio,essCompleted,portfolioActiveCategory,portfolioDetails,categoryTree,activeNodeId,portfolios]);
 
   /* v2.14 — one builder for wizard->portfolio strategies, used by both the
-     deep-dive live sync and the end-of-flow "update portfolio" action. */
+     deep-dive live sync and the end-of-flow "update portfolio" action.
+     v2.28 Phase A Step 3: the actual logic moved to the pure
+     buildStrategyFromRecord (see CATEGORY TREE section) so it can run
+     against ANY node's record, not just whatever's currently live in App()
+     state. This thin wrapper is kept so every existing call site
+     (updatePortfolioLine, addAsNewLine, the auto-sync effect below) is
+     unchanged. */
   function buildWizardStrategy(lineName, sourceNote){
-        const d = deriveScores(vars, generic && !internal.spend);
-        const spendValue = internal?.spend?.total || Number(portfolioDetails.currentSpend || 0) || 500000;
-        const sw = models?.swot || {};
-        const normalSwot = {
-          strengths: sw.strengths || sw.Strengths?.text?.split("\n").filter(Boolean) || sw.Strengths || ["Custom category strategy completed"],
-          weaknesses: sw.weaknesses || sw.Weaknesses?.text?.split("\n").filter(Boolean) || sw.Weaknesses || ["See detailed category assumptions"],
-          opportunities: sw.opportunities || sw.Opportunities?.text?.split("\n").filter(Boolean) || sw.Opportunities || ["See detailed category opportunities"],
-          threats: sw.threats || sw.Threats?.text?.split("\n").filter(Boolean) || sw.Threats || ["See detailed category risks"]
-        };
-        const keptChess = (chess?.methods || []).filter(m => m.keep !== false).map(m => m.name || m.method || m.approach).filter(Boolean);
-        const plannedPct = value?.pipeline?.reduce((s,p)=>s+(+p.pct||0),0) || 8;
-        return {
-          name: lineName,
-          spend: spendValue,
-          quadrant: d.quadrant,
-          risk: d.supplyRisk >= 3.6 ? "High" : d.supplyRisk >= 2.4 ? "Medium" : "Low",
-          projects: exec?.gantt?.map(g => ({ name: g.workstream, timeline: `Q${g.startQ}-Q${g.endQ}`, status: g.owner })) || [
-            { name: `${profile.name} Sourcing Consolidation Event`, timeline: "Q3-Q4", status: "Planned" },
-            { name: `AI Process Automation Integration`, timeline: "Q1-Q2", status: "Proposed" }
-          ],
-          contracts: suppliers?.filter(s => (s.share || s.spend || 0) > 0).map(s => ({ supplier: s.name, type: "Supply Agreement", term: "3 Years", value: Math.round((s.share ? s.share/100 : 1) * spendValue) })) || [
-            { supplier: `${profile.name} Lead Supplier`, type: "Service Agreement", term: "3 Years", value: Math.round(spendValue * 0.75) },
-            { supplier: `${profile.name} Backup / Specialist Provider`, type: "Contingency or niche support", term: "1 Year", value: Math.round(spendValue * 0.25) }
-          ],
-          swot: normalSwot,
-          chessboard: {
-            quadrant: chess?.quad || d.quadrant,
-            recommendedLevers: keptChess
-          },
-          negotiation: {
-            batna: nego?.batnaUs || "Use a phased transition, incumbent knowledge transfer and qualified alternatives.",
-            objectives: [nego?.objectivesUs, ...(nego?.issues || []).slice(0,3).map(i=>`${i.issue}: target ${i.target}`)].filter(Boolean)
-          },
-          savings: {
-            initiative: value?.pipeline?.[0]?.initiative || `${profile.name} Sourcing Event`,
-            expectedPercent: plannedPct,
-            plannedSavings: Math.round(spendValue * plannedPct / 100)
-          },
-          parentPortfolio: portfolioDetails.name,
-          inheritedContext: {
-            governance: portfolioDetails.governance,
-            riskAppetite: portfolioDetails.riskAppetite,
-            benefitsFramework: portfolioDetails.benefitsFramework,
-            aiDigitalStrategy: portfolioDetails.digitalStrategy
-          },
-          isCustomSourced: true,
-          source: "custom",
-          sourceDetail: sourceNote || "User-built via the detailed Steps 1–14 wizard. Underlying inputs carry User / AI-inferred / AI Draft — unconfirmed / Assumed confidence flags inside this category's own strategy document.",
-          basis: ["Steps 1–14 wizard outputs (profile, SWOT, Kraljic scores, suppliers, chessboard, negotiation plan, execution plan, savings pipeline)", "Parent charter inheritance (Step 0)"],
-          generatedAt: new Date().toISOString()
-        };
+    return buildStrategyFromRecord(
+      buildNodeRecord({profile,vars,generic,models,research,suppliers,srmReviews,matCheck,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,strategy,opps,sevenPs,cl}),
+      lineName, portfolioDetails, sourceNote
+    );
   }
+  /* v2.28 Phase A Step 3 — the tree is now the sole writer of
+     categoryai_portfolio_strategies for every line EXCEPT the one currently
+     protected (see treeToLegacyStrategiesBlob's comment for why both a
+     name-based AND an id-based protection are needed).
+     The base for the write is `treeBlob`, NOT the full current object —
+     deliberately, so a line that's genuinely left the tree (e.g. the old
+     portfolio's lines after switching to a different one) is correctly
+     dropped, not carried forward stale. The ONLY entries preserved
+     untouched from `current` are the specifically protected ones: looked up
+     both by portfolioActiveCategory's name AND by the active node's
+     CURRENT name (covering the "just exited deep-dive mode" transition,
+     where portfolioActiveCategory goes null but the node is still the
+     frozen-record active one — see the Step 3 test notes for the concrete
+     bug this fixes). This effect and the auto-sync effect below do a
+     read-modify-write on disjoint keys of the same object, so the result is
+     correct regardless of which one React fires last after a render that
+     changes both categoryTree and portfolioDetails at once (e.g. a
+     portfolio switch). */
+  useEffect(()=>{
+    if(categoryTree===null) return;
+    let current={}; try{ current=JSON.parse(storageGet("categoryai_portfolio_strategies")||"{}"); }catch(e){}
+    const treeBlob=treeToLegacyStrategiesBlob(categoryTree, portfolioActiveCategory, activeNodeId, portfolioDetails);
+    const activeNode=categoryTree.find(n=>n.id===activeNodeId);
+    const protectedEntry={};
+    if(portfolioActiveCategory && current[portfolioActiveCategory]!==undefined) protectedEntry[portfolioActiveCategory]=current[portfolioActiveCategory];
+    if(activeNode && current[activeNode.name]!==undefined) protectedEntry[activeNode.name]=current[activeNode.name];
+    storageSet("categoryai_portfolio_strategies", JSON.stringify({...treeBlob, ...protectedEntry}));
+  },[categoryTree, portfolioDetails, portfolioActiveCategory, activeNodeId]);
   useEffect(() => {
     if (portfolioActiveCategory && profile.name === portfolioActiveCategory) {
       try {
