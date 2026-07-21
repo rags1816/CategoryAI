@@ -2287,8 +2287,9 @@ function Step2({profile,vars,setVar,setMarketBrief,marketBrief,next}){
   const [busy,setBusy]=useState(false);
   const [err,setErr]=useState("");
   const [useSearch,setUseSearch]=useState(false);
+  const [skipped,setSkipped]=useState([]); /* v2.26 fix: which variables the AI didn't return a usable score for */
   async function assess(){
-    setBusy(true); setErr("");
+    setBusy(true); setErr(""); setSkipped([]);
     try{
       const prompt = `You are a procurement market analyst. Category: "${profile.name}". Sector: "${profile.sector||"unspecified"}". Region of supply: "${profile.region||"Global"}". Incumbent suppliers: ${profile.suppliers?.length?profile.suppliers.join(", "):"not stated"}. Known pain points: ${profile.pains?.length?profile.pains.join("; "):"not stated"}. Context: "${profile.notes||"none"}".
 Score each variable 1–5 (5 = high) with a one-sentence rationale grounded in the actual supply market for this category:
@@ -2296,10 +2297,13 @@ ${MARKET_VARS.map(v=>`- ${v.id}: ${v.label} (1=${v.lo}, 5=${v.hi})`).join("\n")}
 Also give a 3-sentence market summary, a one-sentence 12-month price outlook, and 3–6 typical supplier names or archetypes.
 Respond ONLY with JSON, no markdown fences: {"variables":{"<id>":{"score":n,"rationale":"..."}},"marketSummary":"...","priceOutlook":"...","typicalSuppliers":["..."]}`;
       const out = await askClaude(prompt,useSearch);
+      const notUpdated=[];
       MARKET_VARS.forEach(v=>{
         const r=out.variables&&out.variables[v.id];
         if(r&&r.score>=1&&r.score<=5) setVar(v.id,{value:Math.round(r.score),conf:"ai",rationale:r.rationale||"AI-inferred."});
+        else notUpdated.push(v.label);
       });
+      setSkipped(notUpdated);
       setMarketBrief({summary:out.marketSummary||"",priceOutlook:out.priceOutlook||"",suppliers:out.typicalSuppliers||[]});
     }catch(e){ setErr("AI market assessment failed — you can retry, or score the sliders manually. ("+e.message+")"); }
     setBusy(false);
@@ -2316,6 +2320,7 @@ Respond ONLY with JSON, no markdown fences: {"variables":{"<id>":{"score":n,"rat
       </div>
       {busy && <Spinner label={getAIName() + " is scoring the supply market…"}/>}
       {err && <div className="err">{err}</div>}
+      {skipped.length>0 && <div className="err">{getAIName()} didn't return a usable score for: <b>{skipped.join(", ")}</b> — left unchanged below. Score {skipped.length>1?"these manually":"it manually"} or click "⚡ AI market assessment" again to retry.</div>}
       {marketBrief.summary && (
         <div className="rationale" style={{marginTop:10}}>
           <b>Market summary:</b> {marketBrief.summary}<br/>
