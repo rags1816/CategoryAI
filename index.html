@@ -427,10 +427,18 @@ const avg = a => a.reduce((s,x)=>s+x,0)/a.length;
 function deriveScores(vars, generic){
   const g = id => vars[id].value;
   const supplyRisk = avg([g("supplierConcentration"),g("switchingDifficulty"),g("geoRisk"),g("substituteScarcity"),g("capacityTightness")]);
-  const businessImpact = generic ? 3 : avg([g("spendShare"),g("criticality"),g("visibility"),g("valuePotential")]);
+  /* v2.26 fix: business impact must always be DERIVED from the internal
+     variables (spendShare/criticality/visibility/valuePotential), never
+     hard-pinned to the midpoint. Those variables already default to
+     {value:3, conf:"assumed"} when unanswered (see initVars), so skipping
+     the internal step still yields a midpoint score on its own — but any
+     internal vars the user DID score (even without finishing the step,
+     even in generic mode) now count, and both Bottleneck and Non-critical
+     become reachable. "generic" remains a pure UI/labelling flag. */
+  const businessImpact = avg([g("spendShare"),g("criticality"),g("visibility"),g("valuePotential")]);
   const porter = {
     "Supplier power":     avg([g("supplierConcentration"),g("switchingDifficulty"),g("capacityTightness")]),
-    "Buyer power (yours)": avg([6-g("supplierConcentration"),6-g("switchingDifficulty"), generic?3:g("spendShare")]),
+    "Buyer power (yours)": avg([6-g("supplierConcentration"),6-g("switchingDifficulty"), g("spendShare")]),
     "Threat of substitutes": 6-g("substituteScarcity"),
     "Threat of new entrants": 6-g("entryBarriers"),
     "Competitive rivalry": avg([6-g("supplierConcentration"),g("techDisruption"),6-g("capacityTightness")]),
