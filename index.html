@@ -2195,10 +2195,18 @@ function FiveForcesDiagram({porter}){
   );
 }
 
+/* v2.29 Phase B Step 6 — the 1-5 axis→pixel mapping, shared with the new
+   PortfolioMatrix sibling component below so both plot on identical axes
+   without duplicating the coordinate math (KraljicMatrix plots one
+   category's suppliers around its own position; PortfolioMatrix plots many
+   categories' positions against each other — different content, same
+   axes). Behaviour-preserving extraction: identical formula, just named. */
+function matrixAxisX(v,W,pad){ return pad+((v-1)/4)*(W-pad-12); }
+function matrixAxisY(v,H,pad){ return H-pad-((v-1)/4)*(H-pad-12); }
 function KraljicMatrix({supplyRisk,businessImpact,suppliers,generic,quadrant,supplyRiskAssumed,businessImpactAssumed}){
   const W=320,H=300,pad=34;
-  const x=v=>pad+((v-1)/4)*(W-pad-12);
-  const y=v=>H-pad-((v-1)/4)*(H-pad-12);
+  const x=v=>matrixAxisX(v,W,pad);
+  const y=v=>matrixAxisY(v,H,pad);
   const halfW=(W-pad-12)/2, halfH=(H-pad-12)/2;
   const maxSpend=Math.max(1,...(suppliers||[]).map(s=>s.spend||0));
   const qc=(QUADRANT_META[quadrant]||QUADRANT_META.Strategic).color;
@@ -2223,6 +2231,97 @@ function KraljicMatrix({supplyRisk,businessImpact,suppliers,generic,quadrant,sup
       <text x={W/2} y={H-8} fontSize="11" fill="var(--slate)" textAnchor="middle">Supply risk{supplyRiskAssumed?" (assumed)":""} →</text>
       <text x="12" y={H/2} fontSize="11" fill="var(--slate)" textAnchor="middle" transform={"rotate(-90 12 "+(H/2)+")"}>Business impact{(generic||businessImpactAssumed)?" (assumed)":""} →</text>
     </svg>
+  );
+}
+
+/* v2.29 Phase B Step 6 — Portfolio matrix: every category node in the active
+   portfolio plotted together on one Value×Risk chart. Sibling to
+   KraljicMatrix (reuses its axis math via matrixAxisX/matrixAxisY and its
+   QUADRANT_META colors) rather than a from-scratch chart — KraljicMatrix
+   shows one category's own suppliers scattered around ITS position; this
+   shows many categories' positions against each other, so the content
+   differs but the coordinate system and color language are the same chart
+   grammar the rest of the app already reads.
+   - Level selector: view one depth at a time, or "All levels" tangled
+     together (children under the same parent drawn connected by a line in
+     that view, since parents are on screen too to connect to).
+   - Root-ancestor ring color: every node's outer ring is colored by which
+     level-1 ancestor it ultimately belongs to (a small fixed palette,
+     cycling by index) — this keeps a portfolio's categories visually
+     grouped even when a single deeper level is selected and the immediate
+     parent isn't drawn to connect a line to.
+   - Bubble fill stays the EXISTING quadrant-color language (unchanged
+     meaning); bubble size scales by spend among whatever's on screen. */
+const PORTFOLIO_MATRIX_GROUP_COLORS = ["#0F5E56","#2E6FB3","var(--amber)","var(--mulberry)","#7A5C00","#4B3B78","#1E8E5A","#B3402A"];
+function PortfolioMatrix({categoryTree, portfolioDetails, onSelectNode}){
+  const tree = categoryTree || [];
+  const maxLevel = Math.max(1, ...tree.map(n => n.level || 1));
+  const [levelFilter, setLevelFilter] = useState("all");
+  const byId = new Map(tree.map(n => [n.id, n]));
+  const rootAncestorId = (node) => {
+    let cur = node, guard = 0;
+    while (cur.parentId && byId.has(cur.parentId) && guard < 50) { cur = byId.get(cur.parentId); guard++; }
+    return cur.id;
+  };
+  const rootIds = tree.filter(n => n.level === 1).map(n => n.id);
+  const groupColor = (node) => {
+    const idx = rootIds.indexOf(rootAncestorId(node));
+    return PORTFOLIO_MATRIX_GROUP_COLORS[idx >= 0 ? idx % PORTFOLIO_MATRIX_GROUP_COLORS.length : 0];
+  };
+  /* Excludes nameless nodes — the "always have an active node" bootstrap
+     node (see Phase A Step 4) is internal scaffolding, never a real
+     category; same reasoning treeToLegacyStrategiesBlob already applies. */
+  const plotted = tree.filter(n => (n.name||"").trim() && (levelFilter === "all" ? true : (n.level || 1) === Number(levelFilter)));
+  const W=560, H=460, pad=48;
+  const x = v => matrixAxisX(v, W, pad);
+  const y = v => matrixAxisY(v, H, pad);
+  const halfW=(W-pad-12)/2, halfH=(H-pad-12)/2;
+  const maxSpend = Math.max(1, ...plotted.map(n => Number(n.spend)||0));
+  const positions = new Map(plotted.map(n => [n.id, nodeAxisPosition(n, portfolioDetails)]));
+  const cur = portfolioDetails && portfolioDetails.currency || "£";
+  return (
+    <div>
+      <div style={{display:"flex", gap:10, alignItems:"center", marginBottom:10, flexWrap:"wrap"}}>
+        <label style={{fontSize:11.5, fontWeight:700, color:"var(--slate)"}}>Level:</label>
+        <select value={levelFilter} onChange={e=>setLevelFilter(e.target.value)} style={{fontSize:12, padding:"4px 8px"}}>
+          <option value="all">All levels (tangled)</option>
+          {Array.from({length:maxLevel}, (_,i)=>i+1).map(lv => <option key={lv} value={lv}>Level {lv}{lv===1?" (top)":""}</option>)}
+        </select>
+        <span style={{fontSize:11, color:"var(--slate)"}}>{plotted.length} node(s) plotted · ring color groups by top-level category · click a bubble to open it in the wizard</span>
+      </div>
+      <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%", maxWidth:640, display:"block"}} role="img" aria-label="Portfolio matrix">
+        <rect x={pad} y={12} width={halfW} height={halfH} fill="#EAF1F8"/>
+        <rect x={pad+halfW} y={12} width={halfW} height={halfH} fill="var(--petrolSoft)"/>
+        <rect x={pad} y={12+halfH} width={halfW} height={halfH} fill="#F3F2EE"/>
+        <rect x={pad+halfW} y={12+halfH} width={halfW} height={halfH} fill="var(--amberSoft)"/>
+        <text x={pad+6} y={26} fontSize="10" fill="#2E6FB3" fontWeight="700">LEVERAGE</text>
+        <text x={W-12} y={26} fontSize="10" fill="var(--petrol)" fontWeight="700" textAnchor="end">STRATEGIC</text>
+        <text x={pad+6} y={H-pad-6} fontSize="10" fill="var(--slate)" fontWeight="700">NON-CRITICAL</text>
+        <text x={W-12} y={H-pad-6} fontSize="10" fill="var(--amber)" fontWeight="700" textAnchor="end">BOTTLENECK</text>
+        {levelFilter === "all" && plotted.filter(n => n.parentId && positions.has(n.parentId)).map(n => {
+          const p1 = positions.get(n.id), p2 = positions.get(n.parentId);
+          return <line key={"edge-"+n.id} x1={x(p1.supplyRisk)} y1={y(p1.businessImpact)} x2={x(p2.supplyRisk)} y2={y(p2.businessImpact)} stroke="var(--slate)" strokeWidth="1" strokeDasharray="2 2" opacity="0.5"/>;
+        })}
+        {plotted.map(n => {
+          const pos = positions.get(n.id);
+          const qc = (QUADRANT_META[pos.quadrant]||QUADRANT_META.Strategic).color;
+          const ring = groupColor(n);
+          const r = 7 + ((Number(n.spend)||0)/maxSpend)*11;
+          return (
+            <g key={n.id} style={{cursor:"pointer"}} onClick={()=>onSelectNode(n)}>
+              <title>{n.name}</title>
+              <circle cx={x(pos.supplyRisk)} cy={y(pos.businessImpact)} r={r}
+                fill={pos.notAssessed?"none":qc} stroke={pos.notAssessed?qc:ring} strokeWidth={pos.notAssessed?2.5:3} strokeDasharray={pos.notAssessed?"3 2":"none"}/>
+              {pos.notAssessed && <text x={x(pos.supplyRisk)} y={y(pos.businessImpact)+4} fontSize="11" fontWeight="700" fill={qc} textAnchor="middle">?</text>}
+              <text x={x(pos.supplyRisk)} y={y(pos.businessImpact)-r-4} fontSize="9.5" fill="var(--ink)" textAnchor="middle">{n.name.length>30 ? n.name.slice(0,29)+"…" : n.name}</text>
+            </g>
+          );
+        })}
+        <text x={W/2} y={H-8} fontSize="11" fill="var(--slate)" textAnchor="middle">Supply risk →</text>
+        <text x="12" y={H/2} fontSize="11" fill="var(--slate)" textAnchor="middle" transform={"rotate(-90 12 "+(H/2)+")"}>Business impact →</text>
+      </svg>
+      {plotted.length===0 && <p className="hint">No nodes at this level yet.</p>}
+    </div>
   );
 }
 
@@ -5132,6 +5231,32 @@ function buildStrategyFromRecord(record, lineName, portfolioDetails, sourceNote)
     generatedAt: new Date().toISOString()
   };
 }
+/* v2.29 Phase B Step 6 — a node's position on the Value×Risk (Kraljic) axes
+   for the portfolio matrix. A deep-dived node (record set) is derived
+   exactly like the single-category KraljicMatrix does, via the same
+   deriveScores — same "generic mode only applies when there's no internal
+   spend data" rule as buildStrategyFromRecord, so the two stay consistent.
+   An unassessed node (record:null, still just a stub) has no vars to derive
+   from — plotted instead from its manually-set stubRisk/stubQuadrant (the
+   same fields the old flat composition table already captured), placed at
+   a representative point inside that quadrant so it's still findable on
+   the chart, always flagged notAssessed so it renders with the same
+   hollow/dashed "not a real placement yet" marker convention as
+   KraljicMatrix uses for an unscored category. */
+function nodeAxisPosition(node, portfolioDetails){
+  if(node.record){
+    const {vars,generic,internal}=node.record;
+    const d=deriveScores(vars, generic && !(internal&&internal.spend));
+    return {supplyRisk:d.supplyRisk, businessImpact:d.businessImpact, quadrant:d.quadrant, notAssessed: !!(d.supplyRiskAssumed||d.businessImpactAssumed)};
+  }
+  const riskLevel = node.stubRisk==="Low"?1.5 : node.stubRisk==="High"?4.5 : 3;
+  const quadrant = node.stubQuadrant || "Strategic";
+  const highRiskQ = quadrant==="Strategic" || quadrant==="Bottleneck";
+  const highImpactQ = quadrant==="Strategic" || quadrant==="Leverage";
+  const supplyRisk = highRiskQ ? Math.max(3.05, riskLevel) : Math.min(2.95, riskLevel);
+  const businessImpact = highImpactQ ? 3.75 : 1.25;
+  return {supplyRisk, businessImpact, quadrant, notAssessed:true};
+}
 /* Recompute the legacy categoryai_portfolio_strategies shape FROM the tree.
    Every level-1 node either contributes a freshly-rebuilt strategy from its
    own full record, or falls back to its preserved legacyDeepDiveSnapshot.
@@ -6995,7 +7120,7 @@ function StepPortfolioWorkflow({
   activeNodeId,
   setActiveNodeId
 }){
-  const [activeSubTab, setActiveSubTab] = useState("rollUp"); // "rollUp" or "reportPreview" (v2.0.2: case-study tab removed — it was hardcoded illustrative content with no data source)
+  const [activeSubTab, setActiveSubTab] = useState("rollUp"); // "rollUp", "reportPreview", or "matrix" (v2.29 Phase B Step 6) (v2.0.2: case-study tab removed — it was hardcoded illustrative content with no data source)
   /* v1.2.0 — the roll-up now reads the user-defined composition from Step 0
      (portfolioDetails.categories); archetype templates are only a fallback. */
   const getCats = () => activePortfolioCats(portfolioDetails, portfolioId);
@@ -7850,6 +7975,24 @@ function StepPortfolioWorkflow({
         >
           📄 Report Preview
         </button>
+        <button
+          style={{
+            flex: 1,
+            border: "none",
+            background: activeSubTab === "matrix" ? "var(--petrol)" : "transparent",
+            color: activeSubTab === "matrix" ? "#fff" : "var(--ink)",
+            fontWeight: 700,
+            borderRadius: 6,
+            padding: "8px 12px",
+            cursor: "pointer",
+            fontSize: 12.5,
+            transition: "all 0.2s"
+          }}
+          onClick={()=>setActiveSubTab("matrix")}
+          title="Every category node in this portfolio plotted together on one Value×Risk chart — filter by level, click a bubble to open it in the Category track."
+        >
+          📊 Portfolio Matrix
+        </button>
       </div>
 
       {activeSubTab === "rollUp" && (
@@ -8127,6 +8270,15 @@ function StepPortfolioWorkflow({
               <div style={{fontSize:16, fontWeight:"bold", color:"#1E8E5A"}}>{cur}{selectedStrategy.savings.plannedSavings.toLocaleString()}</div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeSubTab === "matrix" && (
+        <div className="animate-fade" style={{marginTop: 10}}>
+          <div className="banner" style={{background:"var(--petrolSoft)", borderColor:"var(--petrol)", marginBottom:14, fontSize:12.5}}>
+            <b>How this chart works:</b> every category node in this portfolio, plotted by supply risk (x) and business impact (y) — filled bubble color is its Kraljic quadrant; the outer ring groups it with its top-level category (useful once you have children under a line). A node with a dashed hollow marker and "?" hasn't been assessed yet (deep-dived nodes plot their real derived position; stubs plot an approximate position from their P1 risk/quadrant). Click any bubble to open that node in the Category track.
+          </div>
+          <PortfolioMatrix categoryTree={categoryTree} portfolioDetails={portfolioDetails} onSelectNode={(node)=>customizeCategoryInWizard(node.name)}/>
         </div>
       )}
 
