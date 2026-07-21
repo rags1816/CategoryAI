@@ -36,6 +36,12 @@ Pages.
 Download and open `index.html` directly in a browser — no install or
 server required.
 
+## Development note
+
+Development assisted by Claude Code (Anthropic) under my direction. The
+methodology, product design, and domain expertise reflected in this tool
+are my own — see `METHODOLOGY.md` for the original framework.
+
 ## Related
 
 - [`METHODOLOGY.md`](./METHODOLOGY.md) — the strategic frameworks this tool
