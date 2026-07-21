@@ -2253,10 +2253,12 @@ function KraljicMatrix({supplyRisk,businessImpact,suppliers,generic,quadrant,sup
    - Bubble fill stays the EXISTING quadrant-color language (unchanged
      meaning); bubble size scales by spend among whatever's on screen. */
 const PORTFOLIO_MATRIX_GROUP_COLORS = ["#0F5E56","#2E6FB3","var(--amber)","var(--mulberry)","#7A5C00","#4B3B78","#1E8E5A","#B3402A"];
-function PortfolioMatrix({categoryTree, portfolioDetails, onSelectNode}){
+function PortfolioMatrix({categoryTree, portfolioDetails, setPortfolioDetails, onSelectNode}){
   const tree = categoryTree || [];
   const maxLevel = Math.max(1, ...tree.map(n => n.level || 1));
   const [levelFilter, setLevelFilter] = useState("all");
+  const rollupMode = (portfolioDetails && portfolioDetails.rollupMode) || "weighted";
+  const setRollupMode = (m) => setPortfolioDetails && setPortfolioDetails(prev => ({...prev, rollupMode: m}));
   const byId = new Map(tree.map(n => [n.id, n]));
   const rootAncestorId = (node) => {
     let cur = node, guard = 0;
@@ -2276,19 +2278,32 @@ function PortfolioMatrix({categoryTree, portfolioDetails, onSelectNode}){
   const x = v => matrixAxisX(v, W, pad);
   const y = v => matrixAxisY(v, H, pad);
   const halfW=(W-pad-12)/2, halfH=(H-pad-12)/2;
-  const maxSpend = Math.max(1, ...plotted.map(n => Number(n.spend)||0));
-  const positions = new Map(plotted.map(n => [n.id, nodeAxisPosition(n, portfolioDetails)]));
+  /* v2.29 Phase B Step 7 — a node with children always shows its ROLLED-UP
+     position (and rolled-up spend for bubble sizing), not its own
+     individual record even if it has one; see effectiveNodePosition's own
+     comment for the reasoning. Nodes with no children are unaffected —
+     identical to Step 6. */
+  const positions = new Map(plotted.map(n => [n.id, effectiveNodePosition(n, tree, portfolioDetails, rollupMode)]));
+  const spends = new Map(plotted.map(n => [n.id, rolledUpSpend(n, tree)]));
+  const maxSpend = Math.max(1, ...plotted.map(n => spends.get(n.id)));
+  const incompleteCount = plotted.filter(n => positions.get(n.id).incomplete).length;
   const cur = portfolioDetails && portfolioDetails.currency || "£";
   return (
     <div>
-      <div style={{display:"flex", gap:10, alignItems:"center", marginBottom:10, flexWrap:"wrap"}}>
+      <div style={{display:"flex", gap:10, alignItems:"center", marginBottom:6, flexWrap:"wrap"}}>
         <label style={{fontSize:11.5, fontWeight:700, color:"var(--slate)"}}>Level:</label>
         <select value={levelFilter} onChange={e=>setLevelFilter(e.target.value)} style={{fontSize:12, padding:"4px 8px"}}>
           <option value="all">All levels (tangled)</option>
           {Array.from({length:maxLevel}, (_,i)=>i+1).map(lv => <option key={lv} value={lv}>Level {lv}{lv===1?" (top)":""}</option>)}
         </select>
+        <label style={{fontSize:11.5, fontWeight:700, color:"var(--slate)"}}>Rollup:</label>
+        <select value={rollupMode} onChange={e=>setRollupMode(e.target.value)} style={{fontSize:12, padding:"4px 8px"}} title="How a parent's position is computed from its assessed children: spend-weighted average (falls back to a simple average if none have spend data), or the single highest-risk child's own position.">
+          <option value="weighted">Spend-weighted average</option>
+          <option value="worst">Worst-case (highest-risk child)</option>
+        </select>
         <span style={{fontSize:11, color:"var(--slate)"}}>{plotted.length} node(s) plotted · ring color groups by top-level category · click a bubble to open it in the wizard</span>
       </div>
+      {incompleteCount>0 && <div className="banner" style={{background:"var(--amberSoft)", borderColor:"var(--amber)", marginBottom:10, fontSize:11.5}}>⚠ {incompleteCount} node{incompleteCount>1?"s have":" has"} a rollup based on only SOME of its children — see each bubble's tooltip for how many are still unassessed. Unassessed children are excluded, never blended in as a default guess.</div>}
       <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%", maxWidth:640, display:"block"}} role="img" aria-label="Portfolio matrix">
         <rect x={pad} y={12} width={halfW} height={halfH} fill="#EAF1F8"/>
         <rect x={pad+halfW} y={12} width={halfW} height={halfH} fill="var(--petrolSoft)"/>
@@ -2306,13 +2321,17 @@ function PortfolioMatrix({categoryTree, portfolioDetails, onSelectNode}){
           const pos = positions.get(n.id);
           const qc = (QUADRANT_META[pos.quadrant]||QUADRANT_META.Strategic).color;
           const ring = groupColor(n);
-          const r = 7 + ((Number(n.spend)||0)/maxSpend)*11;
+          const r = 7 + (spends.get(n.id)/maxSpend)*11;
+          const title = pos.totalChildren
+            ? n.name+" — rollup ("+pos.assessedChildren+" of "+pos.totalChildren+" children assessed)"+(pos.basis?": "+pos.basis:"")
+            : n.name;
           return (
             <g key={n.id} style={{cursor:"pointer"}} onClick={()=>onSelectNode(n)}>
-              <title>{n.name}</title>
+              <title>{title}</title>
               <circle cx={x(pos.supplyRisk)} cy={y(pos.businessImpact)} r={r}
                 fill={pos.notAssessed?"none":qc} stroke={pos.notAssessed?qc:ring} strokeWidth={pos.notAssessed?2.5:3} strokeDasharray={pos.notAssessed?"3 2":"none"}/>
               {pos.notAssessed && <text x={x(pos.supplyRisk)} y={y(pos.businessImpact)+4} fontSize="11" fontWeight="700" fill={qc} textAnchor="middle">?</text>}
+              {pos.incomplete && <text x={x(pos.supplyRisk)+r-2} y={y(pos.businessImpact)-r+2} fontSize="11" fontWeight="900" fill="var(--amber)" textAnchor="middle">⚠</text>}
               <text x={x(pos.supplyRisk)} y={y(pos.businessImpact)-r-4} fontSize="9.5" fill="var(--ink)" textAnchor="middle">{n.name.length>30 ? n.name.slice(0,29)+"…" : n.name}</text>
             </g>
           );
@@ -5257,6 +5276,97 @@ function nodeAxisPosition(node, portfolioDetails){
   const businessImpact = highImpactQ ? 3.75 : 1.25;
   return {supplyRisk, businessImpact, quadrant, notAssessed:true};
 }
+function childrenOf(node, tree){ return (tree||[]).filter(n => n.parentId === node.id); }
+/* A child counts as "assessed" only if it has a live record AND at least
+   one of the two axes isn't 100% default — matches deriveScores' own
+   supplyRiskAssumed/businessImpactAssumed convention exactly, so "assessed"
+   here means the same thing it means everywhere else in the app. A node
+   with a record where every variable is still the untouched {value:3,
+   conf:"assumed"} default (record: null OR effectively all-default) is
+   excluded, never blended in as if a placeholder guess were real input. */
+function isNodeAssessed(node){
+  if(!node.record) return false;
+  const {vars,generic,internal}=node.record;
+  const d=deriveScores(vars, generic && !(internal&&internal.spend));
+  return !(d.supplyRiskAssumed && d.businessImpactAssumed);
+}
+/* Spend rolls up bottom-up: once a node has children, ITS spend is simply
+   whatever they sum to (recursively, so a grandchild's own children count
+   too) — never an independently-typed figure that could disagree with the
+   children's total. A childless node still just reports its own spend. */
+function rolledUpSpend(node, tree){
+  const kids = childrenOf(node, tree);
+  if(!kids.length) return Number(node.spend)||0;
+  return kids.reduce((s,k) => s + rolledUpSpend(k, tree), 0);
+}
+function classifyQuadrant(supplyRisk, businessImpact){
+  return supplyRisk>=3
+    ? (businessImpact>=3 ? "Strategic" : "Bottleneck")
+    : (businessImpact>=3 ? "Leverage" : "Non-critical");
+}
+/* v2.29 Phase B Step 7 — the rollup engine. A parent's position is computed
+   from its ASSESSED children's own already-derived axis scores (never raw
+   variables — there are none at the parent level to derive from; each
+   child already went through deriveScores individually), aggregated per
+   `mode` and then classified with the SAME threshold logic deriveScores
+   uses internally (classifyQuadrant, extracted above so both stay
+   consistent) — not by re-deriving from vars.
+   mode: "weighted" (default) — spend-weighted average of assessed
+   children, falling back to a simple average automatically when none of
+   the assessed children have spend data to weight by. "worst" — the
+   single highest-supply-risk assessed child's own position, unblended.
+   Unassessed children are excluded outright (see isNodeAssessed) — a
+   node with children but none yet assessed reports hasRollup:false, never
+   a blended-in midpoint guess. `incomplete` flags a PARTIAL rollup (some
+   but not all children assessed) so the UI can show "rollup incomplete —
+   X of Y children not yet assessed" rather than presenting it as final. */
+function rollupPosition(node, tree, portfolioDetails, mode){
+  const kids = childrenOf(node, tree);
+  const assessedKids = kids.filter(isNodeAssessed);
+  if(!assessedKids.length){
+    return {hasRollup:false, incomplete: kids.length>0, totalChildren: kids.length, assessedChildren: 0};
+  }
+  const kidPositions = assessedKids.map(k => ({node:k, ...nodeAxisPosition(k, portfolioDetails)}));
+  let supplyRisk, businessImpact, basis;
+  if(mode === "worst"){
+    const worst = kidPositions.reduce((a,b) => b.supplyRisk > a.supplyRisk ? b : a);
+    supplyRisk = worst.supplyRisk; businessImpact = worst.businessImpact;
+    basis = "worst-case — highest supply-risk assessed child (\""+worst.node.name+"\")";
+  } else {
+    const spends = kidPositions.map(k => rolledUpSpend(k.node, tree));
+    const totalSpend = spends.reduce((s,v)=>s+v,0);
+    if(totalSpend > 0){
+      supplyRisk = kidPositions.reduce((s,k,i)=>s+k.supplyRisk*spends[i],0)/totalSpend;
+      businessImpact = kidPositions.reduce((s,k,i)=>s+k.businessImpact*spends[i],0)/totalSpend;
+      basis = "spend-weighted average of "+assessedKids.length+" assessed child(ren)";
+    } else {
+      supplyRisk = kidPositions.reduce((s,k)=>s+k.supplyRisk,0)/kidPositions.length;
+      businessImpact = kidPositions.reduce((s,k)=>s+k.businessImpact,0)/kidPositions.length;
+      basis = "simple average of "+assessedKids.length+" assessed child(ren) — no spend data to weight by";
+    }
+  }
+  return {
+    hasRollup:true, supplyRisk, businessImpact,
+    quadrant: classifyQuadrant(supplyRisk, businessImpact),
+    incomplete: assessedKids.length < kids.length,
+    totalChildren: kids.length, assessedChildren: assessedKids.length, basis
+  };
+}
+/* The one function everywhere-else should call for "what's this node's
+   position" — a childless node behaves exactly as it did before Step 7
+   (nodeAxisPosition, unchanged); a node WITH children always shows the
+   rollup instead of its own individual record, even if it happens to have
+   one (a container's position is its children's, once it has any — see
+   the Step 7 test notes for the reasoning), falling back to an honest
+   "not assessed" state (not a stale individual score) until at least one
+   child is scored. */
+function effectiveNodePosition(node, tree, portfolioDetails, mode){
+  const kids = childrenOf(node, tree);
+  if(!kids.length) return {...nodeAxisPosition(node, portfolioDetails), incomplete:false, totalChildren:0, assessedChildren:0};
+  const rollup = rollupPosition(node, tree, portfolioDetails, mode);
+  if(rollup.hasRollup) return {supplyRisk:rollup.supplyRisk, businessImpact:rollup.businessImpact, quadrant:rollup.quadrant, notAssessed:false, incomplete:rollup.incomplete, totalChildren:rollup.totalChildren, assessedChildren:rollup.assessedChildren, basis:rollup.basis};
+  return {supplyRisk:3, businessImpact:3, quadrant:"Strategic", notAssessed:true, incomplete:rollup.incomplete, totalChildren:rollup.totalChildren, assessedChildren:rollup.assessedChildren};
+}
 /* Recompute the legacy categoryai_portfolio_strategies shape FROM the tree.
    Every level-1 node either contributes a freshly-rebuilt strategy from its
    own full record, or falls back to its preserved legacyDeepDiveSnapshot.
@@ -6475,10 +6585,20 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
               </tr>
             </thead>
             <tbody>
-              {cats.map((c, i) => (
+              {cats.map((c, i) => {
+                /* v2.29 Phase B Step 7 — once a line has children, its spend is
+                   derived (rolled up from them), never independently typed —
+                   see the App()-level sync effect that keeps c.spend equal to
+                   rolledUpSpend() for exactly this case. */
+                const node = (categoryTree||[]).find(n => n.level===1 && (n.name||"").trim().toLowerCase() === (c.name||"").trim().toLowerCase());
+                const hasKids = !!(node && childrenOf(node, categoryTree||[]).length);
+                return (
                 <tr key={i}>
                   <td style={{border:"1px solid var(--line)", padding:4}}><input type="text" value={c.name || ""} onChange={e=>updateCat(i, "name", e.target.value)} placeholder="e.g. Network Modelling" style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}/></td>
-                  <td style={{border:"1px solid var(--line)", padding:4}}><input type="number" value={c.spend === "" ? "" : (c.spend || 0)} onChange={e=>updateCat(i, "spend", e.target.value)} placeholder="0" style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}/></td>
+                  <td style={{border:"1px solid var(--line)", padding:4}}>
+                    <input type="number" disabled={hasKids} value={c.spend === "" ? "" : (c.spend || 0)} onChange={e=>updateCat(i, "spend", e.target.value)} placeholder="0" title={hasKids?"Derived from this line's children — edit their spend instead.":undefined} style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background: hasKids?"var(--paper)":"var(--card)", color:"var(--ink)", fontSize:12, cursor: hasKids?"not-allowed":"text"}}/>
+                    {hasKids && <div style={{fontSize:9.5, color:"var(--slate)", marginTop:2}}>↳ derived from children</div>}
+                  </td>
                   <td style={{border:"1px solid var(--line)", padding:4}}>
                     <select value={c.risk || "Medium"} onChange={e=>updateCat(i, "risk", e.target.value)} style={{width:"100%", padding:"4px 4px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}>
                       <option>Low</option><option>Medium</option><option>High</option>
@@ -6493,7 +6613,8 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
                   <td style={{border:"1px solid var(--line)", padding:4}}><input type="text" value={c.notes || ""} onChange={e=>updateCat(i, "notes", e.target.value)} placeholder="Criticality, incumbents, constraints..." style={{width:"100%", padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"var(--card)", color:"var(--ink)", fontSize:12}}/></td>
                   <td style={{border:"1px solid var(--line)", padding:4, textAlign:"center"}}><button className="btn ghost" style={{border:"none", color:"var(--red)", padding:"2px 6px"}} title="Remove this service line" onClick={()=>removeCat(i)}>✕</button></td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -7224,23 +7345,43 @@ function StepPortfolioWorkflow({
      (deliberately not the parent's stubRisk/stubQuadrant either, since those
      are score stand-ins, not context). Works from any node, at any level —
      the child's level is simply parent.level+1, so repeating the action on
-     a child produces a grandchild, and so on. */
+     a child produces a grandchild, and so on.
+     v2.29 Phase B Step 7 fix — duplicating the SAME node twice used to
+     produce two children with the identical name "<name> (copy)". Every
+     lookup elsewhere (customizeCategoryInWizard, the legacy strategies
+     blob) is name-based, so the second child silently aliased to the
+     first one and was unreachable — found by testing the rollup with two
+     real children under one parent. childCopyName numbers duplicates
+     against the CURRENT tree snapshot (computed inside the functional
+     setCategoryTree updater, not a closed-over value) so this is correct
+     even for rapid repeated clicks. */
+  function childCopyName(baseName, tree){
+    const used = new Set((tree||[]).map(n => (n.name||"").trim().toLowerCase()));
+    const base = (baseName || "Category").trim();
+    const first = base+" (copy)";
+    if(!used.has(first.trim().toLowerCase())) return first;
+    let i = 2;
+    while(used.has((base+" (copy "+i+")").trim().toLowerCase())) i++;
+    return base+" (copy "+i+")";
+  }
   function duplicateNodeAsChild(parentNode) {
-    const child = newCategoryNode({
-      name: (parentNode.name || "Category") + " (copy)",
-      level: (parentNode.level || 1) + 1,
-      parentId: parentNode.id,
-      notes: parentNode.notes,
-      archetype: parentNode.archetype,
-      channel: parentNode.channel,
-      channelSource: parentNode.channelSource,
-      specialization: parentNode.specialization,
-      specSource: parentNode.specSource,
-      coverage: parentNode.coverage,
-      supplierCount: parentNode.supplierCount,
-      volume: parentNode.volume
+    setCategoryTree(tree => {
+      const child = newCategoryNode({
+        name: childCopyName(parentNode.name, tree),
+        level: (parentNode.level || 1) + 1,
+        parentId: parentNode.id,
+        notes: parentNode.notes,
+        archetype: parentNode.archetype,
+        channel: parentNode.channel,
+        channelSource: parentNode.channelSource,
+        specialization: parentNode.specialization,
+        specSource: parentNode.specSource,
+        coverage: parentNode.coverage,
+        supplierCount: parentNode.supplierCount,
+        volume: parentNode.volume
+      });
+      return [...(tree||[]), child];
     });
-    setCategoryTree(tree => [...(tree||[]), child]);
   }
   /* Level-1 rows come from portfolioDetails.categories (P1 composition), not
      directly from categoryTree — a composition row doesn't necessarily have
@@ -7255,7 +7396,7 @@ function StepPortfolioWorkflow({
     setCategoryTree(tree => {
       const parent = newCategoryNode({ name: catName, level: 1 });
       const child = newCategoryNode({
-        name: (parent.name || "Category") + " (copy)",
+        name: childCopyName(parent.name, [...(tree||[]), parent]),
         level: 2,
         parentId: parent.id,
         notes: parent.notes,
@@ -7895,24 +8036,35 @@ function StepPortfolioWorkflow({
      portfolioDetails.categories, so they don't show up via `cats`/getCats().
      Rendered here directly from categoryTree instead, indented beneath their
      parent row, recursively (so grandchildren etc. show too — "any level").
-     Quadrant/status come straight from the node's own record (once it has
-     one), NOT from the `strategies` legacy blob — that blob is level-1-only
-     until Phase B's rollup engine (Step 7) extends it. */
+     v2.29 Phase B Step 7 — quadrant/spend come from effectiveNodePosition/
+     rolledUpSpend, which roll up from children whenever a node has any
+     (see their own comments) rather than the node's own individual record. */
   const childNodesOf = (parentId) => (categoryTree || []).filter(n => n.parentId === parentId);
-  function childNodeQuadrant(node) {
-    if (!node.record) return null;
-    try { return buildStrategyFromRecord(node.record, node.name, portfolioDetails, null).quadrant; } catch(e) { return null; }
-  }
+  const rollupMode = portfolioDetails.rollupMode || "weighted";
   function renderNodeRow(node, depth) {
-    const quadrant = childNodeQuadrant(node);
+    const pos = effectiveNodePosition(node, categoryTree||[], portfolioDetails, rollupMode);
+    const spend = rolledUpSpend(node, categoryTree||[]);
+    /* v2.29 Phase B Step 7 — a child node has no OTHER way to enter its own
+       spend (portfolioDetails.categories only covers level-1 rows), so
+       without this the spend-weighted rollup mode could never actually be
+       weighted by anything — every child would silently read as 0 and the
+       "simple average" fallback would fire every time. Read-only once the
+       node itself has children (its own spend is THEIR rollup, same rule
+       as a level-1 row with children). */
+    const ownKids = childNodesOf(node.id).length > 0;
     return (
       <React.Fragment key={node.id}>
         <tr>
           <td style={{paddingLeft: 12 + depth * 20}}>{depth > 0 && "↳ "}{node.name || <i style={{color:"var(--slate)"}}>(unnamed)</i>}</td>
-          <td>{node.spend ? cur + Number(node.spend).toLocaleString() : "—"}</td>
-          <td>{quadrant
-            ? <span className="badge ai" style={{background: quadrant === "Strategic" ? "var(--mulberry)" : "var(--petrol)"}}>{quadrant}</span>
-            : <span style={{color:"var(--slate)", fontSize:11}}>Not yet assessed</span>}</td>
+          <td>{ownKids
+            ? (spend ? cur + spend.toLocaleString() : "—")
+            : <input type="number" value={node.spend === "" || node.spend == null ? "" : (node.spend || 0)}
+                onChange={e => { const v = e.target.value; setCategoryTree(tree => tree.map(n => n.id === node.id ? {...n, spend: v === "" ? "" : (Number(v) || 0)} : n)); }}
+                placeholder="0" style={{width:80, padding:"3px 5px", border:"1px solid var(--line)", borderRadius:4, fontSize:11.5}}/>}</td>
+          <td>{!pos.notAssessed
+            ? <span className="badge ai" style={{background: pos.quadrant === "Strategic" ? "var(--mulberry)" : "var(--petrol)"}}>{pos.quadrant}</span>
+            : <span style={{color:"var(--slate)", fontSize:11}}>Not yet assessed</span>}
+            {pos.incomplete && <div style={{fontSize:10, color:"var(--amber)", fontWeight:700, marginTop:2}}>⚠ rollup incomplete — {pos.assessedChildren} of {pos.totalChildren} children not yet assessed</div>}</td>
           <td>{node.record
             ? <span style={{color:"#0F5E56", fontWeight:"bold"}}>🎯 Custom (deep-dived)</span>
             : <span style={{color:"var(--slate)"}}>Pending</span>}</td>
@@ -8149,13 +8301,24 @@ function StepPortfolioWorkflow({
                 const hasStrat = strategies[c.name];
                 const runLabels = ["Intake", "Assessment", "Strategy", "Bargaining", "Compiling"];
                 const level1Node = (categoryTree || []).find(n => n.level === 1 && (n.name || "").trim().toLowerCase() === (c.name || "").trim().toLowerCase());
+                /* v2.29 Phase B Step 7 — once this line has children, ITS
+                   quadrant/spend come from the rollup, not the manually-set
+                   c.quadrant/c.spend (which stop being editable at that
+                   point — see the read-only spend field in P1). No
+                   children: unchanged from before Step 7. */
+                const hasKids = !!(level1Node && childNodesOf(level1Node.id).length);
+                const rollup = hasKids ? effectiveNodePosition(level1Node, categoryTree||[], portfolioDetails, rollupMode) : null;
+                const rowSpend = hasKids ? rolledUpSpend(level1Node, categoryTree||[]) : (Number(c.spend) || 0);
 
                 return (
                   <React.Fragment key={c.name}>
                   <tr>
                     <td><strong>{c.name}</strong></td>
-                    <td>{cur}{(Number(c.spend) || 0).toLocaleString()}</td>
-                    <td><span className="badge ai" style={{background: c.quadrant === "Strategic" ? "var(--mulberry)" : "var(--petrol)"}}>{c.quadrant}</span></td>
+                    <td>{cur}{rowSpend.toLocaleString()}</td>
+                    <td>{(!hasKids || !rollup.notAssessed)
+                      ? <span className="badge ai" style={{background: (hasKids?rollup.quadrant:c.quadrant) === "Strategic" ? "var(--mulberry)" : "var(--petrol)"}}>{hasKids?rollup.quadrant:c.quadrant}</span>
+                      : <span style={{color:"var(--slate)", fontSize:11}}>Not yet assessed</span>}
+                      {hasKids && rollup.incomplete && <div style={{fontSize:10, color:"var(--amber)", fontWeight:700, marginTop:2}}>⚠ rollup incomplete — {rollup.assessedChildren} of {rollup.totalChildren} children not yet assessed</div>}</td>
                     <td>
                       {isRunning ? (
                         <span style={{color:"var(--amber)", fontWeight:"bold"}}>
@@ -8278,7 +8441,7 @@ function StepPortfolioWorkflow({
           <div className="banner" style={{background:"var(--petrolSoft)", borderColor:"var(--petrol)", marginBottom:14, fontSize:12.5}}>
             <b>How this chart works:</b> every category node in this portfolio, plotted by supply risk (x) and business impact (y) — filled bubble color is its Kraljic quadrant; the outer ring groups it with its top-level category (useful once you have children under a line). A node with a dashed hollow marker and "?" hasn't been assessed yet (deep-dived nodes plot their real derived position; stubs plot an approximate position from their P1 risk/quadrant). Click any bubble to open that node in the Category track.
           </div>
-          <PortfolioMatrix categoryTree={categoryTree} portfolioDetails={portfolioDetails} onSelectNode={(node)=>customizeCategoryInWizard(node.name)}/>
+          <PortfolioMatrix categoryTree={categoryTree} portfolioDetails={portfolioDetails} setPortfolioDetails={setPortfolioDetails} onSelectNode={(node)=>customizeCategoryInWizard(node.name)}/>
         </div>
       )}
 
@@ -8728,6 +8891,30 @@ function App(){
     if(same) return;
     setPortfolios(prev=>[{...prev[0], level1CategoryIds:ids}, ...prev.slice(1)]);
   },[categoryTree]);
+  /* v2.29 Phase B Step 7 — keeps portfolioDetails.categories' spend column
+     in sync with children's rolled-up total for any level-1 node that has
+     them, centrally (same reasoning as the level1CategoryIds sync above).
+     Deliberately does NOT cache the total onto the tree node itself
+     (node.spend/spendSource) — rolledUpSpend recomputes live from
+     children every time it's called, so there's nothing to keep in sync
+     or let go stale there; only the OLD flat portfolioDetails.categories
+     UI (P1's composition table, which predates the tree) needs this push
+     to stay honest once a line has children. */
+  useEffect(()=>{
+    if(!Array.isArray(portfolioDetails.categories) || !portfolioDetails.categories.length) return;
+    const level1WithKids = categoryTree.filter(n => n.level===1 && childrenOf(n, categoryTree).length>0);
+    if(!level1WithKids.length) return;
+    let changed=false;
+    const nextCats = portfolioDetails.categories.map(c=>{
+      const node = level1WithKids.find(n => (n.name||"").trim().toLowerCase() === (c.name||"").trim().toLowerCase());
+      if(!node) return c;
+      const total = rolledUpSpend(node, categoryTree);
+      if(Number(c.spend)===total) return c;
+      changed=true;
+      return {...c, spend: total};
+    });
+    if(changed) setPortfolioDetails(prev=>({...prev, categories: nextCats}));
+  },[categoryTree, portfolioDetails.categories]);
 
   useEffect(()=>{
     const t=setTimeout(()=>{
