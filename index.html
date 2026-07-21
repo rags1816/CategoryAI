@@ -4836,6 +4836,25 @@ const STEP_HELP={
   strategy:"Assemble and export the full strategy document"};
 const SAVED=(function(){ try{ return JSON.parse(storageGet("categoryai_session")||"null"); }catch(e){ return null; } })();
 const sv=(k,d)=> (SAVED&&SAVED[k]!==undefined&&SAVED[k]!==null)?SAVED[k]:d;
+/* v2.26 fix: a saved/imported session can predate a variable being added
+   (or renamed), or be hand-edited/corrupted. Without this, deriveScores'
+   vars[id].value lookup throws on a missing id and — with no error
+   boundary — white-screens the whole app. normalizeVars merges whatever
+   was loaded on top of fresh defaults, so every ALL_VARS id is always
+   present with a valid 1-5 numeric value, no matter what the input looked
+   like; anything genuinely usable from the saved data is kept as-is. */
+function normalizeVars(saved){
+  const base=initVars();
+  const merged={...base, ...(saved&&typeof saved==="object"?saved:{})};
+  ALL_VARS.forEach(v=>{
+    const e=merged[v.id];
+    const val=e&&typeof e==="object"?Number(e.value):NaN;
+    merged[v.id]=(e&&typeof e==="object"&&!Number.isNaN(val))
+      ? {...base[v.id], ...e, value:Math.min(5,Math.max(1,val))}
+      : base[v.id];
+  });
+  return merged;
+}
 
 
 /* ---------- v1.2.0 Portfolio composition (user-definable) ----------
@@ -7854,7 +7873,7 @@ function App(){
     kpis: "",
     benefitsFramework: ""
   }));
-  const [vars,setVars]=useState(sv("vars",initVars()));
+  const [vars,setVars]=useState(()=>normalizeVars(sv("vars",null)));
   const [models,setModels]=useState(sv("models",{swot:null,pestle:null}));
   const [research,setResearch]=useState(sv("research",null));
   const [suppliers,setSuppliers]=useState(sv("suppliers",[]));
@@ -8058,7 +8077,7 @@ function App(){
     if(profile.name.trim() && !profile.name.includes("(Demo)") && !confirm("Start the guided demo tour?\n\nThis loads a full simulated 'Cloud Services' dataset and switches the AI provider to Sandbox — your current in-progress category will be replaced on screen (download your session first from the Strategy step if you want to keep it).")) return;
     AI_SETTINGS.provider="sandbox";
     const D=buildDemoState();
-    setProfile(D.profile); setVars(D.vars); setModels(D.models); setResearch(D.research);
+    setProfile(D.profile); setVars(normalizeVars(D.vars)); setModels(D.models); setResearch(D.research);
     setSuppliers(D.suppliers); setRisks(D.risks); setEsgOps(D.esgOps); setChess(D.chess);
     setCl(D.cl); setNego(D.nego); setExec(D.exec); setValue(D.value); setBenefits(D.benefits);
     setStrategy(D.strategy); setOpps(Array.isArray(D.opps)?D.opps:[]); setPitch(D.pitch); setMarketBrief(D.marketBrief); setSevenPs(D.sevenPs);
@@ -8470,7 +8489,34 @@ function App(){
     </div>
   );
 }
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+/* v2.26 fix: last-resort safety net. Without this, any uncaught render
+   error (e.g. a corrupted session that slipped past normalizeVars, or any
+   other unexpected crash) white-screens the app with nothing but a
+   console error — unrecoverable for a non-technical user. This renders a
+   plain fallback instead, and offers a one-click way to drop the
+   possibly-corrupted saved session and start clean. */
+class ErrorBoundary extends React.Component{
+  constructor(props){ super(props); this.state={error:null}; }
+  static getDerivedStateFromError(error){ return {error}; }
+  componentDidCatch(error,info){ console.error("CategoryAI crashed:",error,info); }
+  render(){
+    if(this.state.error){
+      return (
+        <div style={{maxWidth:640,margin:"60px auto",padding:24,fontFamily:"system-ui,sans-serif"}}>
+          <h2 style={{marginTop:0}}>Something went wrong</h2>
+          <p>CategoryAI hit an unexpected error and can't continue safely. This is usually caused by a corrupted or outdated saved session.</p>
+          <pre style={{whiteSpace:"pre-wrap",fontSize:12,color:"#B3402E",background:"#F7E4E1",padding:10,borderRadius:6}}>{String((this.state.error&&this.state.error.message)||this.state.error)}</pre>
+          <div style={{display:"flex",gap:10,marginTop:14}}>
+            <button className="btn" onClick={()=>window.location.reload()}>Reload</button>
+            <button className="btn primary" onClick={()=>{ try{ window.localStorage.removeItem("categoryai_session"); }catch(e){} window.location.reload(); }}>Clear saved session &amp; reload</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<ErrorBoundary><App/></ErrorBoundary>);
 </script>
 </body>
 </html>
