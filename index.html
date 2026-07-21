@@ -446,7 +446,15 @@ function deriveScores(vars, generic){
   const quadrant = supplyRisk>=3
     ? (businessImpact>=3 ? "Strategic" : "Bottleneck")
     : (businessImpact>=3 ? "Leverage"  : "Non-critical");
-  return {supplyRisk,businessImpact,porter,quadrant};
+  /* v2.26 fix: every variable defaults to {value:3, conf:"assumed"} when
+     never scored (see initVars). That default renders identically to a
+     real assessment, so an untouched category silently looks like a real
+     "Strategic" placement. Surface which axis (if any) is still 100%
+     default so the UI can flag it instead of presenting it as fact. */
+  const isAssumed = id => (vars[id].conf||"assumed")==="assumed";
+  const supplyRiskAssumed = ["supplierConcentration","switchingDifficulty","geoRisk","substituteScarcity","capacityTightness"].every(isAssumed);
+  const businessImpactAssumed = ["spendShare","criticality","visibility","valuePotential"].every(isAssumed);
+  return {supplyRisk,businessImpact,porter,quadrant,supplyRiskAssumed,businessImpactAssumed};
 }
 
 const LEVERS = {
@@ -2162,13 +2170,14 @@ function FiveForcesDiagram({porter}){
   );
 }
 
-function KraljicMatrix({supplyRisk,businessImpact,suppliers,generic,quadrant}){
+function KraljicMatrix({supplyRisk,businessImpact,suppliers,generic,quadrant,supplyRiskAssumed,businessImpactAssumed}){
   const W=320,H=300,pad=34;
   const x=v=>pad+((v-1)/4)*(W-pad-12);
   const y=v=>H-pad-((v-1)/4)*(H-pad-12);
   const halfW=(W-pad-12)/2, halfH=(H-pad-12)/2;
   const maxSpend=Math.max(1,...(suppliers||[]).map(s=>s.spend||0));
   const qc=(QUADRANT_META[quadrant]||QUADRANT_META.Strategic).color;
+  const notAssessed=!!(supplyRiskAssumed||businessImpactAssumed);
   return (
     <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",maxWidth:460,display:"block"}} role="img" aria-label="Kraljic matrix">
       <rect x={pad} y={12} width={halfW} height={halfH} fill="#EAF1F8"/>
@@ -2184,9 +2193,10 @@ function KraljicMatrix({supplyRisk,businessImpact,suppliers,generic,quadrant}){
           cy={y(1+((s.spend||0)/maxSpend)*(businessImpact-1))}
           r={5+((s.spend||0)/maxSpend)*9} fill="var(--ink)" opacity="0.18"/>
       ))}
-      <circle cx={x(supplyRisk)} cy={y(businessImpact)} r="11" fill={qc} stroke="#fff" strokeWidth="2.5"/>
-      <text x={W/2} y={H-8} fontSize="11" fill="var(--slate)" textAnchor="middle">Supply risk →</text>
-      <text x="12" y={H/2} fontSize="11" fill="var(--slate)" textAnchor="middle" transform={"rotate(-90 12 "+(H/2)+")"}>Business impact{generic?" (assumed)":""} →</text>
+      <circle cx={x(supplyRisk)} cy={y(businessImpact)} r="11" fill={notAssessed?"none":qc} stroke={notAssessed?qc:"#fff"} strokeWidth={notAssessed?2.5:2.5} strokeDasharray={notAssessed?"3 2":"none"}/>
+      {notAssessed && <text x={x(supplyRisk)} y={y(businessImpact)+4} fontSize="11" fontWeight="700" fill={qc} textAnchor="middle">?</text>}
+      <text x={W/2} y={H-8} fontSize="11" fill="var(--slate)" textAnchor="middle">Supply risk{supplyRiskAssumed?" (assumed)":""} →</text>
+      <text x="12" y={H/2} fontSize="11" fill="var(--slate)" textAnchor="middle" transform={"rotate(-90 12 "+(H/2)+")"}>Business impact{(generic||businessImpactAssumed)?" (assumed)":""} →</text>
     </svg>
   );
 }
@@ -2453,11 +2463,17 @@ function Step4({mode,profile,vars,generic,internal,marketBrief,models,setModels,
       {mode==="kraljic" && <div className="card">
         <h2 className="display">Kraljic positioning<Tip t="Positions the category by supply risk vs business impact to pick the right overall posture. Strategic = partner; Leverage = compete; Bottleneck = secure supply; Non-critical = simplify."/></h2>
         <div className="banner" style={{background:"var(--petrolSoft)", borderColor:"var(--petrol)", marginBottom:10}}>📊 <b>Real-Time Sourcing Position:</b> Your Kraljic position is computed mathematically from the <b>Market Info Hub</b> risk factors and <b>Spend Profile</b> impact scores. Move the sliders in Step 3 to dynamically update the matrix position and recommendations.</div>
-        <p className="hint">Supply risk {d.supplyRisk.toFixed(1)}/5 · business impact {d.businessImpact.toFixed(1)}/5 → <b style={{color:QUADRANT_META[d.quadrant].color}}>{d.quadrant}</b> — {QUADRANT_META[d.quadrant].advice}</p>
+        {(d.supplyRiskAssumed||d.businessImpactAssumed) && (
+          <div className="banner" style={{background:"var(--amberSoft)", borderColor:"var(--amber)", marginBottom:10}}>
+            ⚠ <b>Not yet assessed</b> — {d.supplyRiskAssumed&&d.businessImpactAssumed?"both supply risk and business impact are":(d.businessImpactAssumed?"business impact is":"supply risk is")} still at the default midpoint (no {d.businessImpactAssumed&&!d.supplyRiskAssumed?"internal":d.supplyRiskAssumed&&!d.businessImpactAssumed?"market":"internal or market"} variables scored yet). <b>{d.quadrant}</b> is not a real placement — score the {d.businessImpactAssumed&&!d.supplyRiskAssumed?"internal assessment":d.supplyRiskAssumed&&!d.businessImpactAssumed?"market info hub":"market info hub and internal assessment"} to move it.
+          </div>
+        )}
+        <p className="hint">Supply risk {d.supplyRisk.toFixed(1)}/5{d.supplyRiskAssumed?" (assumed)":""} · business impact {d.businessImpact.toFixed(1)}/5{d.businessImpactAssumed?" (assumed)":""} → <b style={{color:QUADRANT_META[d.quadrant].color}}>{d.quadrant}</b>{(d.supplyRiskAssumed||d.businessImpactAssumed)&&<span style={{color:"var(--amber)",fontWeight:600}}> (not yet assessed)</span>} — {QUADRANT_META[d.quadrant].advice}</p>
         <div style={{display:"flex",gap:20,flexWrap:"wrap",alignItems:"flex-start"}}>
           <div style={{flex:"1 1 300px"}}>
             <KraljicMatrix supplyRisk={d.supplyRisk} businessImpact={d.businessImpact} quadrant={d.quadrant}
-              suppliers={internal.spend?internal.spend.suppliers:[]} generic={generic}/>
+              suppliers={internal.spend?internal.spend.suppliers:[]} generic={generic}
+              supplyRiskAssumed={d.supplyRiskAssumed} businessImpactAssumed={d.businessImpactAssumed}/>
           </div>
           <div style={{flex:"1 1 220px"}}>
             <h3 style={{marginTop:0}}>Sourcing levers for a {d.quadrant} category</h3>
