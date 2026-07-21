@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.27.0
+AI-draft-and-review workflow for unassessed Kraljic variables: new `ai_draft` confidence state ("AI Draft — unconfirmed") with its own badge styling; "AI-draft the missing scores" reuses the Step2.assess() scoring pattern but requires explicit accept (or an edit to a different value) before a drafted score counts — re-clicking the same value is a no-op, not silent acceptance. Confidence vocabulary synced everywhere it's described: Module Review export label, About tab tooltip, and three portfolio/export narrative strings that still said "User / AI-inferred / Assumed" now include AI Draft.
+
+## v2.26.0
+FIX: generic-mode Kraljic quadrant bug — business impact was hard-pinned to the midpoint whenever internal data was skipped, making Bottleneck/Non-critical mathematically unreachable; now always derived from the actual internal variables. FIX: a saved/imported session missing a variable (schema drift) threw and white-screened the app with no recovery — added a normalizeVars() merge-on-load and a React error boundary as a safety net. Added a visible "not yet assessed" state (banner, dashed/hollow marker, "(assumed)" axis labels) so an unscored category no longer looks like a real Strategic placement. Step2's AI market assessment now names which variables it didn't return a usable score for, instead of silently leaving them unchanged.
+
 ## v2.21.2 (frozen)
 FIX: demo tour blanked when crossing from the category stops to the portfolio stops — a stray comma in the tour array (introduced v2.12) created a JavaScript array hole, so the 17th stop was `undefined`; legal syntax, invisible to static checks, found by driving the full tour in a real headless Chrome (now a regression harness). Tour is now explicitly two-part: "Part 1 · CATEGORY tour (stops 1–16)" then "Part 2 · PORTFOLIO tour", with the handover announced at the Part-1 completion stop.
 
