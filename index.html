@@ -5039,6 +5039,38 @@ function buildNodeRecord(state){
   NODE_RECORD_KEYS.forEach(k=>{ record[k]=state[k]; });
   return record;
 }
+/* v2.28 Phase A Step 4 — the record a node starts from: exactly the defaults
+   the 22 flat useState hooks used to seed on a fresh session (pre-Step-4).
+   Used whenever a node needs a brand-new live record: the very first node of
+   a session with no prior wizard content, and the first time a given
+   category is ever deep-dived (see customizeCategoryInWizard). */
+function defaultRecord(){
+  return {
+    profile: {name:"",sector:"",region:"",notes:"",suppliers:[],pains:[]},
+    vars: initVars(),
+    generic: false,
+    models: {swot:null,pestle:null},
+    research: null,
+    suppliers: [],
+    srmReviews: [],
+    matCheck: {},
+    risks: [],
+    chess: null,
+    nego: null,
+    exec: null,
+    value: null,
+    esgOps: [],
+    benefits: [],
+    pitch: null,
+    tierScheme: "standard",
+    marketBrief: {summary:"",priceOutlook:"",suppliers:[]},
+    internal: {spend:null},
+    strategy: null,
+    opps: [],
+    sevenPs: {sector:SECTORS[0],questions:null,answers:{},canvas:null,narrative:""},
+    cl: {drivers:{},levers:[],demandDrivers:[],risks:[],savings:[],kpis:[],notes:"",source:""}
+  };
+}
 
 /* v2.28 Phase A Step 3 — pulled out of the old buildWizardStrategy() closure
    so it can run against ANY node's record (a pure function of its
@@ -5101,32 +5133,35 @@ function buildStrategyFromRecord(record, lineName, portfolioDetails, sourceNote)
   };
 }
 /* Recompute the legacy categoryai_portfolio_strategies shape FROM the tree.
-   A node is SKIPPED (the tree contributes nothing for it, leaving whatever
-   the caller already had for that key untouched) if either:
-   - its name matches `protectedName` (portfolioActiveCategory — the old
-     per-keystroke auto-sync effect's own key, kept even after a rename since
-     that effect always writes under the name captured when deep-dive started), or
-   - its id matches `protectedNodeId` (activeNodeId — the node currently open
-     in the wizard, full stop, regardless of whether it's linked to a
-     portfolio line right now).
-   Both protections exist for the same reason: until Phase A's Step 4 wires
-   up live record updates, the active node's `record` is frozen at whatever
-   it was at migration time. Skipping by name alone isn't enough — exiting
-   deep-dive mode (setPortfolioActiveCategory(null), an existing, unrelated
-   action) removes the name-based protection while the node is STILL the
-   frozen-record active node, so without the id-based check the tree-shim
-   would immediately rebuild it from the stale record and undo whatever the
-   auto-sync effect had been keeping fresh live. Verified by testing exactly
-   this transition (see the Step 3 test notes).
-   Every OTHER level-1 node either contributes a freshly-rebuilt strategy
-   from its own full record, or falls back to its preserved
-   legacyDeepDiveSnapshot. */
-function treeToLegacyStrategiesBlob(tree, protectedName, protectedNodeId, portfolioDetails){
+   Every level-1 node either contributes a freshly-rebuilt strategy from its
+   own full record, or falls back to its preserved legacyDeepDiveSnapshot.
+
+   v2.28 Phase A Step 3 originally had this SKIP the active wizard node (by
+   name and by id — see git history for the two-part reasoning) and preserve
+   whatever the caller already had for that key instead, because until Step 4
+   wired up live record updates, the active node's `record` was frozen at
+   whatever it was at migration time — rebuilding from it here would have
+   reverted a live-edited-but-not-yet-migrated value back to that stale
+   snapshot. Step 4 made every wizard field write straight into the active
+   node's record as the user types, so `n.record` for that node is never
+   stale anymore — there is no frozen snapshot left to protect against, and
+   skipping it here would if anything serve UP a staler value (whatever was
+   last written by the old per-keystroke auto-sync effect, since removed)
+   instead of the current one. Re-verified with the exact scenario that
+   originally exposed the bug this protection fixed (Save & return to
+   Portfolio, which clears portfolioActiveCategory while activeNodeId is
+   unchanged) plus the portfolio-switch and rapid-double-switch races — see
+   the Step 4 test notes. */
+function treeToLegacyStrategiesBlob(tree, portfolioDetails){
   const out={};
   (tree||[]).forEach(n=>{
     if(n.level!==1) return;
-    if(protectedName && n.name===protectedName) return;
-    if(protectedNodeId && n.id===protectedNodeId) return;
+    /* v2.28 Phase A Step 4 — a node can now exist with no name yet (the
+       "always have an active node" bootstrap creates one before the user
+       has typed a category name on the Profile step). It isn't a portfolio
+       line until it has one; including it here would leak a bogus ""-keyed
+       entry into the legacy blob. */
+    if(!(n.name||"").trim()) return;
     if(n.record){ out[n.name]=buildStrategyFromRecord(n.record, n.name, portfolioDetails, null); return; }
     if(n.legacyDeepDiveSnapshot) out[n.name]=n.legacyDeepDiveSnapshot;
   });
@@ -6947,7 +6982,7 @@ function StepPortfolioOptions({portfolioId, portfolioDetails, setPortfolioDetail
 }
 
 function StepPortfolioWorkflow({
-  portfolioId, 
+  portfolioId,
   next,
   portfolioDetails,
   setPortfolioDetails,
@@ -6955,14 +6990,10 @@ function StepPortfolioWorkflow({
   setPortfolioActiveCategory,
   activeProfileName,
   setStep,
-  setProfile,
-  setVars,
-  setSuppliers,
-  setRisks,
-  setCl,
-  setNego,
-  setExec,
-  setStrategy
+  categoryTree,
+  setCategoryTree,
+  activeNodeId,
+  setActiveNodeId
 }){
   const [activeSubTab, setActiveSubTab] = useState("rollUp"); // "rollUp" or "reportPreview" (v2.0.2: case-study tab removed — it was hardcoded illustrative content with no data source)
   /* v1.2.0 — the roll-up now reads the user-defined composition from Step 0
@@ -6978,9 +7009,43 @@ function StepPortfolioWorkflow({
     } catch(e) { return {}; }
   });
 
+  /* v2.28 Phase A Step 4 — switching which category is the live wizard
+     target now means switching activeNodeId, not resetting a shared flat
+     state. This has to build the target node's record directly rather than
+     going through App()'s bound setProfile/setVars/etc: those setters write
+     into WHATEVER node is currently active, and several are called here in
+     the same synchronous handler as the activeNodeId switch itself — since
+     each one's updater closes over the pre-switch activeNodeId, calling them
+     after switching would race (some fields landing in the old node, some
+     in the new one, depending on batching order). Building the full record
+     up front and writing it in one atomic setCategoryTree/setActiveNodeId
+     pair sidesteps that entirely.
+
+     Behavior change from the pre-tree version, flagged for review: if the
+     target category already has a live record (it's been deep-dived
+     before, in this session or a prior one), we now RESUME that record
+     instead of wiping it — resetting on every re-entry would defeat the
+     entire point of the tree holding live per-category state. The OLD code
+     always reset on every click, but only reset 8 of the 23 wizard fields
+     (profile/vars/suppliers/risks/cl/nego/exec/strategy) — models, research,
+     srmReviews, matCheck, chess, value, esgOps, benefits, pitch, tierScheme,
+     marketBrief, internal, opps and sevenPs silently carried over from
+     whichever category was previously active, a real cross-category
+     data-leak bug. A category that has NEVER been deep-dived (no record
+     yet — a stub from the portfolio composition list) still gets a fresh,
+     fully-defaulted record built from the inherited parent charter, exactly
+     as before, just now correctly covering all 23 fields instead of 8. */
   const customizeCategoryInWizard = (catName) => {
     setPortfolioActiveCategory(catName);
     if (setPortfolioDetails) logDeclaration(setPortfolioDetails, "Deep-dive started for line \"" + catName + "\" — charter inherited into the Category track (Steps 1–14)", "User action");
+    const key = (catName||"").trim().toLowerCase();
+    const existing = (categoryTree||[]).find(n => n.level===1 && (n.name||"").trim().toLowerCase()===key);
+    if (existing && existing.record) {
+      setActiveNodeId(existing.id);
+      setStep("profile");
+      return;
+    }
+
     const catDetails = getCats().find(c => c.name === catName) || {};
     const parentSuppliers = (portfolioDetails.suppliersText || "").split(/[,;\n]/).map(s=>s.trim()).filter(Boolean);
     const inheritedNotes = [
@@ -6994,26 +7059,30 @@ function StepPortfolioWorkflow({
       catDetails.notes ? `Service-line note: ${catDetails.notes}` : ""
     ].filter(Boolean).join("\n\n");
 
-    setProfile({
-      name: catName,
-      sector: portfolioId === "ess" ? "Utilities & Infrastructure" : "General Technology",
-      region: portfolioId === "ess" ? "United Kingdom" : "Global",
-      notes: inheritedNotes,
-      suppliers: parentSuppliers.length ? parentSuppliers : (portfolioId === "ess" ? ["Accenture", "Avanade", "Specialist power system engineering consultancies", "Data/AI services providers"] : ["Strategic Vendor A", "Niche Supplier B"]),
-      pains: [
-        catDetails.risk ? `${catDetails.risk} service-line risk` : "",
-        portfolioDetails.riskAppetite ? "Must align to parent risk appetite" : "",
-        portfolioDetails.futureDemand ? "Demand forecast to validate with stakeholders" : ""
-      ].filter(Boolean)
-    });
+    const freshRecord = {
+      ...defaultRecord(),
+      profile: {
+        name: catName,
+        sector: portfolioId === "ess" ? "Utilities & Infrastructure" : "General Technology",
+        region: portfolioId === "ess" ? "United Kingdom" : "Global",
+        notes: inheritedNotes,
+        suppliers: parentSuppliers.length ? parentSuppliers : (portfolioId === "ess" ? ["Accenture", "Avanade", "Specialist power system engineering consultancies", "Data/AI services providers"] : ["Strategic Vendor A", "Niche Supplier B"]),
+        pains: [
+          catDetails.risk ? `${catDetails.risk} service-line risk` : "",
+          portfolioDetails.riskAppetite ? "Must align to parent risk appetite" : "",
+          portfolioDetails.futureDemand ? "Demand forecast to validate with stakeholders" : ""
+        ].filter(Boolean)
+      }
+    };
 
-    setVars(initVars());
-    setSuppliers([]);
-    setRisks([]);
-    setCl({drivers:{},levers:[],demandDrivers:[],risks:[],savings:[],kpis:[],notes:"",source:""});
-    setNego(null);
-    setExec(null);
-    setStrategy(null);
+    if (existing) {
+      setCategoryTree(tree => tree.map(n => n.id===existing.id ? {...n, record: freshRecord} : n));
+      setActiveNodeId(existing.id);
+    } else {
+      const node = newCategoryNode({name: catName, level:1, record: freshRecord});
+      setCategoryTree(tree => [...(tree||[]), node]);
+      setActiveNodeId(node.id);
+    }
 
     setStep("profile");
   };
@@ -8221,7 +8290,6 @@ function App(){
   const [dupDismissed,setDupDismissed]=useState("");   /* v2.13 duplicate-category flag dismissal (per typed name) */
   const [wbCollapsed,setWbCollapsed]=useState({});     /* v2.21 workbench collapse (rail) */
   const [aboutReturn,setAboutReturn]=useState("profile");   /* step to return to when closing About */   /* v1.1.0 collapsible nav — active group always shown */
-  const [profile,setProfile]=useState(sv("profile",{name:"",sector:"",region:"",notes:"",suppliers:[],pains:[]}));
   const [portfolio,setPortfolio]=useState(sv("portfolio","default"));
   const [essCompleted,setEssCompleted]=useState(sv("essCompleted",false));
   const [portfolioActiveCategory, setPortfolioActiveCategory] = useState(sv("portfolioActiveCategory", null));
@@ -8248,40 +8316,86 @@ function App(){
     kpis: "",
     benefitsFramework: ""
   }));
-  const [vars,setVars]=useState(()=>normalizeVars(sv("vars",null)));
-  const [models,setModels]=useState(sv("models",{swot:null,pestle:null}));
-  const [research,setResearch]=useState(sv("research",null));
-  const [suppliers,setSuppliers]=useState(sv("suppliers",[]));
-  const [srmReviews,setSrmReviews]=useState(sv("srmReviews",[]));
-  const [matCheck,setMatCheck]=useState(sv("matCheck",{}));
-  const [risks,setRisks]=useState(sv("risks",[]));
-  const [chess,setChess]=useState(sv("chess",null));
-  const [nego,setNego]=useState(sv("nego",null));
-  const [exec,setExec]=useState(sv("exec",null));
-  const [value,setValue]=useState(sv("value",null));
-  const [esgOps,setEsgOps]=useState(sv("esgOps",[]));
-  const [benefits,setBenefits]=useState(sv("benefits",[]));
-  const [pitch,setPitch]=useState(sv("pitch",null));
-  const [tierScheme,setTierScheme]=useState(sv("tierScheme","standard"));
   const [aiOpen,setAiOpen]=useState(false);
   const [adminOpen,setAdminOpen]=useState(false);
   const [restored,setRestored]=useState(!!(SAVED&&SAVED.profile&&SAVED.profile.name));
-  const [marketBrief,setMarketBrief]=useState(sv("marketBrief",{summary:"",priceOutlook:"",suppliers:[]}));
-  const [internal,setInternal]=useState(sv("internal",{spend:null}));
-  const [generic,setGeneric]=useState(sv("generic",false));
-  const [strategy,setStrategy]=useState(sv("strategy",null));
-  const [opps,setOpps]=useState(sv("opps",[]));   /* v2.15 options & opportunities */
-  const [sevenPs,setSevenPs]=useState(sv("sevenPs",{sector:SECTORS[0],questions:null,answers:{},canvas:null,narrative:""}));
-  const [cl,setCl]=useState(sv("cl",{drivers:{},levers:[],demandDrivers:[],risks:[],savings:[],kpis:[],notes:"",source:""}));
-  /* v2.28 Phase A — category tree (see CATEGORY TREE section above). `null`
-     is a one-time sentinel meaning "this session predates the tree and needs
-     migrating"; the effect below runs exactly once on mount and replaces it.
-     A pre-tree session ALREADY restores profile/vars/portfolioDetails/etc via
-     the sv(...) calls above — migration just wraps that already-restored
-     state into tree nodes, so it reuses those values directly rather than
-     re-deriving its own defaults (which would drift from the ones above). */
-  const [categoryTree,setCategoryTree]=useState(()=>sv("categoryTree",null));
-  const [activeNodeId,setActiveNodeId]=useState(()=>sv("activeNodeId",null));
+  /* v2.28 Phase A Step 4 — profile/vars/models/research/suppliers/srmReviews/
+     matCheck/risks/chess/nego/exec/value/esgOps/benefits/pitch/tierScheme/
+     marketBrief/internal/generic/strategy/opps/sevenPs/cl are no longer their
+     own useState: each is DERIVED from, and written straight back into, the
+     ACTIVE NODE's `record` in categoryTree, live, as the user edits — the
+     tree is the single source of truth for wizard state, not a separate flat
+     copy that gets synced elsewhere. This is what makes Step 3's
+     protectedName/protectedNodeId workaround unnecessary (see its removal
+     note further down): there is no more frozen-at-migration record for the
+     tree-shim to revert to, because the record IS what the wizard is editing.
+
+     categoryTree/activeNodeId/portfolios are computed together, once, by a
+     single lazy useState initializer rather than a useEffect (the Step 1/3
+     shape). A useEffect-based migration means the FIRST render paints with
+     empty/default values and only picks up the real ones after a later,
+     post-mount effect fires — a visible flash. That was harmless while
+     categoryTree was just a passive mirror (Steps 1-3), but now that the
+     wizard reads its actual state FROM the tree, the same flash would show
+     up as "my in-progress category briefly appears blank" for every
+     currently-live user's first visit after this ships (none of them have a
+     categoryTree yet). Computing the migration synchronously during the
+     initial render — guaranteed by React to run exactly once for a lazy
+     useState initializer, unlike useMemo — avoids that flash entirely. */
+  const [treeInit] = useState(() => {
+    const existingTree = sv("categoryTree", null);
+    if (existingTree !== null) {
+      return { tree: existingTree, activeNodeId: sv("activeNodeId", null), portfolios: sv("portfolios", null) };
+    }
+    let legacyStrategies = {}; try { legacyStrategies = JSON.parse(storageGet("categoryai_portfolio_strategies") || "{}"); } catch(e) {}
+    const initProfile = sv("profile", {name:"",sector:"",region:"",notes:"",suppliers:[],pains:[]});
+    const initPortfolioDetails = sv("portfolioDetails", {
+      name:"", categories:[], description:"", businessUnit:"", owner:"", objectives:"", outcomes:"",
+      currentSpend:"", currency:"£", futureDemand:"", operatingModel:"", suppliersText:"",
+      technologyLandscape:"", regulatory:"", sustainability:"", digitalStrategy:"", riskAppetite:"",
+      governance:"", stakeholders:"", kpis:"", benefitsFramework:""
+    });
+    let {tree,activeNodeId,portfolios}=migrateToCategoryTree({
+      profile: initProfile, hasWizardContent: !!(initProfile.name||"").trim(), portfolioDetails: initPortfolioDetails, legacyStrategies,
+      buildActiveRecord: ()=>buildNodeRecord({
+        profile: initProfile,
+        vars: normalizeVars(sv("vars", null)),
+        generic: sv("generic", false),
+        models: sv("models", {swot:null,pestle:null}),
+        research: sv("research", null),
+        suppliers: sv("suppliers", []),
+        srmReviews: sv("srmReviews", []),
+        matCheck: sv("matCheck", {}),
+        risks: sv("risks", []),
+        chess: sv("chess", null),
+        nego: sv("nego", null),
+        exec: sv("exec", null),
+        value: sv("value", null),
+        esgOps: sv("esgOps", []),
+        benefits: sv("benefits", []),
+        pitch: sv("pitch", null),
+        tierScheme: sv("tierScheme", "standard"),
+        marketBrief: sv("marketBrief", {summary:"",priceOutlook:"",suppliers:[]}),
+        internal: sv("internal", {spend:null}),
+        strategy: sv("strategy", null),
+        opps: sv("opps", []),
+        sevenPs: sv("sevenPs", {sector:SECTORS[0],questions:null,answers:{},canvas:null,narrative:""}),
+        cl: sv("cl", {drivers:{},levers:[],demandDrivers:[],risks:[],savings:[],kpis:[],notes:"",source:""})
+      })
+    });
+    /* Bootstrap: guarantee an active node with a live record always exists,
+       even on a brand-new, completely empty first-ever session (no prior
+       wizard content, no portfolio categories yet) — the wizard writes into
+       the active node's record as soon as the user types anything on the
+       Profile step, so one must exist before that point, not just after. */
+    if (!tree.some(n => n.id === activeNodeId && n.record)) {
+      const blank = newCategoryNode({name:"", level:1, record: defaultRecord()});
+      tree = [...tree, blank];
+      activeNodeId = blank.id;
+      if (portfolios && portfolios.length) portfolios = [{...portfolios[0], level1CategoryIds:[...portfolios[0].level1CategoryIds, blank.id]}, ...portfolios.slice(1)];
+    }
+    return {tree, activeNodeId, portfolios};
+  });
   /* v2.28 Phase A schema addition — an explicit Portfolio entity, a real
      top-level container above the Level 1 category tree ({id, name,
      description, level1CategoryIds[]}), rather than treating "portfolio" as
@@ -8290,25 +8404,65 @@ function App(){
      switching/creating/comparing multiple portfolios yet, and it is a
      SEPARATE concept from the pre-existing "portfolio library" (save/load
      snapshots), which is untouched. */
-  const [portfolios,setPortfolios]=useState(()=>sv("portfolios",null));
+  const [categoryTree,setCategoryTree]=useState(()=>treeInit.tree);
+  const [activeNodeId,setActiveNodeId]=useState(()=>treeInit.activeNodeId);
+  const [portfolios,setPortfolios]=useState(()=>treeInit.portfolios);
+  /* Defensive re-assertion of the same invariant as the bootstrap above, in
+     case any future code path sets activeNodeId (or replaces categoryTree)
+     without also guaranteeing a record — same "bootstrap layered on top of
+     migration" pattern used in Step 1, cheap insurance against a wizard
+     write silently vanishing into a non-existent or record-less node. */
   useEffect(()=>{
-    if(categoryTree!==null) return;
-    let legacyStrategies={}; try{ legacyStrategies=JSON.parse(storageGet("categoryai_portfolio_strategies")||"{}"); }catch(e){}
-    const {tree,activeNodeId:newActiveId,portfolios:newPortfolios}=migrateToCategoryTree({
-      profile, hasWizardContent: !!(profile.name||"").trim(), portfolioDetails, legacyStrategies,
-      buildActiveRecord: ()=>buildNodeRecord({profile,vars,generic,models,research,suppliers,srmReviews,matCheck,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,strategy,opps,sevenPs,cl})
-    });
-    setCategoryTree(tree);
-    setActiveNodeId(newActiveId);
-    setPortfolios(newPortfolios);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]);
+    if(categoryTree.some(n=>n.id===activeNodeId && n.record)) return;
+    const blank=newCategoryNode({name:"", level:1, record:defaultRecord()});
+    setCategoryTree(t=>[...t, blank]);
+    setActiveNodeId(blank.id);
+  },[categoryTree, activeNodeId]);
+  const activeNode = categoryTree.find(n=>n.id===activeNodeId) || null;
+  const activeRecord = (activeNode && activeNode.record) ? activeNode.record : defaultRecord();
+  /* Writes a field straight into the active node's record, live. Accepts
+     either a plain value or a functional updater (prevVal=>next), matching
+     every existing setXxx call site's expectations exactly — see the Step 4
+     call-site trace for why this is safe for all 22 fields with no changes
+     needed in Step1-Step5/StepSuppliers/StepRisk/StepNego/StepExec/etc. */
+  function updateActiveRecord(key, updater){
+    setCategoryTree(tree=>tree.map(n=>{
+      if(n.id!==activeNodeId) return n;
+      const current=n.record||defaultRecord();
+      const nextVal = typeof updater==="function" ? updater(current[key]) : updater;
+      return {...n, record:{...current, [key]:nextVal}};
+    }));
+  }
+  const bindField = (key) => (updater) => updateActiveRecord(key, updater);
+  const profile=activeRecord.profile, setProfile=bindField("profile");
+  const vars=normalizeVars(activeRecord.vars), setVars=bindField("vars");
+  const generic=activeRecord.generic, setGeneric=bindField("generic");
+  const models=activeRecord.models, setModels=bindField("models");
+  const research=activeRecord.research, setResearch=bindField("research");
+  const suppliers=activeRecord.suppliers, setSuppliers=bindField("suppliers");
+  const srmReviews=activeRecord.srmReviews, setSrmReviews=bindField("srmReviews");
+  const matCheck=activeRecord.matCheck, setMatCheck=bindField("matCheck");
+  const risks=activeRecord.risks, setRisks=bindField("risks");
+  const chess=activeRecord.chess, setChess=bindField("chess");
+  const nego=activeRecord.nego, setNego=bindField("nego");
+  const exec=activeRecord.exec, setExec=bindField("exec");
+  const value=activeRecord.value, setValue=bindField("value");
+  const esgOps=activeRecord.esgOps, setEsgOps=bindField("esgOps");
+  const benefits=activeRecord.benefits, setBenefits=bindField("benefits");
+  const pitch=activeRecord.pitch, setPitch=bindField("pitch");
+  const tierScheme=activeRecord.tierScheme, setTierScheme=bindField("tierScheme");
+  const marketBrief=activeRecord.marketBrief, setMarketBrief=bindField("marketBrief");
+  const internal=activeRecord.internal, setInternal=bindField("internal");
+  const strategy=activeRecord.strategy, setStrategy=bindField("strategy");
+  const opps=activeRecord.opps, setOpps=bindField("opps");   /* v2.15 options & opportunities */
+  const sevenPs=activeRecord.sevenPs, setSevenPs=bindField("sevenPs");
+  const cl=activeRecord.cl, setCl=bindField("cl");
   /* Keeps the (single, for now) Portfolio's level1CategoryIds in sync with
      whatever the tree actually contains, centrally — so nothing that touches
      categoryTree (reconciliation on portfolio-library switch, future
      duplicate-as-child, etc.) also has to remember to update this separately. */
   useEffect(()=>{
-    if(categoryTree===null || !portfolios || !portfolios.length) return;
+    if(!portfolios || !portfolios.length) return;
     const ids=categoryTree.filter(n=>n.level===1).map(n=>n.id);
     const same=JSON.stringify(ids)===JSON.stringify(portfolios[0].level1CategoryIds||[]);
     if(same) return;
@@ -8322,57 +8476,42 @@ function App(){
     return ()=>clearTimeout(t);
   },[step,profile,vars,models,research,suppliers,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,generic,strategy,opps,sevenPs,cl,srmReviews,matCheck,portfolio,essCompleted,portfolioActiveCategory,portfolioDetails,categoryTree,activeNodeId,portfolios]);
 
-  /* v2.14 — one builder for wizard->portfolio strategies, used by both the
-     deep-dive live sync and the end-of-flow "update portfolio" action.
-     v2.28 Phase A Step 3: the actual logic moved to the pure
-     buildStrategyFromRecord (see CATEGORY TREE section) so it can run
+  /* v2.14 — one builder for wizard->portfolio strategies, used by the
+     end-of-flow "update portfolio" actions (a standalone build matching or
+     joining a line). v2.28 Phase A Step 3: the actual logic moved to the
+     pure buildStrategyFromRecord (see CATEGORY TREE section) so it can run
      against ANY node's record, not just whatever's currently live in App()
-     state. This thin wrapper is kept so every existing call site
-     (updatePortfolioLine, addAsNewLine, the auto-sync effect below) is
-     unchanged. */
+     state. This thin wrapper is kept so its existing call sites
+     (updatePortfolioLine, addAsNewLine) are unchanged. The live deep-dive
+     sync this comment used to also mention was a separate, now-removed
+     effect — see the sole-writer effect below, which Step 4 made able to
+     cover that case by itself. */
   function buildWizardStrategy(lineName, sourceNote){
     return buildStrategyFromRecord(
       buildNodeRecord({profile,vars,generic,models,research,suppliers,srmReviews,matCheck,risks,chess,nego,exec,value,esgOps,benefits,pitch,tierScheme,marketBrief,internal,strategy,opps,sevenPs,cl}),
       lineName, portfolioDetails, sourceNote
     );
   }
-  /* v2.28 Phase A Step 3 — the tree is now the sole writer of
-     categoryai_portfolio_strategies for every line EXCEPT the one currently
-     protected (see treeToLegacyStrategiesBlob's comment for why both a
-     name-based AND an id-based protection are needed).
-     The base for the write is `treeBlob`, NOT the full current object —
-     deliberately, so a line that's genuinely left the tree (e.g. the old
-     portfolio's lines after switching to a different one) is correctly
-     dropped, not carried forward stale. The ONLY entries preserved
-     untouched from `current` are the specifically protected ones: looked up
-     both by portfolioActiveCategory's name AND by the active node's
-     CURRENT name (covering the "just exited deep-dive mode" transition,
-     where portfolioActiveCategory goes null but the node is still the
-     frozen-record active one — see the Step 3 test notes for the concrete
-     bug this fixes). This effect and the auto-sync effect below do a
-     read-modify-write on disjoint keys of the same object, so the result is
-     correct regardless of which one React fires last after a render that
-     changes both categoryTree and portfolioDetails at once (e.g. a
-     portfolio switch). */
+  /* v2.28 Phase A Step 3 made the tree the sole writer of
+     categoryai_portfolio_strategies, protecting the active wizard node from
+     being rebuilt off its frozen-at-migration record (see
+     treeToLegacyStrategiesBlob's comment). Step 4 made every wizard field
+     write straight into the active node's record, live — so `categoryTree`
+     passed in below already carries the current value for that node on
+     every keystroke, and rebuilding the whole blob from it on every
+     categoryTree change is now simply correct, with no protection or
+     preserved-from-`current` merge needed. The base for the write is the
+     freshly-built blob, not the previous stored object, so a line that's
+     genuinely left the tree (e.g. the old portfolio's lines after switching
+     to a different one) is correctly dropped, not carried forward stale.
+     This also makes the old per-keystroke auto-sync effect (formerly here,
+     see git history) redundant: it wrote the identical value to the same
+     key, computed from the same now-live fields, so it was pure duplicate
+     work — removed rather than left as defensive code for a race condition
+     (a frozen active-node record) that no longer exists. */
   useEffect(()=>{
-    if(categoryTree===null) return;
-    let current={}; try{ current=JSON.parse(storageGet("categoryai_portfolio_strategies")||"{}"); }catch(e){}
-    const treeBlob=treeToLegacyStrategiesBlob(categoryTree, portfolioActiveCategory, activeNodeId, portfolioDetails);
-    const activeNode=categoryTree.find(n=>n.id===activeNodeId);
-    const protectedEntry={};
-    if(portfolioActiveCategory && current[portfolioActiveCategory]!==undefined) protectedEntry[portfolioActiveCategory]=current[portfolioActiveCategory];
-    if(activeNode && current[activeNode.name]!==undefined) protectedEntry[activeNode.name]=current[activeNode.name];
-    storageSet("categoryai_portfolio_strategies", JSON.stringify({...treeBlob, ...protectedEntry}));
-  },[categoryTree, portfolioDetails, portfolioActiveCategory, activeNodeId]);
-  useEffect(() => {
-    if (portfolioActiveCategory && profile.name === portfolioActiveCategory) {
-      try {
-        const storedStrats = JSON.parse(localStorage.getItem("categoryai_portfolio_strategies") || "{}");
-        storedStrats[portfolioActiveCategory] = buildWizardStrategy(portfolioActiveCategory);
-        localStorage.setItem("categoryai_portfolio_strategies", JSON.stringify(storedStrats));
-      } catch(e) {}
-    }
-  }, [strategy, profile, portfolioActiveCategory, internal, models, exec, suppliers, chess, nego, value, vars, generic, portfolioDetails]);
+    storageSet("categoryai_portfolio_strategies", JSON.stringify(treeToLegacyStrategiesBlob(categoryTree, portfolioDetails)));
+  },[categoryTree, portfolioDetails]);
   /* v2.14 — end-of-flow portfolio update (standalone builds matching a line) */
   const [lineSyncMsg,setLineSyncMsg]=useState(null);
   function updatePortfolioLine(m){
@@ -8829,8 +8968,8 @@ function App(){
           {step==="nego" && <StepNego profile={profile} vars={vars} generic={generic&&!internalTouched} cl={cl} chess={chess} nego={nego} setNego={setNego} next={()=>setStep("exec")}/>}
           {step==="exec" && <StepExec profile={profile} strategy={strategy} cl={cl} exec={exec} setExec={setExec} next={()=>setStep("ess")}/>}
           {(step==="ess" || step==="portfolio_workflow") && (
-            <StepPortfolioWorkflow 
-              portfolioId={portfolio} 
+            <StepPortfolioWorkflow
+              portfolioId={portfolio}
               next={()=>setStep("value")}
               portfolioDetails={portfolioDetails}
               setPortfolioDetails={setPortfolioDetails}
@@ -8838,14 +8977,10 @@ function App(){
               setPortfolioActiveCategory={setPortfolioActiveCategory}
               activeProfileName={profile.name}
               setStep={setStep}
-              setProfile={setProfile}
-              setVars={setVars}
-              setSuppliers={setSuppliers}
-              setRisks={setRisks}
-              setCl={setCl}
-              setNego={setNego}
-              setExec={setExec}
-              setStrategy={setStrategy}
+              categoryTree={categoryTree}
+              setCategoryTree={setCategoryTree}
+              activeNodeId={activeNodeId}
+              setActiveNodeId={setActiveNodeId}
             />
           )}
           {step==="value" && <StepValue profile={profile} cl={cl} internal={internal} value={value} setValue={setValue} benefits={benefits} setBenefits={setBenefits} esgOps={esgOps} matCheck={matCheck} setMatCheck={setMatCheck} next={()=>setStep("sevenps")}/>}
