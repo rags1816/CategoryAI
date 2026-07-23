@@ -13,8 +13,8 @@ for consistency across the portfolio.
 ## Repo structure convention
 
 - **Root** — only the live app file(s) (e.g. `index.html`), `README.md`,
-  `METHODOLOGY.md`, `LICENSE`, `.gitignore`. Keep root clean; nothing else
-  belongs there.
+  `METHODOLOGY.md`, `LICENSE`, `.gitignore`, `CHANGELOG.md` (if the repo
+  tracks one). Keep root clean; nothing else belongs there.
 - **`docs/`** — user guides, admin guides, reference guides, and any
   supporting documentation not needed to run the app.
 - **`archive/`** — superseded versions, old HTML/app snapshots, deprecated
@@ -76,6 +76,33 @@ are my own — see `METHODOLOGY.md` for the original framework.
    data, credentials, or PII** in any file being touched — stop and ask
    before proceeding, even if it seems like test data.
 
+## Working alongside direct edits to main
+
+The repo owner sometimes edits `main` directly (via GitHub's web editor or
+a local clone) rather than routing every change through a PR — this is a
+legitimate, normal part of the workflow, not something to avoid or work
+around. Because of this, Claude Code sessions must actively guard against
+branch divergence rather than assuming `main` is static:
+
+1. **At the start of every session**, before any work, pull latest `main`
+   and briefly confirm whether it has moved since Claude Code last touched
+   this repo.
+2. **Never let a working branch live longer than one discrete fix/task.**
+   Complete one piece of work, get it reviewed and merged, then start the
+   next piece from a freshly-pulled `main` — don't accumulate multiple
+   unrelated fixes on one long-lived branch. The longer a branch stays
+   open, the more likely it silently diverges from direct edits landing on
+   `main` in the meantime, and the more entangled the eventual
+   reconciliation becomes.
+3. **Before starting a new task within the same session**, always re-pull
+   `main` first, even if it was checked recently — don't assume it's still
+   where it was 20 minutes ago.
+4. **If `main` has changed in ways that touch the same functions/lines
+   being worked on**, stop and flag it immediately with a clear diff of
+   what changed, rather than discovering it at merge time. Assess what's
+   genuinely good to adopt from the direct changes (fixes, improvements)
+   separately from what needs reconciling with in-progress work.
+
 ## Known environment quirks
 
 - The GitHub App integration can push and merge but **cannot delete
@@ -89,93 +116,3 @@ are my own — see `METHODOLOGY.md` for the original framework.
 
 Report findings and ask, rather than assuming — this repo (and the wider
 portfolio) prioritises careful, reviewed changes over speed.
-
----
-
-# CategoryAI — Project-Specific Notes (addendum to root CLAUDE.md)
-
-Read this alongside the standard portfolio-wide CLAUDE.md conventions.
-These are lessons learned the hard way during the Phase A/B integrity
-overhaul — treat them as binding, not optional.
-
-## Commit discipline — non-negotiable
-
-**Commit locally the moment a step passes its own tests and has been
-reviewed in chat — even if explicit "proceed" hasn't been given yet.**
-
-This project lost a full completed, tested step (Phase A Step 1) to a
-container reset because it was held uncommitted across a turn boundary
-while waiting for review. Local commits are cheap and reversible; leaving
-tested, working code uncommitted is not durable in this environment.
-
-- Commit locally as soon as tests pass and the diff has been shown.
-- Do NOT push, open a PR, or merge without explicit confirmation — that
-  gate still applies.
-- If asked to hold before committing (e.g. "show me the design first"),
-  still commit the moment testing confirms the design works — "hold" means
-  don't push/merge, not "leave it uncommitted."
-
-## Core trust principle — never blend unassessed data into a real result
-
-This app's entire value proposition is that a placement, score, or rollup
-means what it says. Multiple bugs fixed in this project were all the same
-underlying mistake in different forms:
-
-- A default value must never be indistinguishable from a real assessment.
-- An AI-drafted value must never count until explicitly reviewed and
-  accepted — re-selecting an already-chosen value does not count as review.
-- An unassessed child must never be blended into a parent rollup as a
-  default-midpoint guess — exclude it, and show a visible "X of Y not yet
-  assessed" indicator instead.
-
-Any new feature touching scoring, confidence states, or rollups must be
-tested against this principle explicitly, the same way the AI-draft
-review gate and the rollup exclusion logic were.
-
-## Data model — current shape (post Phase A/B)
-
-- Categories are a tree, up to 4 levels deep (Category → Sub-category →
-  Sub-sub-category → Item/commodity), under a Portfolio entity.
-- Every node has a stable id. Do not reintroduce name-keyed lookups —
-  this was a real, confirmed bug source (duplicate-named children became
-  unreachable) before ids existed everywhere.
-- A node with children never carries its own manual score — its displayed
-  position is always the rollup of its children, even if it was
-  individually scored before children were added. A stale individual
-  score is more misleading than an honest "incomplete" state.
-- `treeToLegacyStrategiesBlob` and related export/report logic are
-  currently Level-1-only — sub-category assessments do not yet feed the
-  exported strategy report. This is confirmed, current scope, not a bug.
-  Check this file's own comments before assuming it's been fixed.
-
-## Testing convention for this repo
-
-- Use Playwright against a locally-served copy with local UMD copies of
-  CDN dependencies (this sandbox blocks cdnjs.cloudflare.com) — don't
-  assume network access to real CDNs during testing.
-- Test realistic user paths, not just isolated unit checks — most real
-  bugs found in this project (the exit-deep-dive race condition, the
-  cross-category field leak, the duplicate-naming collision) were only
-  caught by walking an actual multi-step user journey, not by testing
-  functions in isolation.
-- `page.reload()` re-runs `addInitScript` and silently reseeds
-  localStorage with the pristine test seed — a known test-harness gotcha,
-  not an app bug. Use in-app navigation instead of reload when testing
-  persistence.
-- Autosave is debounced ~600ms — wait for it before reading localStorage
-  in a test, or you'll read a stale pre-save snapshot.
-
-## Known, confirmed scope boundaries (do not silently "fix" without asking)
-
-- Only one live Portfolio is supported today. The Portfolio entity exists
-  in the data model to support more in future; switching/comparing
-  multiple live Portfolios is explicitly not built.
-- UNSPSC/CPV codes are manual-entry only — no lookup, no validation, no
-  AI suggestion, and not copied when duplicating a node as a child
-  (deliberate — a copied code is more likely wrong than helpful).
-- Sub-category detail doesn't feed the exported report (see above).
-
-If any of the above changes, update this file and the in-app About tab /
-STEP_GUIDE chat context together — do not let the app's own documentation
-and its in-app AI assistant's knowledge drift apart again (this happened
-once already and required a dedicated consistency-pass step to fix).
