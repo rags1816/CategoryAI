@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.30.0
+### Fixed
+- **Critical:** `max_tokens` was hardcoded to 1500 on every direct Claude
+  API call (both in-app and API-key modes), silently truncating JSON on
+  the app's largest prompts — Generate Strategy, Negotiation Plan, and
+  the Research Assistant — causing parse failures and blocking the core
+  strategy/export/business-case pipeline. Now sized per call: 6000 tokens
+  for strategy generation, 4096 for negotiation plan and research
+  assistant. Gemini path unaffected (no output cap was ever set there).
+- Negotiation Plan prompt now includes kept chessboard method names — the
+  `chess` data was already available to the component but was never
+  being passed into the prompt.
+- Header banner and version references were still reading v2.25.0/v1.2.0
+  in several places (export footers, AI guide context string) despite
+  the app having shipped through v2.29.0 internally — all six user-facing
+  version strings now consistently read v2.30.0.
+ 
 ## v2.29.0 (Phase B — category hierarchy)
 Categories can now have children: **➕ Duplicate as child** on any node (any level) copies its descriptive context (notes, archetype, channel, specialization, coverage, supplier count, volume) — never its scores; the child always starts unassessed, exactly like any new category. New **📊 Portfolio Matrix** tab on P3 plots every node in the portfolio on one Value×Risk chart, filterable by level or all levels at once (tangled, with parent-child connecting lines), children under the same top-level category grouped by a ring color; click a bubble to open it in the Category track. New **rollup engine**: a parent with children shows a position computed from its assessed children (spend-weighted average by default, falling back to a simple average when spend data's missing, or an alternate worst-case/highest-risk-child mode) — unassessed children are excluded outright, never blended in as a default guess, with a visible "rollup incomplete" indicator when only some children have been assessed. Spend on a line with children is now derived (summed from them) rather than independently editable. Optional **UNSPSC/CPV** classification code fields on every category node — manual entry only, no lookup or validation yet.
 
@@ -11,6 +28,38 @@ AI-draft-and-review workflow for unassessed Kraljic variables: new `ai_draft` co
 
 ## v2.26.0
 FIX: generic-mode Kraljic quadrant bug — business impact was hard-pinned to the midpoint whenever internal data was skipped, making Bottleneck/Non-critical mathematically unreachable; now always derived from the actual internal variables. FIX: a saved/imported session missing a variable (schema drift) threw and white-screened the app with no recovery — added a normalizeVars() merge-on-load and a React error boundary as a safety net. Added a visible "not yet assessed" state (banner, dashed/hollow marker, "(assumed)" axis labels) so an unscored category no longer looks like a real Strategic placement. Step2's AI market assessment now names which variables it didn't return a usable score for, instead of silently leaving them unchanged.
+
+## v2.25.0 (Route-to-market engine)
+New rule-based route-to-market recommendation panel beneath P1 Composition:
+ranks the 4 default channels (MSP/VMS, Niche/Specialist Consultancy,
+Contingent/Temp Labour, RFx) per line. Kraljic quadrant is the primary
+signal; specialization, volume/frequency, existing panel coverage, and
+credible-supplier-count are modifiers on top of a base score per
+quadrant×channel. Pure and rule-based by design — an optional AI
+narrative layer can sit on top later without changing the underlying
+contract. Recommendations are ranked suggestions, never locked; the
+category manager always makes the final channel choice. Channel library
+is Admin-extensible.
+
+## v2.24.0
+About tab rebuilt as a numbered, paginated deck (8 sections, one page at
+a time) with clickable page dots and Prev/Next, instead of one long
+scroll. Resets to page 1 each time About is reopened.
+
+## v2.23.0 (+ v2.23.2 fix)
+Tour card made freely draggable (drag the header anywhere; position
+clamped to the viewport and remembered per browser), with a sensible
+default position (top on mobile so it never covers the bottom action
+buttons; bottom-right on desktop) until the user drags it themselves.
+v2.23.2 fix: dragging then releasing was immediately followed by a
+browser-generated "click" on the same element — the drag-vs-click guard
+was clearing itself synchronously on release, so it read as already gone
+by the time the spurious click fired, causing every drag to also
+re-expand the minimised tour card right after moving it. Fixed by
+clearing the guard one tick later instead of synchronously.
+
+ ## v2.22 — no trace found in code comments or commit history; likely a
+version-number skip, or content that left no recoverable detail.
 
 ## v2.21.2 (frozen)
 FIX: demo tour blanked when crossing from the category stops to the portfolio stops — a stray comma in the tour array (introduced v2.12) created a JavaScript array hole, so the 17th stop was `undefined`; legal syntax, invisible to static checks, found by driving the full tour in a real headless Chrome (now a regression harness). Tour is now explicitly two-part: "Part 1 · CATEGORY tour (stops 1–16)" then "Part 2 · PORTFOLIO tour", with the handover announced at the Part-1 completion stop.
