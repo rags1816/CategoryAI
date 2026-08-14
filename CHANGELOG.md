@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.30.2
+### Changed
+- Renamed "Archetype" → "Playbook" everywhere it's user-facing (Admin tab,
+  cost driver screen, P1 composition table, guide/help text, tour stops,
+  Excel export column, tooltips) — "Playbook" is the standard procurement
+  term for a pre-built sector template of cost drivers/levers/KPIs, where
+  "Archetype" was borrowed design/psychology terminology. Internal code
+  identifiers (`matchArchetype`, `ARCHETYPE_EXTRAS`, the `archetype` data
+  field on category objects) are unchanged — renaming those would need a
+  migration path for existing saved sessions and is a separate, lower-
+  priority piece of work with no user-visible benefit on its own.
+  Left alone: the unrelated "four offline archetypes" (independent /
+  integrated / hybrid / capability-based) in the P2 sourcing-options
+  screen — a different concept, not a category playbook.
+
 ## v2.30.1
 ### Fixed
 - **Elevator Pitch generation** (Step 14, "AI-write the 2-minute pitch + 10
