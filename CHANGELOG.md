@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.30.1
+### Fixed
+- **Elevator Pitch generation** (Step 14, "AI-write the 2-minute pitch + 10
+  FAQs") was using the default 1500-token cap like the other calls fixed in
+  v2.30.0 — this specific call site was missed because it's a separate
+  function/button from the main Step 14 strategy generation, even though
+  both live on the same screen. Combined pitch (180-230 words) + 10
+  sourced FAQ items reliably exceeds 1500 tokens. Now capped at 5000.
+  Found via live regression testing on the deployed v2.30.0 build (4/4
+  reproducible failures on Claude; passed on Gemini, which has no cap).
+
 ## v2.30.0
 ### Fixed
 - **Critical:** `max_tokens` was hardcoded to 1500 on every direct Claude
