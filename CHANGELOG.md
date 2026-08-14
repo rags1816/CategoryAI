@@ -1,5 +1,44 @@
 # Changelog
 
+## v2.30.3
+### Fixed
+- **P2 Strategic Options generation** (Portfolio Workbench) had no `maxTokens`
+  set at all — silently defaulting to 1500, same bug class as v2.30.0/v2.30.1.
+  This call's schema is the largest found yet (up to 5 options × 22+ scored
+  fields each), reproducibly failing 3/3. Now capped at 8000.
+- **"Start fresh"** only cleared `categoryai_session`, leaving 6 other
+  localStorage keys untouched (`categoryai_portfolio_strategies`,
+  `categoryai_portfolio_library`, `categoryai_custom`,
+  `categoryai_label_overrides`, `categoryai_tour_xy`,
+  `categoryai_tour_xy_min`). Stale data in the untouched keys — e.g. from
+  a prior Demo Tour run — was read straight back in on the very next load,
+  producing what looked like an un-clearable phantom demo session and a
+  wrong Portfolio Matrix. Now clears all session-derived keys (deliberately
+  still preserves `categoryai_keys`, the saved AI provider/API key —
+  that's a setting, not session data).
+- **`duplicateLevel1CategoryAsChild`** only received the composition
+  line's name string, not the row itself — when no matching tree node
+  existed yet (the common case for a line just typed into P1), it built a
+  synthetic blank parent with no notes/playbook/channel/etc. to copy from,
+  so the new child's descriptive context was silently empty regardless of
+  what the real composition row contained. Now receives and copies from
+  the actual row.
+
+### Changed
+- Route-to-market: added a one-click "use this →" link next to each
+  line's ranked channel suggestion. Previously, accepting the top
+  suggestion required a separate, easy-to-miss dropdown interaction —
+  the ranking text looked like a decision had already been made when it
+  hadn't, so a chosen channel could silently never reach the board-paper
+  report (§3) even though the underlying report logic was correct all
+  along.
+
+### Investigated, not a bug
+- Route-to-market recommendations "not flowing into the .docx" (flagged
+  in this session's QA report) — confirmed the report-builder logic is
+  correct and correctly gated; the real gap was the UX issue fixed above,
+  not a data-flow defect.
+
 ## v2.30.2
 ### Changed
 - Renamed "Archetype" → "Playbook" everywhere it's user-facing (Admin tab,
