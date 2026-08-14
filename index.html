@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.31.1</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.31.2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -486,7 +486,7 @@ function storageGet(k){ try{ return window.localStorage.getItem(k); }catch(e){ r
 function storageSet(k,v){ try{ window.localStorage.setItem(k,v); return true; }catch(e){ return false; } }
 function storageDel(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
 
-/* ================= IN-APP CONFIRM/ALERT MODAL (v2.31.1) =================
+/* ================= IN-APP CONFIRM/ALERT MODAL (v2.31.2) =================
    Replaces native window.confirm()/window.alert() everywhere in the app.
    Native dialogs are invisible to browser-automation tools (they live
    outside the DOM), which made every one of these un-testable and, for
@@ -566,43 +566,65 @@ async function geminiCall(prompt,json,model){
   if(data.error) throw Object.assign(new Error(data.error.message||"Gemini error"),{code:data.error.code,status:data.error.status});
   return (data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("\n");
 }
-async function askAI(prompt,{search=false,json=true,maxTokens=1500}={}){
+async function askAI(prompt,{search=false,json=true,maxTokens=1500,_retried=false}={}){
   const s=AI_SETTINGS;
   if(s.provider==="sandbox"){
     await new Promise(r=>setTimeout(r,600)); // brief pause so the UI reads naturally
     return sandboxAnswer(prompt,json);
   }
-  if(s.provider==="gemini"){
-    if(!s.geminiKey) throw new Error("No Gemini API key set — open ⚙ AI settings in the header.");
-    const tried=[s.geminiModel,...GEMINI_FALLBACKS.filter(m=>m!==s.geminiModel)];
-    let lastErr=null;
-    for(const model of tried){
-      try{
-        const text=await geminiCall(prompt,json,model);
-        return json?parseAIJson(text):text.trim();
-      }catch(e){
-        lastErr=e;
-        const msg=(e.message||"")+"";
-        if(e.code===404||msg.includes("not found")||msg.includes("NOT_FOUND")) continue; // try next model
-        throw e;
+  const attempt=async()=>{
+    if(s.provider==="gemini"){
+      if(!s.geminiKey) throw new Error("No Gemini API key set — open ⚙ AI settings in the header.");
+      const tried=[s.geminiModel,...GEMINI_FALLBACKS.filter(m=>m!==s.geminiModel)];
+      let lastErr=null;
+      for(const model of tried){
+        try{
+          const text=await geminiCall(prompt,json,model);
+          return json?parseAIJson(text):text.trim();
+        }catch(e){
+          lastErr=e;
+          const msg=(e.message||"")+"";
+          if(e.code===404||msg.includes("not found")||msg.includes("NOT_FOUND")) continue; // try next model
+          throw e;
+        }
       }
+      throw lastErr||new Error("No Gemini model available");
     }
-    throw lastErr||new Error("No Gemini model available");
+    const headers={"Content-Type":"application/json"};
+    if(s.provider==="claude-key"){
+      if(!s.claudeKey) throw new Error("No Claude API key set — open ⚙ AI settings in the header.");
+      headers["x-api-key"]=s.claudeKey;
+      headers["anthropic-version"]="2023-06-01";
+      headers["anthropic-dangerous-direct-browser-access"]="true";
+    }
+    const body={model:"claude-sonnet-4-6",max_tokens:maxTokens,messages:[{role:"user",content:prompt}]};
+    if(search && s.provider!=="gemini") body.tools=[{type:"web_search_20250305",name:"web_search"}];
+    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers,body:JSON.stringify(body)});
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message||"Claude error");
+    const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+    return json?parseAIJson(text):text.trim();
+  };
+  try{
+    return await attempt();
+  }catch(e){
+    /* Retry ONCE, but only for a malformed-JSON parse failure specifically —
+       a real, observed failure mode distinct from truncation (confirmed by
+       occurring far short of the token ceiling): the model occasionally
+       emits a stray character breaking JSON.parse on an otherwise-complete
+       response. A fresh generation is very likely to parse cleanly (this is
+       exactly what happened organically in testing — attempts 2 and 3 both
+       succeeded right after attempt 1 failed the same way). Network/auth/
+       other errors are NOT retried here — a second attempt won't fix a bad
+       key or an offline connection, it would just waste time before the
+       same failure anyway. */
+    const msg=(e.message||"")+"";
+    const looksLikeParseFailure = json && (msg.includes("JSON")||msg.includes("Unexpected token")||msg.includes("Expected ','")||msg.includes("didn't contain valid JSON"));
+    if(looksLikeParseFailure && !_retried){
+      return askAI(prompt,{search,json,maxTokens,_retried:true});
+    }
+    throw e;
   }
-  const headers={"Content-Type":"application/json"};
-  if(s.provider==="claude-key"){
-    if(!s.claudeKey) throw new Error("No Claude API key set — open ⚙ AI settings in the header.");
-    headers["x-api-key"]=s.claudeKey;
-    headers["anthropic-version"]="2023-06-01";
-    headers["anthropic-dangerous-direct-browser-access"]="true";
-  }
-  const body={model:"claude-sonnet-4-6",max_tokens:maxTokens,messages:[{role:"user",content:prompt}]};
-  if(search && s.provider!=="gemini") body.tools=[{type:"web_search_20250305",name:"web_search"}];
-  const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers,body:JSON.stringify(body)});
-  const data=await res.json();
-  if(data.error) throw new Error(data.error.message||"Claude error");
-  const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
-  return json?parseAIJson(text):text.trim();
 }
 async function askClaude(prompt,useSearch,expectJson=true,maxTokens=1500){
   try{ return await askAI(prompt,{search:useSearch,json:expectJson,maxTokens}); }
@@ -1476,7 +1498,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
     ["Overview", (
       <div className="card" style={{background:"var(--petrol)",color:"#fff"}}>
         <h2 className="display" style={{color:"#fff",marginTop:0}}>About CategoryAI</h2>
-        <p style={{maxWidth:760,fontSize:14,lineHeight:1.5,color:"#D9E5E1"}}>A portfolio & category management workbench in a single file. The premise: category and portfolio management is the optimal balancing of <b>internal demand with external supply</b> — value earned by both the business and its suppliers, risk shared sensibly, delivered collaboratively and in compliance with ethics, regulation and law. Two tracks share that core: an independent <b>Portfolio track</b> (charter & composition → strategic options → consolidated report) and the <b>Category track</b> (Define → Understand → Strategise → Source → Contract & Manage → Output). Every AI-assisted input declares its source in small print, and each strategy report closes with a References & Bibliography.</p>
+        <p style={{maxWidth:760,fontSize:14,lineHeight:1.5,color:"#D9E5E1"}}>A portfolio & category management workbench in a single file. The premise: category and portfolio management is the optimal balancing of <b>internal demand with external supply</b> — value earned by both the business and its suppliers, risk shared sensibly, delivered collaboratively and in compliance with ethics, regulation and law. Two tracks share that core: an independent <b>Portfolio track</b> (charter & composition → strategic options → consolidated report) and the <b>Category track</b> (Define → Understand → Strategise → Source → Contract & Manage → Output). Every AI-assisted input declares its source in small print, and the Portfolio strategy report closes with a full References & Bibliography.</p>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>
           {["Single file · no install","Works fully offline (Sandbox)","Claude · Gemini · Sandbox","External-data-first"].map(c=>
             <span key={c} style={{background:"#0B4038",color:"#D9E5E1",borderRadius:99,padding:"4px 12px",fontSize:11.5,fontWeight:600}}>{c}</span>)}
@@ -1567,7 +1589,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
-        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.31.1 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
+        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.31.2 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
       </div>
     )]
   ];
@@ -1798,7 +1820,7 @@ function AISettings({open,setOpen}){
       {test && test!=="busy" && (
         <div className="banner" style={{marginTop:8, background:test.ok?"#E4F0EA":"#FBEAEA", borderColor:test.ok?"#7FB89F":"var(--red)", fontSize:12}}>{test.msg}</div>
       )}
-      <p className="hint" style={{marginTop:8, fontSize:10.5}}>Every AI output in the app declares this provider and model as its source — inline in small print, and in the References &amp; Bibliography of each strategy report.</p>
+      <p className="hint" style={{marginTop:8, fontSize:10.5}}>Every AI output in the app declares this provider and model as its source — inline in small print, and in the Portfolio strategy report's References &amp; Bibliography.</p>
     </div>
   );
 }
@@ -3202,7 +3224,7 @@ Respond ONLY with JSON, no markdown fences:
     setBusy(false);
   }
   function buildMd(){
-    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.31.1 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
+    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.31.2 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
     md+=`**Kraljic:** ${d.quadrant} (supply risk ${d.supplyRisk.toFixed(1)}/5, business impact ${d.businessImpact.toFixed(1)}/5)\n\n`;
     /* v2.13 — decision-paper order (per the management documents): summary,
        pitch, FAQ and the strategy itself lead; evidence follows; the
@@ -3381,7 +3403,7 @@ Respond ONLY with JSON, no markdown fences:
       const pptx=new PGJ(); pptx.layout="LAYOUT_WIDE";
       pptx.defineSlideMaster({title:"MAIN",background:{color:"FFFFFF"},objects:[
         {rect:{x:0,y:0,w:"100%",h:0.35,fill:{color:P}}},
-        {text:{text:"CategoryAI Strategic Category Suite v2.31.1",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
+        {text:{text:"CategoryAI Strategic Category Suite v2.31.2",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
       const slide=(title)=>{const s=pptx.addSlide({masterName:"MAIN"}); if(title) s.addText(title,{x:0.4,y:0.5,w:12.5,h:0.6,fontSize:26,bold:true,color:INKC,fontFace:"Calibri"}); return s;};
       const tblOpts={x:0.4,y:1.3,w:12.5,fontSize:11,color:INKC,border:{pt:0.5,color:"D8DCE0"},fill:{color:"FFFFFF"},autoPage:true,autoPageRepeatHeader:true};
       const hdr=t=>t.map(x=>({text:x,options:{bold:true,fill:{color:"EEF4F1"},color:INKC}}));
@@ -3562,13 +3584,13 @@ Respond ONLY with JSON, no markdown fences:
 
         {!strategy && (
           <div className="banner" style={{background:"#FBEAEA",borderColor:"var(--red,#C0392B)",marginBottom:10}}>
-            <b>⚠ No completed strategy synthesis yet.</b> Downloads below will be missing the executive summary, objectives, roadmap and any section that depends on it — Chessboard, Cost drivers, Supplier segmentation, Risk register and References may all be silently absent from the Word document specifically (PowerPoint and Markdown pull some of this content independently and may look more complete). Click <b>⚡ Generate strategy</b> above first, or if it failed, check the error and retry before downloading.
+            <b>⚠ No completed strategy synthesis yet.</b> Downloads below will be missing the executive summary, objectives, roadmap and any section that depends on it — Chessboard, Cost drivers, Supplier segmentation and Risk register may all be silently absent from the Word document specifically (PowerPoint and Markdown pull some of this content independently and may look more complete). Click <b>⚡ Generate strategy</b> above first, or if it failed, check the error and retry before downloading.
           </div>
         )}
         <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
           <button className="btn dark" disabled={busy} onClick={generate} title="Checks completeness first (you'll see any missing inputs and choose to continue with available data), then sends everything you've entered — with confidence flags — to the AI, which writes the full strategy document below.">{busy?"Synthesising…":strategy?"↻ Regenerate strategy":"⚡ Generate strategy"}</button>
           <span style={{flexBasis:"100%", fontSize:10.5, fontWeight:800, color:"var(--slate)", textTransform:"uppercase", letterSpacing:"0.05em", marginTop:6}}>Outputs — one strategy, several formats:</span>
-          <button className="btn primary" onClick={async()=>{ if(!strategy && !(await confirmAsync("No completed strategy synthesis yet — this Word document will be missing several sections (executive summary, objectives, roadmap, and likely Chessboard/Cost drivers/Suppliers/Risk register/References too).\n\nDownload the incomplete document anyway?"))) return; downloadDoc(); }} title="Downloads the full strategy as a real Word document (.docx, with automatic .doc fallback offline) — the format to circulate to stakeholders.">⬇ Download Word document (.docx)</button>
+          <button className="btn primary" onClick={async()=>{ if(!strategy && !(await confirmAsync("No completed strategy synthesis yet — this Word document will be missing several sections (executive summary, objectives, roadmap, and likely Chessboard/Cost drivers/Suppliers/Risk register too).\n\nDownload the incomplete document anyway?"))) return; downloadDoc(); }} title="Downloads the full strategy as a real Word document (.docx, with automatic .doc fallback offline) — the format to circulate to stakeholders.">⬇ Download Word document (.docx)</button>
           <button className="btn primary" onClick={()=>downloadBusinessCase("vm")} title="RECOMMENDED — procurement-linked format. Business Case & Benefits Delivery Plan in your organisation's Value Management template: stakeholders → opportunity → benefits delivery plan (L1/L2/L3 tangibility, owners, phasing) → project economics (Capex/Opex distinguished) → risks & alternatives incl. do-nothing. Assembled from this session; anything the app can't know (sponsor names, baselines, Capex/Opex) is an explicit [To complete] marker — a business case needs named accountability, so nothing is invented.">📑 Business case (VM · recommended)</button>
           <button className="btn" onClick={()=>downloadBusinessCase("5c")} title="The same session data argued as a Five Case Model business case: Strategic (why intervene) · Economic (options & value for money, from your kept opportunities) · Commercial (procurement route, plays, BATNA, suppliers) · Financial (affordability — to complete with Finance) · Management (delivery plan, benefits realisation, risks, governance). Choose whichever format your approval route expects.">📑 Business case (Five Case Model)</button>
           <button className="btn primary" style={{background:"var(--amber)",borderColor:"var(--amber)",color:"#2A2004"}} disabled={pptBusy} onClick={downloadPpt} title="Builds a widescreen PowerPoint board deck — one slide per module with native charts (market bars, five forces, cost-driver pie, planned-vs-delivered savings) and tables. Loads the pptxgenjs library from a CDN on first use.">{pptBusy?"Building deck…":"⬇ Download PowerPoint deck (.pptx)"}</button>
@@ -5036,7 +5058,7 @@ CATEGORY ARCHETYPES:\n${Object.entries(CATEGORY_ARCHETYPES).map(([k,a])=>{const 
     setQ(""); setBusy(true);
     try{
       const text=await askClaude(
-        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.31.1): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.31.1 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
+        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.31.2): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.31.2 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
         false, false);
       setMsgs(m=>[...m,{role:"assistant",text}]);
     }catch(e){ setMsgs(m=>[...m,{role:"assistant",text:e.message}]); }
@@ -9185,8 +9207,8 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.31.1</span></div>
-          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.31.1 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.31.2</span></div>
+          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.31.2 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <AIStatusChip/>
