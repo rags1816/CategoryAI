@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.30.3</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.31.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -485,6 +485,56 @@ const getAIName=()=> AI_SETTINGS.provider==="gemini" ? "Gemini" : (AI_SETTINGS.p
 function storageGet(k){ try{ return window.localStorage.getItem(k); }catch(e){ return null; } }
 function storageSet(k,v){ try{ window.localStorage.setItem(k,v); return true; }catch(e){ return false; } }
 function storageDel(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
+
+/* ================= IN-APP CONFIRM/ALERT MODAL (v2.31.0) =================
+   Replaces native window.confirm()/window.alert() everywhere in the app.
+   Native dialogs are invisible to browser-automation tools (they live
+   outside the DOM), which made every one of these un-testable and, for
+   a real user, they're also visually jarring next to the rest of the UI.
+   confirmAsync()/alertAsync() return a Promise resolving the same way
+   confirm()/alert() would (true/false, or undefined for alert) — callers
+   just add `await` and, if their enclosing function wasn't already async,
+   mark it so. A single <ConfirmModalHost/> is mounted once near the root;
+   these two functions are a module-level singleton bridge to it, so any
+   component can call them without threading a prop through 30+ call sites.
+   Falls back to the native dialog if the host isn't mounted yet (should
+   never happen in practice, but keeps behaviour safe either way).      */
+let _showConfirmModal=null;
+function confirmAsync(message){
+  return new Promise(resolve=>{
+    if(_showConfirmModal) _showConfirmModal({type:"confirm",message,resolve});
+    else resolve(window.confirm(message));
+  });
+}
+function alertAsync(message){
+  return new Promise(resolve=>{
+    if(_showConfirmModal) _showConfirmModal({type:"alert",message,resolve});
+    else { window.alert(message); resolve(); }
+  });
+}
+function ConfirmModalHost(){
+  const [state,setState]=useState(null);
+  useEffect(()=>{ _showConfirmModal=(s)=>setState(s); return ()=>{ _showConfirmModal=null; }; },[]);
+  useEffect(()=>{
+    if(!state) return;
+    const onKey=(e)=>{ if(e.key==="Escape") close(false); else if(e.key==="Enter") close(true); };
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  },[state]);
+  if(!state) return null;
+  const close=(result)=>{ state.resolve(result); setState(null); };
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(20,24,28,.55)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>state.type==="confirm"?close(false):close()}>
+      <div style={{background:"var(--card,#fff)",color:"var(--ink,#1A1A1A)",borderRadius:10,padding:"20px 22px",maxWidth:460,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,.35)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{whiteSpace:"pre-wrap",fontSize:13.5,lineHeight:1.5,marginBottom:18}}>{state.message}</div>
+        <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+          {state.type==="confirm" && <button className="btn ghost" onClick={()=>close(false)}>Cancel</button>}
+          <button className="btn primary" autoFocus onClick={()=>close(state.type==="confirm"?true:undefined)}>OK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 /* v1.1.0 rebrand: one-time migration of saved data from ProcureAI key names.
    Old keys are copied (not deleted) so a v1.0 build opened later still works. */
 (function migrateStorage(){ try{
@@ -1415,7 +1465,7 @@ const ABOUT_AI_ROWS=[
  ["Execution & value","value","Gantt, RACI, savings pipeline with complexity","Owners, statuses and values stay yours"],
  ["Strategy document","strategy","Full narrative, elevator pitch, defensible FAQs","Regenerate sections; export when satisfied"]];
 function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
-  const jump=id=>{ const portfolioSteps=["portfolio_setup","portfolio_options","ess"]; if(id!=="profile"&&!portfolioSteps.includes(id)&&!profileNamed){ alert("Name your category on step 1 first — everything unlocks from there. (The Portfolio track is independent and always open.)"); setStep("profile"); return; } setStep(id); };
+  const jump=async id=>{ const portfolioSteps=["portfolio_setup","portfolio_options","ess"]; if(id!=="profile"&&!portfolioSteps.includes(id)&&!profileNamed){ await alertAsync("Name your category on step 1 first — everything unlocks from there. (The Portfolio track is independent and always open.)"); setStep("profile"); return; } setStep(id); };
   const JumpBtn=({id,label})=>(
     <button className="btn" style={{padding:"3px 10px",fontSize:11}} onClick={()=>jump(id)}>{label||"Open →"}</button>);
   /* v2.24 — About as a numbered, paginated deck (8 sections, one at a time),
@@ -1517,7 +1567,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
-        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.30.3 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
+        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.31.0 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
       </div>
     )]
   ];
@@ -1917,7 +1967,7 @@ function AdminPanel({open,setOpen}){
             <input type="text" placeholder="id (e.g. panel)" value={chId} onChange={e=>setChId(e.target.value)} style={{width:110, padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11.5}}/>
             <input type="text" placeholder="Short label (e.g. Panel)" value={chShort} onChange={e=>setChShort(e.target.value)} style={{width:140, padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11.5}}/>
             <input type="text" placeholder="Full name" value={chName} onChange={e=>setChName(e.target.value)} style={{flex:1, minWidth:160, padding:"4px 6px", border:"1px solid var(--line)", borderRadius:4, background:"#fff", color:"var(--ink)", fontSize:11.5}}/>
-            <button className="btn" onClick={()=>{ const id=(chId||"").trim().toLowerCase().replace(/[^a-z0-9]/g,""); if(!id||!chName.trim()){ alert("Need an id and a full name."); return; } if(DEFAULT_CHANNELS[id]){ alert("That id collides with a default channel — pick another."); return; } CUSTOM.channels=CUSTOM.channels||{}; CUSTOM.channels[id]={name:chName.trim(), short:(chShort||chName).trim()}; saveCustom(); setChId(""); setChShort(""); setChName(""); R(); }}>+ Add channel</button>
+            <button className="btn" onClick={async()=>{ const id=(chId||"").trim().toLowerCase().replace(/[^a-z0-9]/g,""); if(!id||!chName.trim()){ await alertAsync("Need an id and a full name."); return; } if(DEFAULT_CHANNELS[id]){ await alertAsync("That id collides with a default channel — pick another."); return; } CUSTOM.channels=CUSTOM.channels||{}; CUSTOM.channels[id]={name:chName.trim(), short:(chShort||chName).trim()}; saveCustom(); setChId(""); setChShort(""); setChName(""); R(); }}>+ Add channel</button>
           </div>
 
           <h3>Custom category playbooks<Tip t="Extend the playbook library with your own categories. Paste JSON in the same shape as the built-in library."/></h3>
@@ -1933,7 +1983,7 @@ function AdminPanel({open,setOpen}){
             <pre 
               style={{background:"var(--paper)", border:"1px solid var(--line)", padding:"8px 10px", borderRadius:6, fontSize:10, overflowX:"auto", cursor:"pointer", margin:"4px 0", fontFamily:"monospace", userSelect:"all"}} 
               title="Click to copy example" 
-              onClick={(e)=>{navigator.clipboard.writeText(e.currentTarget.innerText); alert("Example JSON copied to clipboard!");}}
+              onClick={async(e)=>{navigator.clipboard.writeText(e.currentTarget.innerText); await alertAsync("Example JSON copied to clipboard!");}}
             >
 {`{
   "Facilities Management": {
@@ -3127,7 +3177,7 @@ Respond ONLY with JSON, no fences: {"pitch":"...","faqs":[{"q":"","a":"","source
     if(!(risks&&risks.length)) missing.push("Risk register (Step 8)");
     if(!(chess&&(chess.methods||[]).some(m=>m.keep!==false))) missing.push("Chessboard — no plays kept (Step 9)");
     if(!hasCL) missing.push("Cost drivers & levers (Step 10)");
-    if(missing.length && !confirm("Before generating — these inputs are missing or empty:\n\n• "+missing.join("\n• ")+"\n\nOK = generate with the AVAILABLE data (the gaps will be listed under 'Data gaps to close' in the document)\nCancel = go back and complete them first")) return;
+    if(missing.length && !(await confirmAsync("Before generating — these inputs are missing or empty:\n\n• "+missing.join("\n• ")+"\n\nOK = generate with the AVAILABLE data (the gaps will be listed under 'Data gaps to close' in the document)\nCancel = go back and complete them first"))) return;
     setBusy(true); setErr("");
     try{
       const varDump = ALL_VARS.map(v=>`${v.label}: ${vars[v.id].value}/5 [${CONF[vars[v.id].conf].label}] — ${vars[v.id].rationale}`).join("\n");
@@ -3152,7 +3202,7 @@ Respond ONLY with JSON, no markdown fences:
     setBusy(false);
   }
   function buildMd(){
-    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.30.3 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
+    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.31.0 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
     md+=`**Kraljic:** ${d.quadrant} (supply risk ${d.supplyRisk.toFixed(1)}/5, business impact ${d.businessImpact.toFixed(1)}/5)\n\n`;
     /* v2.13 — decision-paper order (per the management documents): summary,
        pitch, FAQ and the strategy itself lead; evidence follows; the
@@ -3324,14 +3374,14 @@ Respond ONLY with JSON, no markdown fences:
     setPptBusy(true);
     try{
       const PGJ=await ensurePptx();
-      if(!PGJ){ alert("PowerPoint library couldn't load from any CDN — check the network, or use the Word download."); setPptBusy(false); return; }
+      if(!PGJ){ await alertAsync("PowerPoint library couldn't load from any CDN — check the network, or use the Word download."); setPptBusy(false); return; }
       const d=deriveScores(vars,generic);
       renderCategoryCharts();   /* v2.17 — same charts as the Word document */
       const P="14636B", A="D8A441", INKC="20242B", SL="6B7280";
       const pptx=new PGJ(); pptx.layout="LAYOUT_WIDE";
       pptx.defineSlideMaster({title:"MAIN",background:{color:"FFFFFF"},objects:[
         {rect:{x:0,y:0,w:"100%",h:0.35,fill:{color:P}}},
-        {text:{text:"CategoryAI Strategic Category Suite v2.30.3",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
+        {text:{text:"CategoryAI Strategic Category Suite v2.31.0",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
       const slide=(title)=>{const s=pptx.addSlide({masterName:"MAIN"}); if(title) s.addText(title,{x:0.4,y:0.5,w:12.5,h:0.6,fontSize:26,bold:true,color:INKC,fontFace:"Calibri"}); return s;};
       const tblOpts={x:0.4,y:1.3,w:12.5,fontSize:11,color:INKC,border:{pt:0.5,color:"D8DCE0"},fill:{color:"FFFFFF"},autoPage:true,autoPageRepeatHeader:true};
       const hdr=t=>t.map(x=>({text:x,options:{bold:true,fill:{color:"EEF4F1"},color:INKC}}));
@@ -3450,7 +3500,7 @@ Respond ONLY with JSON, no markdown fences:
         ],{x:0.5,y:1.3,w:12.4,h:5.4,valign:"top"});
       }
       await pptx.writeFile({fileName:(profile.name||"category").replace(/\s+/g,"-").toLowerCase()+"-strategy.pptx"});
-    }catch(e){ alert("PowerPoint generation failed: "+e.message); }
+    }catch(e){ await alertAsync("PowerPoint generation failed: "+e.message); }
     setPptBusy(false);
   }
 
@@ -3640,7 +3690,7 @@ Respond ONLY with JSON, no markdown fences:
         <h2 className="display">💾 Session data<Tip t="Your work autosaves to this browser as you go. Here you can also save explicitly, download the whole session as a data file, or load a previously downloaded file to resume and change any section."/></h2>
         <p className="hint">Everything in this session — profile, every score with its confidence flag, all models, plans and pipelines — can be <b>saved to this browser</b> or <b>downloaded as a data file (.json)</b>. Load a downloaded file later (or hand it to a colleague) and the whole suite restores exactly, ready for changes to any section; the strategy regenerates from the updated inputs.</p>
         <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
-          <button className="btn primary" onClick={()=>{const ok=saveSessionNow(); setCopied(false); alert(ok?"✓ Session saved to this browser.":"Couldn't save — browser storage unavailable (e.g. inside the Claude.ai preview). Use Download instead.");}}>💾 Save session to browser</button>
+          <button className="btn primary" onClick={async()=>{const ok=saveSessionNow(); setCopied(false); await alertAsync(ok?"✓ Session saved to this browser.":"Couldn't save — browser storage unavailable (e.g. inside the Claude.ai preview). Use Download instead.");}}>💾 Save session to browser</button>
           <button className="btn" onClick={exportSession}>⬇ Download session data (.json)</button>
           <label className="btn" style={{cursor:"pointer"}}>⬆ Load session data…
             <input type="file" accept=".json,application/json" style={{display:"none"}}
@@ -4468,7 +4518,7 @@ Respond ONLY with JSON, no fences: {"methods":[{"name":"exact method name from t
         }}/>
       <div style={{marginTop:12,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
         <button className="btn dark" disabled={busy||atCap} onClick={gen}>{busy?"Selecting…":shortlist.length?(atCap?"Shortlist full (15 methods)":`＋ Recommend more methods (${shortlist.length} of ${CHESS_CAP} shown)`):"⚡ AI-recommend the best methods from all 64"}</button>
-        {shortlist.length>0 && <button className="btn" disabled={busy} onClick={()=>{if(confirm("Clear the whole shortlist and start over?")) setChess(null);}}>🗑 Start over</button>}
+        {shortlist.length>0 && <button className="btn" disabled={busy} onClick={async()=>{if(await confirmAsync("Clear the whole shortlist and start over?")) setChess(null);}}>🗑 Start over</button>}
         {shortlist.length>0 && <span className="hint" style={{margin:0}}><b>{keptCount}</b> of {shortlist.length} ticked to keep — only ticked methods flow downstream.</span>}
       </div>
       {busy && <Spinner label="Selecting from the 64-method board…"/>}
@@ -4975,7 +5025,7 @@ CATEGORY ARCHETYPES:\n${Object.entries(CATEGORY_ARCHETYPES).map(([k,a])=>{const 
     setQ(""); setBusy(true);
     try{
       const text=await askClaude(
-        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.30.3): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.30.3 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
+        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.31.0): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.31.0 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
         false, false);
       setMsgs(m=>[...m,{role:"assistant",text}]);
     }catch(e){ setMsgs(m=>[...m,{role:"assistant",text:e.message}]); }
@@ -5951,8 +6001,8 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
   const updateCat = (i, field, val) => setCats(list => list.map((c, idx) => idx === i ? {...c, [field]: field === "spend" ? (val === "" ? "" : (Number(val) || 0)) : val} : c));
   const addCat = () => setCats(list => [...list, {name: "", spend: "", risk: "Medium", quadrant: "Strategic", archetype: "", notes: "", volume: "Periodic", specialization: "Moderate", specSource:"user", coverage: "None", supplierCount:"", channel:"", channelSource:"", unspscCode:"", cpvCode:""}]);
   const removeCat = (i) => setCats(list => list.filter((_, idx) => idx !== i));
-  const seedCats = (key) => {
-    if (cats.length && !confirm("Replace the current service-line list with the " + (key === "ess" ? "ESS" : "demo") + " template?")) return;
+  const seedCats = async (key) => {
+    if (cats.length && !(await confirmAsync("Replace the current service-line list with the " + (key === "ess" ? "ESS" : "demo") + " template?"))) return;
     setCats(PORTFOLIO_CATEGORIES[key].map(c => ({...c})));
     logDeclaration(setPortfolioDetails, "Composition seeded from the " + (key === "ess" ? "ESS worked example (6 lines)" : "generic demo (3 lines)") + " — to be edited into the user's own portfolio", "Built-in seed template");
   };
@@ -5978,12 +6028,12 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
       const nCharter=Object.keys(parsed.charter).length;
       const nCats=parsed.categories.length;
       if(!nCharter && !nCats) throw new Error("Nothing usable found — check the sheet names (Charter, Composition) and that values sit next to the field labels.");
-      if(!confirm("Apply from \""+file.name+"\"?\n\n• Charter: "+nCharter+" field(s) with values in the sheet will be updated — charter fields left blank in the sheet, and everything else you've entered manually in the app, stay untouched.\n• Composition: "+(nCats? nCats+" service line(s) found (you'll choose replace-or-append next)":"no lines found — composition unchanged")+(parsed.warnings.length?"\n\nNotes: "+parsed.warnings.join(" "):""))) { setIoBusy(""); return; }
+      if(!(await confirmAsync("Apply from \""+file.name+"\"?\n\n• Charter: "+nCharter+" field(s) with values in the sheet will be updated — charter fields left blank in the sheet, and everything else you've entered manually in the app, stay untouched.\n• Composition: "+(nCats? nCats+" service line(s) found (you'll choose replace-or-append next)":"no lines found — composition unchanged")+(parsed.warnings.length?"\n\nNotes: "+parsed.warnings.join(" "):"")))) { setIoBusy(""); return; }
       let catAction=null;
       if(nCats){
         if(cats.length===0){ catAction="replace"; }
         else {
-          catAction = confirm("Composition: you already have "+cats.length+" service line(s) entered.\n\nOK = REPLACE them with the "+nCats+" imported line(s)\nCancel = KEEP them and APPEND the imported line(s) after") ? "replace" : "append";
+          catAction = (await confirmAsync("Composition: you already have "+cats.length+" service line(s) entered.\n\nOK = REPLACE them with the "+nCats+" imported line(s)\nCancel = KEEP them and APPEND the imported line(s) after")) ? "replace" : "append";
         }
       }
       setPortfolioDetails(prev=>({...prev, ...parsed.charter,
@@ -6072,10 +6122,10 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
     logDeclaration(setPortfolioDetails, "Portfolio saved to the local library"+(activePid?" (updated existing entry)":" (new entry)"), "User action");
     setIoMsg({ok:true,msg:"Saved to the library as \""+((portfolioDetails.name||"").trim()||"(unnamed portfolio)")+"\". Switching portfolios always re-snapshots the active one first, so nothing is lost."});
   };
-  const switchToPortfolio=(pid)=>{
+  const switchToPortfolio=async(pid)=>{
     if(pid===activePid) return;
     const entry=loadPortfolioLibrary()[pid]; if(!entry) return;
-    if(!confirm("Switch to \""+entry.name+"\"?\n\nThe current portfolio is snapshotted to the library first (including its line strategies), then \""+entry.name+"\" is loaded with its own strategies.")) return;
+    if(!(await confirmAsync("Switch to \""+entry.name+"\"?\n\nThe current portfolio is snapshotted to the library first (including its line strategies), then \""+entry.name+"\" is loaded with its own strategies."))) return;
     snapshotCurrent(activePid||newPortfolioId());
     setPortfolioDetails(entry.details||{name:entry.name, categories:[], pid});
     /* v2.28 Phase A Step 3 — the tree is now the sole writer of
@@ -6095,8 +6145,8 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
     logDeclaration(setPortfolioDetails, "Portfolio loaded from the library (previous portfolio snapshotted first)", "User action: switch");
     setIoMsg({ok:true,msg:"Loaded \""+entry.name+"\" — its charter, composition, assessment, options and line strategies are now active."});
   };
-  const newBlankPortfolio=()=>{
-    if(!confirm("Start a new blank portfolio?\n\nThe current one is snapshotted to the library first.")) return;
+  const newBlankPortfolio=async()=>{
+    if(!(await confirmAsync("Start a new blank portfolio?\n\nThe current one is snapshotted to the library first."))) return;
     snapshotCurrent(activePid||newPortfolioId());
     const pid=newPortfolioId();
     setPortfolioDetails({name:"", categories:[], pid, declarations:[{when:new Date().toISOString(), what:"New blank portfolio created (previous portfolio snapshotted to the library)", source:"User action"}]});
@@ -6113,9 +6163,9 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
     lib[pid]=copy; savePortfolioLibrary(lib); setLibTick(t=>t+1);
     logDeclaration(setPortfolioDetails, "Portfolio duplicated into the library as \""+copy.name+"\" (switch to it from the library list)", "User action");
   };
-  const deleteFromLibrary=(pid)=>{
+  const deleteFromLibrary=async(pid)=>{
     const lib=loadPortfolioLibrary(); const entry=lib[pid]; if(!entry) return;
-    if(!confirm("Delete \""+entry.name+"\" from the library?"+(pid===activePid?"\n\nThis only removes the saved snapshot — the currently open portfolio stays on screen.":"\n\nThis cannot be undone (unless you exported the library)."))) return;
+    if(!(await confirmAsync("Delete \""+entry.name+"\" from the library?"+(pid===activePid?"\n\nThis only removes the saved snapshot — the currently open portfolio stays on screen.":"\n\nThis cannot be undone (unless you exported the library)."))))  return;
     delete lib[pid]; savePortfolioLibrary(lib); setLibTick(t=>t+1);
     logDeclaration(setPortfolioDetails, "Library entry \""+entry.name+"\" deleted"+(pid===activePid?" (active portfolio remains open, unsaved)":""), "User action");
   };
@@ -6135,7 +6185,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
       const ids=Object.keys(parsed); if(!ids.length) throw new Error("empty library file");
       const lib=loadPortfolioLibrary();
       const clashes=ids.filter(id=>lib[id]).length;
-      if(!confirm("Import "+ids.length+" portfolio(s) from \""+file.name+"\" into the library?"+(clashes?"\n\n"+clashes+" entr"+(clashes===1?"y":"ies")+" with the same id will be overwritten.":""))) return;
+      if(!(await confirmAsync("Import "+ids.length+" portfolio(s) from \""+file.name+"\" into the library?"+(clashes?"\n\n"+clashes+" entr"+(clashes===1?"y":"ies")+" with the same id will be overwritten.":"")))) return;
       ids.forEach(id=>{ lib[id]=parsed[id]; });
       savePortfolioLibrary(lib); setLibTick(t=>t+1);
       logDeclaration(setPortfolioDetails, ids.length+" portfolio(s) imported into the library from file", "Uploaded file: "+file.name);
@@ -6232,7 +6282,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
   const [rtmBusy,setRtmBusy]=useState(false);
   async function assistSpecialization(){
     const targets=cats.map((c,i)=>({i,name:c.name})).filter(t=>t.name && (cats[t.i].specSource!=="user"));
-    if(!targets.length){ alert("No lines to assess — either add service lines, or every line's specialization is already user-set."); return; }
+    if(!targets.length){ await alertAsync("No lines to assess — either add service lines, or every line's specialization is already user-set."); return; }
     setRtmBusy(true);
     try{
       const out=await askClaude(`For each of these procurement categories/service lines, estimate the SUPPLY MARKET SPECIALIZATION (how scarce is capable supply) and a rough count of credible providers. Categories: ${JSON.stringify(targets.map(t=>t.name))}. Respond ONLY with JSON, no fences: {"items":[{"name":"...","specialization":"Commodity|Moderate|Scarce","supplierCount":<int 1-20>,"why":"one line"}]}`);
@@ -6244,7 +6294,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
         }));
         logDeclaration(setPortfolioDetails, "Route-to-market specialization AI-assisted for "+out.items.length+" line(s) — review and confirm each", "AI research assist");
       } else throw new Error("no usable JSON");
-    }catch(e){ alert("AI-assist unavailable ("+(e.message||"error")+") — set specialization manually per line; a gut-feel estimate is a valid starting point."); }
+    }catch(e){ await alertAsync("AI-assist unavailable ("+(e.message||"error")+") — set specialization manually per line; a gut-feel estimate is a valid starting point."); }
     finally{ setRtmBusy(false); }
   }
 
@@ -6277,7 +6327,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
       const result=await window.mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});
       const parsed=parseWordInputTemplate(result.value||"");
       if(!parsed.nCharter&&!parsed.nAssess&&!parsed.nPlans) throw new Error("No recognisable 'Label: value' lines found — check the labels weren't edited (download a fresh template to compare).");
-      if(!confirm("Apply from \""+file.name+"\"?\n\n• Charter: "+parsed.nCharter+" field(s)\n• Assessment fact base: "+parsed.nAssess+" position(s)\n• Plans: "+parsed.nPlans+" section(s)\n\nOnly fields with content in the file are applied; everything else in the app is untouched. Composition & numbers are unaffected (Excel route).")) { setIoBusy(""); return; }
+      if(!(await confirmAsync("Apply from \""+file.name+"\"?\n\n• Charter: "+parsed.nCharter+" field(s)\n• Assessment fact base: "+parsed.nAssess+" position(s)\n• Plans: "+parsed.nPlans+" section(s)\n\nOnly fields with content in the file are applied; everything else in the app is untouched. Composition & numbers are unaffected (Excel route)."))) { setIoBusy(""); return; }
       setPortfolioDetails(prev=>{
         const mergedAssess={...(prev.assessment||{})};
         Object.entries(parsed.assessment).forEach(([g,fields])=>{ mergedAssess[g]={...(mergedAssess[g]||{}),...fields}; });
@@ -6459,7 +6509,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
                   </details>
                 ));
               })()}
-              <button className="btn ghost" style={{border:"none", color:"var(--red)", fontSize:11, marginTop:4}} onClick={()=>{ if(confirm("Reset all label renames to the standard names?")){ saveLabelOverrides({}); setLabelOv({}); logDeclaration(setPortfolioDetails,"Template label renames reset to standard","User action"); } }}>↺ Reset all to standard</button>
+              <button className="btn ghost" style={{border:"none", color:"var(--red)", fontSize:11, marginTop:4}} onClick={async()=>{ if(await confirmAsync("Reset all label renames to the standard names?")){ saveLabelOverrides({}); setLabelOv({}); logDeclaration(setPortfolioDetails,"Template label renames reset to standard","User action"); } }}>↺ Reset all to standard</button>
             </details>
             <div style={{display:"flex", gap:6, flexWrap:"wrap", marginTop:6}}>
               <button className="btn" disabled={!!ioBusy} onClick={downloadExcelTemplate}>{ioBusy==="template"?"Building…":"⬇ Excel template (.xlsx)"}</button>
@@ -6635,7 +6685,7 @@ function StepPortfolioSetup({portfolioId, setPortfolio, portfolioDetails, setPor
           <button className="btn primary" onClick={addCat}>+ Add service line</button>
           <button className="btn" onClick={()=>seedCats("ess")} title="Fills the composition with the built-in NESO Engineering Support Services worked example — 6 service lines with spend, risk and Kraljic already set — so you can see the expected shape, then edit or delete rows to make it yours. Replaces the current list after a confirm.">Seed from ESS template<Tip t="A worked EXAMPLE, not your data: 6 ESS service lines (Network Modelling, Balancing & Revenue, Connection Offers, EMR, Data & Analytics, CM Assessment PoC) pre-filled with indicative spend, risk and Kraljic placement. Edit freely afterwards."/></button>
           <button className="btn" onClick={()=>seedCats("default")} title="Fills the composition with a generic 3-line demo portfolio (Cloud Infrastructure, Laptops & Devices, Management Consulting) — a quick sandbox to explore the roll-up before entering your own lines. Replaces the current list after a confirm.">Seed from demo template<Tip t="A generic 3-line sandbox portfolio for exploring how the roll-up and report behave — replace with your own service lines for real work."/></button>
-          {cats.length > 0 && <button className="btn ghost" style={{border:"none", color:"var(--red)"}} onClick={()=>{ if(confirm("Clear all service lines?")) setCats([]); }}>Clear all</button>}
+          {cats.length > 0 && <button className="btn ghost" style={{border:"none", color:"var(--red)"}} onClick={async()=>{ if(await confirmAsync("Clear all service lines?")) setCats([]); }}>Clear all</button>}
         </div>
       </div>
       </Collapse>
@@ -7010,9 +7060,9 @@ function StepPortfolioOptions({portfolioId, portfolioDetails, setPortfolioDetail
       setErr("AI generation unavailable ("+((e&&e.message)||"error")+") — rule-based option templates loaded instead, and labelled as such.");
     }finally{ setBusy(false); }
   }
-  const removeOption=(id)=>{
+  const removeOption=async(id)=>{
     const o=options.find(x=>x.id===id); if(!o) return;
-    if(!confirm("Remove option \""+o.name+"\" from the set?")) return;
+    if(!(await confirmAsync("Remove option \""+o.name+"\" from the set?"))) return;
     setPd({options:options.filter(x=>x.id!==id), chosenOptions:chosenIds.filter(x=>x!==id), chosenOption:null});
     logDeclaration(setPortfolioDetails, "Strategic option \""+o.name+"\" removed from the option set", "User decision");
   };
@@ -7577,8 +7627,8 @@ function StepPortfolioWorkflow({
     });
   };
 
-  const clearAllStrategies = () => {
-    if (confirm("Reset and clear all generated category strategies for this portfolio?")) {
+  const clearAllStrategies = async () => {
+    if (await confirmAsync("Reset and clear all generated category strategies for this portfolio?")) {
       setStrategies({});
     }
   };
@@ -7974,8 +8024,8 @@ function StepPortfolioWorkflow({
     }
     setEditingReport(false);
   };
-  const discardConfirmed = () => {
-    if (!confirm("Discard the confirmed version and go back to generating the report live from the current data?")) return;
+  const discardConfirmed = async () => {
+    if (!(await confirmAsync("Discard the confirmed version and go back to generating the report live from the current data?"))) return;
     if (setPortfolioDetails) {
       setPortfolioDetails(prev => { const n = {...prev}; delete n.confirmedReport; return n; });
       logDeclaration(setPortfolioDetails, "Confirmed report version discarded — downloads revert to live-generated content", "User action");
@@ -8003,30 +8053,30 @@ function StepPortfolioWorkflow({
   };
   /* Confirmed texts saved before the charts feature contain no @@CHART tokens.
      Offer to append the charts to THIS download only — never edit saved text. */
-  const ensureChartTokens = (md, useConfirmed) => {
+  const ensureChartTokens = async (md, useConfirmed) => {
     const reg = window.__docxCharts || {};
     const ids = ["composition", "kraljic", "options", "risk"].filter(id => reg[id] && reg[id].dataUrl);
     if (!ids.length || /@@CHART:/.test(md)) return md;
-    if (useConfirmed && !confirm("Your confirmed report text contains no chart placeholders (it was saved before the charts feature, or they were removed).\n\nAppend the charts as an appendix to THIS DOWNLOAD only? Your saved confirmed text stays unchanged.")) return md;
+    if (useConfirmed && !(await confirmAsync("Your confirmed report text contains no chart placeholders (it was saved before the charts feature, or they were removed).\n\nAppend the charts as an appendix to THIS DOWNLOAD only? Your saved confirmed text stays unchanged."))) return md;
     return md + "\n\n## Appendix — Charts\n\n" + ids.map(id => "@@CHART:" + id + "@@").join("\n\n") + "\n";
   };
-  const reportMarkdownForExport = () => {
+  const reportMarkdownForExport = async () => {
     const useConfirmed = !!confirmedReport;
     renderPortfolioCharts();
-    return {md: ensureChartTokens(useConfirmed ? confirmedReport.md : buildPortfolioMarkdown(), useConfirmed), useConfirmed};
+    return {md: await ensureChartTokens(useConfirmed ? confirmedReport.md : buildPortfolioMarkdown(), useConfirmed), useConfirmed};
   };
   const downloadPortfolioWord = async () => {
     const slug = pName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "portfolio";
-    const {md, useConfirmed} = reportMarkdownForExport();
+    const {md, useConfirmed} = await reportMarkdownForExport();
     await downloadAsWord(md, slug + "-portfolio-strategy");
     if (setPortfolioDetails) logDeclaration(setPortfolioDetails, "Consolidated Portfolio Strategy downloaded (.docx) — " + (useConfirmed ? "user-confirmed version of " + new Date(confirmedReport.when).toLocaleString() : "generated live from current data"), "User action");
   };
 
-  const downloadPortfolioReport = () => {
+  const downloadPortfolioReport = async () => {
     /* v2.11 — the HTML download is now the SAME document as the .docx:
        identical markdown source (confirmed or live), identical charts
        (embedded as images). It exists only as a no-Word-needed rendering. */
-    const {md, useConfirmed} = reportMarkdownForExport();
+    const {md, useConfirmed} = await reportMarkdownForExport();
     let body = mdToHtml(md);
     body = body.replace(/@@CHART:([a-z0-9]+)@@/g, (m, id) => {
       const ch = (window.__docxCharts || {})[id];
@@ -8988,9 +9038,9 @@ function App(){
   },[categoryTree, portfolioDetails]);
   /* v2.14 — end-of-flow portfolio update (standalone builds matching a line) */
   const [lineSyncMsg,setLineSyncMsg]=useState(null);
-  function updatePortfolioLine(m){
+  async function updatePortfolioLine(m){
     const stamp=new Date().toLocaleString();
-    if(!confirm("Update \""+m.line+"\" in portfolio \""+m.portfolio+"\" with THIS category strategy?\n\nThe line becomes a deep-dived custom strategy, stamped "+stamp+". Its previous strategy is replaced (the portfolio report will use the new one).")) return;
+    if(!(await confirmAsync("Update \""+m.line+"\" in portfolio \""+m.portfolio+"\" with THIS category strategy?\n\nThe line becomes a deep-dived custom strategy, stamped "+stamp+". Its previous strategy is replaced (the portfolio report will use the new one)."))) return;
     const note="Deep-dived via a standalone category build; user-confirmed portfolio update on "+stamp+". Underlying inputs carry User / AI-inferred / AI Draft — unconfirmed / Assumed confidence flags in the category's own strategy document.";
     try{
       const strat=buildWizardStrategy(m.line, note);
@@ -9015,10 +9065,10 @@ function App(){
   }
   /* v2.19 — a standalone category with NO matching line can JOIN the active
      portfolio as a new composition line, its strategy stored as the deep-dive. */
-  function addAsNewLine(){
+  async function addAsNewLine(){
     const nm=(profile.name||"").trim(); if(!nm) return;
     const stamp=new Date().toLocaleString();
-    if(!confirm("Add \""+nm+"\" as a NEW service line in portfolio \""+((portfolioDetails.name||"").trim()||"(unnamed)")+"\"?\n\nA composition row is created (spend taken from internal data if present) and this category strategy is stored as the line's deep-dive of record — it flows into the portfolio report.")) return;
+    if(!(await confirmAsync("Add \""+nm+"\" as a NEW service line in portfolio \""+((portfolioDetails.name||"").trim()||"(unnamed)")+"\"?\n\nA composition row is created (spend taken from internal data if present) and this category strategy is stored as the line's deep-dive of record — it flows into the portfolio report."))) return;
     try{
       const strat=buildWizardStrategy(nm, "Added to the portfolio from a standalone category build; user-confirmed on "+stamp+".");
       setPortfolioDetails(prev=>({...prev, categories:[...(Array.isArray(prev.categories)?prev.categories:[]), {name:nm, spend:(internal&&internal.spend&&internal.spend.total)?String(internal.spend.total):"", risk:strat.risk||"", quadrant:strat.quadrant||"", archetype:"", notes:"Added from a standalone category build ("+stamp+")"}]}));
@@ -9054,15 +9104,15 @@ function App(){
   }
   function importSession(file){
     const r=new FileReader();
-    r.onload=()=>{ try{
+    r.onload=async()=>{ try{
       const j=JSON.parse(r.result);
       if(!j||!j.version||!(String(j.version).startsWith("categoryai-session")||String(j.version).startsWith("procureai-session"))) throw new Error("Not a CategoryAI session file");
-      if(!confirm("Load this session file?\n\n"+(j.workspaceOwner?"File workspace: "+j.workspaceOwner+(j.exportedFrom?" ("+j.exportedFrom+")":"")+"\n":"")+(j.when?"Saved: "+new Date(j.when).toLocaleString()+"\n":"")+"\nThis REPLACES everything currently in this browser's workspace (device handoff = last import wins). If work here isn't backed up yet, Cancel and export it first.")) return;
+      if(!(await confirmAsync("Load this session file?\n\n"+(j.workspaceOwner?"File workspace: "+j.workspaceOwner+(j.exportedFrom?" ("+j.exportedFrom+")":"")+"\n":"")+(j.when?"Saved: "+new Date(j.when).toLocaleString()+"\n":"")+"\nThis REPLACES everything currently in this browser's workspace (device handoff = last import wins). If work here isn't backed up yet, Cancel and export it first."))) return;
       if(j.portfolioStrategies) storageSet("categoryai_portfolio_strategies",JSON.stringify(j.portfolioStrategies));
       if(j.workspaceOwner) storageSet("categoryai_workspace_owner",String(j.workspaceOwner).slice(0,40));
       storageSet("categoryai_session",JSON.stringify(j));
       window.location.reload();
-    }catch(e){ alert("Couldn't load session file: "+e.message); } };
+    }catch(e){ await alertAsync("Couldn't load session file: "+e.message); } };
     r.readAsText(file);
   }
   const setVar=(id,entry)=>setVars(v=>({...v,[id]:entry}));
@@ -9092,8 +9142,8 @@ function App(){
   const OPTIONAL_STEP={internal:true,sevenps:true,portfolio_setup:true,portfolio_options:true,ess:true}; /* portfolio track is independent — it never blocks the category core count */
   const coreKeys=Object.keys(STEP_DONE).filter(k=>!OPTIONAL_STEP[k]);
   const coreDone=coreKeys.filter(k=>STEP_DONE[k]).length;
-  function startDemoTour(){
-    if(profile.name.trim() && !profile.name.includes("(Demo)") && !confirm("Start the guided demo tour?\n\nThis loads a full simulated 'Cloud Services' dataset and switches the AI provider to Sandbox — your current in-progress category will be replaced on screen (download your session first from the Strategy step if you want to keep it).")) return;
+  async function startDemoTour(){
+    if(profile.name.trim() && !profile.name.includes("(Demo)") && !(await confirmAsync("Start the guided demo tour?\n\nThis loads a full simulated 'Cloud Services' dataset and switches the AI provider to Sandbox — your current in-progress category will be replaced on screen (download your session first from the Strategy step if you want to keep it)."))) return;
     AI_SETTINGS.provider="sandbox";
     const D=buildDemoState();
     setProfile(D.profile); setVars(normalizeVars(D.vars)); setModels(D.models); setResearch(D.research);
@@ -9124,8 +9174,8 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.30.3</span></div>
-          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.30.3 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.31.0</span></div>
+          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.31.0 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <AIStatusChip/>
@@ -9138,6 +9188,7 @@ function App(){
       </header>
       <AISettings open={aiOpen} setOpen={setAiOpen}/>
       <AdminPanel open={adminOpen} setOpen={setAdminOpen}/>
+      <ConfirmModalHost/>
       <TourOverlay tour={tour} setTour={setTour} setStep={setStep}/>
       {restored && (
         <div className="banner" style={{margin:"10px 16px 0",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -9173,8 +9224,8 @@ function App(){
               ← Save & return to Portfolio (P3)
             </button>
             <button className="btn" style={{background:"var(--red)", color:"#fff", border:"none", padding:"4px 10px", fontSize:11, cursor:"pointer"}} 
-              onClick={()=>{
-                if(confirm("Exit customization mode? Your progress on this category is saved in the portfolio list.")){
+              onClick={async()=>{
+                if(await confirmAsync("Exit customization mode? Your progress on this category is saved in the portfolio list.")){
                   setPortfolioActiveCategory(null);
                 }
               }}>
@@ -9214,10 +9265,10 @@ function App(){
             <label style={{fontSize:9.5, fontWeight:800, color:"var(--slate)", display:"block", textTransform:"uppercase", letterSpacing: "0.05em", marginBottom:4}}>Active Portfolio</label>
             <select 
               value={portfolio} 
-              onChange={e=>{
+              onChange={async e=>{
                 const p=e.target.value;
                 if(p==="ess"){
-                  if(profile.name.trim() && !confirm("Loading the Engineering Support Services (ESS) portfolio template will replace your current category profile with ESS details. Do you want to proceed?")) return;
+                  if(profile.name.trim() && !(await confirmAsync("Loading the Engineering Support Services (ESS) portfolio template will replace your current category profile with ESS details. Do you want to proceed?"))) return;
                   setPortfolio(p);
                   setProfile({
                     name:"Engineering Support Services",
@@ -9228,7 +9279,7 @@ function App(){
                     pains:["Incumbent dependency", "Scarce power system engineering and data science skills", "May 2027 go-to-market transition risk", "Need to govern AI/agent support for CM Assessment"]
                   });
                   setPortfolioDetails(d=>({...d,name:"Engineering Support Services (ESS)",businessUnit:"NESO",currency:"£",currentSpend:"4672250",categories:(Array.isArray(d.categories)&&d.categories.length)?d.categories:PORTFOLIO_CATEGORIES.ess.map(c=>({...c})),suppliersText:"Accenture, Avanade, specialist power system engineering consultancies, data science/AI providers",futureDemand:"Connections, market reform, network modelling and balancing/revenue service demand through May 2027",governance:"Parent portfolio board plus service-line owners and sourcing approval gates"}));
-                  alert("Portfolio Loaded: NESO Engineering Support Services (ESS) has been pre-populated. Use Step 0 for the parent strategy and Step 12b for portfolio roll-up/customisation.");
+                  await alertAsync("Portfolio Loaded: NESO Engineering Support Services (ESS) has been pre-populated. Use Step 0 for the parent strategy and Step 12b for portfolio roll-up/customisation.");
                 } else {
                   setPortfolio(p);
                 }
