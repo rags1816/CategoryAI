@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.31.2
+### Fixed
+- **Intermittent JSON parse failures on AI generation** — root-cause was
+  distinct from the max_tokens truncation bug fixed in v2.30.x, despite
+  producing an identical-looking error message. Confirmed by the failure
+  position: it occurred at ~2400 tokens against a 10000-token ceiling —
+  far too early to be truncation. This is the model occasionally emitting
+  a stray character that breaks `JSON.parse()` on an otherwise-complete
+  response — a known class of issue with prompted (not schema-enforced)
+  JSON generation. `askAI()` now retries once, automatically, specifically
+  when the failure looks like a JSON parse error (not on network/auth
+  errors, where a retry can't help). This mirrors what already happened
+  organically in testing: the two attempts immediately following a
+  failure both succeeded cleanly on fresh generation.
+- **Overclaiming "References & Bibliography" text** — the About tab and
+  AI Settings panel both stated "each strategy report closes with a
+  References & Bibliography," but this section only exists in the
+  Portfolio Workbench's board-paper report (§12) — it was never built for
+  the Category Workbench's Step-14 document. Text corrected to say
+  "Portfolio strategy report" specifically. Also fixes a mistake I
+  introduced in v2.31.1's own warning banner, which incorrectly listed
+  "References" as a category-doc section that could go missing — it was
+  never a real section there to begin with.
+
+### Note
+The retry fix should meaningfully reduce (not necessarily eliminate) the
+intermittent failure rate — it's a mitigation for a known LLM-JSON-
+reliability pattern, not a guarantee. A future, more robust fix would be
+moving from prompted JSON to Claude's tool-use/schema-enforced structured
+output, which guarantees valid JSON — a bigger architecture change, out
+of scope for this patch.
+
 ## v2.31.1
 ### Fixed
 - **Generate Strategy still truncating at 6000 tokens** in generic mode
