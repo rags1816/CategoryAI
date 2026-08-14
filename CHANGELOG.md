@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.31.0
+### Changed
+- **Replaced all 33 native `window.confirm()`/`window.alert()` calls with
+  an in-app async modal.** Native dialogs live outside the DOM, making
+  every one of them invisible to browser-automation tools — this fully
+  blocked automated regression testing at 4+ confirmed points this
+  session (Excel upload, Exit deep-dive, Generate Strategy's completeness
+  check, portfolio switching), each requiring a full page reload to
+  recover from, discarding whatever was in flight. Real users were never
+  affected by the freeze itself, but the native dialogs were visually
+  inconsistent with the rest of the UI regardless.
+- New `confirmAsync()`/`alertAsync()` (module-level, callable from any
+  component without prop-drilling) plus a single `<ConfirmModalHost/>`
+  mounted at the app root. Same call/response shape as the native
+  versions (`await confirmAsync(msg)` → true/false), Escape/Enter
+  keyboard support, click-outside-to-cancel on confirms.
+- One functional chain (`ensureChartTokens` → `reportMarkdownForExport`
+  → `downloadPortfolioReport`) had to become async together, since the
+  return value was consumed synchronously — everything else converts
+  1:1 with no behavioral change beyond the dialog itself.
+
+### Note
+This is the largest single-session change so far by call-site count and
+has NOT been runtime-tested — every edit was applied via exact-match
+string replacement (each individually verified to exist before
+replacing) and the 3 most structurally complex conversions were manually
+re-inspected for correct brace/statement closure, but no JS parser or
+live browser was available in this environment to confirm the file
+actually runs. A full live pass — ideally re-running the same Portfolio
+regression prompt plus the pre-flight/negotiation-plan/Excel-upload
+checkpoints specifically — is required before this is trusted, let alone
+shipped further.
+
 ## v2.30.3
 ### Fixed
 - **P2 Strategic Options generation** (Portfolio Workbench) had no `maxTokens`
