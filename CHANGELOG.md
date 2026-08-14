@@ -1,5 +1,42 @@
 # Changelog
 
+## v2.31.1
+### Fixed
+- **Generate Strategy still truncating at 6000 tokens** in generic mode
+  (external-data-only) with rich upstream context — traced to a real,
+  confirmed cause: generic mode's prompt adds an explicit extra
+  instruction ("be explicit where internal data would change the answer")
+  that inflates output across nearly every section, on top of everything
+  else. Not present in the traceable 3/3 reproducible failure without
+  it. Raised to 10000 tokens.
+- **PowerPoint export was missing the Commercial 7Ps slide entirely** —
+  not a conditional bug, a pure omission; `sevenPs` was never referenced
+  anywhere in `downloadPpt()`, even though the .docx builder correctly
+  includes/excludes it via the composer toggle. Added, using the exact
+  same gating condition (`hasSevenPs && inc("sevenps")`) the .docx
+  already uses, so both formats now agree.
+
+### Changed
+- Added a visible warning banner + a confirm-before-download step when
+  downloading the Word document without a completed strategy synthesis.
+  Previously, a failed/never-run Generate Strategy silently produced an
+  incomplete .docx (missing ~5 sections — Chessboard, Cost drivers,
+  Supplier segmentation, Risk register, References) with no indication
+  anything was wrong, while .pptx and .md happened to render complete
+  because they pull that content from raw module data independently
+  rather than through the same synthesized object. This doesn't unify
+  how the three formats source their data (a bigger, separate piece of
+  work) — it makes the existing gap visible instead of silent.
+
+### Investigated, not fixed this pass
+- The three export formats (.docx, .pptx, .md) source some sections
+  from the AI-synthesized `strategy` object and others from raw module
+  data, inconsistently across formats — this is why they can diverge in
+  completeness when synthesis fails. A deeper fix (making all three pull
+  from the same source consistently) is a real, valuable piece of work
+  but bigger in scope than this session's fixes; flagging for a future
+  dedicated pass rather than rushing it here.
+
 ## v2.31.0
 ### Changed
 - **Replaced all 33 native `window.confirm()`/`window.alert()` calls with
