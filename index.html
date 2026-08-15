@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.31.4</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.32.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -486,7 +486,7 @@ function storageGet(k){ try{ return window.localStorage.getItem(k); }catch(e){ r
 function storageSet(k,v){ try{ window.localStorage.setItem(k,v); return true; }catch(e){ return false; } }
 function storageDel(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
 
-/* ================= IN-APP CONFIRM/ALERT MODAL (v2.31.4) =================
+/* ================= IN-APP CONFIRM/ALERT MODAL (v2.32.0) =================
    Replaces native window.confirm()/window.alert() everywhere in the app.
    Native dialogs are invisible to browser-automation tools (they live
    outside the DOM), which made every one of these un-testable and, for
@@ -1589,7 +1589,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
-        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.31.4 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
+        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.32.0 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
       </div>
     )]
   ];
@@ -2439,11 +2439,33 @@ function SelectOrOther({value,onChange,options,placeholder}){
   );
 }
 
-function Step1({profile,setProfile,next}){
+function Step1({profile,setProfile,vars,setVars,suppliers,setSuppliers,risks,setRisks,next}){
   const set=(k,v)=>setProfile(p=>({...p,[k]:v}));
   const [busy,setBusy]=useState("");
   const [err,setErr]=useState("");
+  const [tplBusy,setTplBusy]=useState("");
   const categorySuggestions=[...Object.keys(CATEGORY_ARCHETYPES).map(k=>k.replace(/\b\w/g,c=>c.toUpperCase())),"Ocean Freight","Road Freight","Marketing Agencies","MRO","Office Supplies","Utilities","Insurance","Security Services","Catering","Waste Management"];
+  async function downloadTemplate(){
+    setTplBusy("dl"); setErr("");
+    try{ await buildCategoryInputTemplate(profile, vars, suppliers, risks); }
+    catch(e){ setErr(e.message); }
+    setTplBusy("");
+  }
+  async function uploadTemplate(file){
+    setTplBusy("ul"); setErr("");
+    try{
+      const parsed=await parseCategoryInputTemplate(file);
+      const nProfile=Object.keys(parsed.profile).length;
+      const nVars=Object.keys(parsed.vars).length;
+      const nSup=parsed.suppliers.length, nRisk=parsed.risks.length;
+      if(!(await confirmAsync("Apply from \""+file.name+"\"?\n\n• Profile: "+nProfile+" field(s)\n• Variables: "+nVars+" score(s)\n• Suppliers: "+nSup+" (replaces the current list if any)\n• Risks: "+nRisk+" (replaces the current list if any)\n\nOnly fields with content in the file are applied; everything else stays as it is."+(parsed.warnings.length?"\n\nNotes: "+parsed.warnings.join(" "):"")))){ setTplBusy(""); return; }
+      if(nProfile) setProfile(p=>({...p,...parsed.profile}));
+      if(nVars) setVars(v=>({...v,...parsed.vars}));
+      if(nSup) setSuppliers(parsed.suppliers);
+      if(nRisk) setRisks(parsed.risks);
+    }catch(e){ setErr(e.message); }
+    setTplBusy("");
+  }
   async function draftNotes(){
     setBusy("notes"); setErr("");
     try{
@@ -2469,6 +2491,13 @@ function Step1({profile,setProfile,next}){
     <div className="card">
       <h2 className="display">Category profile</h2>
       <p className="hint">Everything downstream is grounded in this profile. Fields marked <b style={{color:"var(--mulberry)"}}>*</b> are required — everything else is optional and can be AI-suggested. Hover any <span className="info">i</span> for help.</p>
+      <div className="banner" style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <span style={{fontSize:12}}><b>Prefer to prepare this offline?</b> Download a spreadsheet covering profile, market variables, suppliers and risks — fill it (with a colleague, or over a coffee), then upload it back.</span>
+        <button className="btn ghost" disabled={!!tplBusy} onClick={downloadTemplate}>{tplBusy==="dl"?"…":"⬇ Download input template"}</button>
+        <label className="btn ghost" style={{cursor:tplBusy?"default":"pointer",opacity:tplBusy?0.6:1}}>{tplBusy==="ul"?"…":"⬆ Upload filled template"}
+          <input type="file" accept=".xlsx" style={{display:"none"}} disabled={!!tplBusy} onChange={e=>{ if(e.target.files[0]) uploadTemplate(e.target.files[0]); e.target.value=""; }}/>
+        </label>
+      </div>
       <h3>Category name <b style={{color:"var(--mulberry)"}}>*</b><Tip t="The spend category you're building a strategy for. Pick a suggestion from the list (matches the playbook library) or type your own."/></h3>
       <input type="text" list="catList" placeholder="Pick from suggestions or type your own…" value={profile.name} onChange={e=>set("name",e.target.value)}/>
       <datalist id="catList">{categorySuggestions.map(c=><option key={c} value={c}/>)}</datalist>
@@ -3224,7 +3253,7 @@ Respond ONLY with JSON, no markdown fences:
     setBusy(false);
   }
   function buildMd(){
-    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.31.4 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
+    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.32.0 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
     if(!strategy) md+=`**⚠ DRAFT — Generate Strategy has not been run (or did not complete).** Executive Summary, Objectives, Negotiation Approach, Roadmap, Risk register and Data gaps are not yet included below. This is a partial export, not a finished strategy.\n\n`;
     md+=`**Kraljic:** ${d.quadrant} (supply risk ${d.supplyRisk.toFixed(1)}/5, business impact ${d.businessImpact.toFixed(1)}/5)\n\n`;
     /* v2.13 — decision-paper order (per the management documents): summary,
@@ -3404,7 +3433,7 @@ Respond ONLY with JSON, no markdown fences:
       const pptx=new PGJ(); pptx.layout="LAYOUT_WIDE";
       pptx.defineSlideMaster({title:"MAIN",background:{color:"FFFFFF"},objects:[
         {rect:{x:0,y:0,w:"100%",h:0.35,fill:{color:P}}},
-        {text:{text:"CategoryAI Strategic Category Suite v2.31.4",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
+        {text:{text:"CategoryAI Strategic Category Suite v2.32.0",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
       const slide=(title)=>{const s=pptx.addSlide({masterName:"MAIN"}); if(title) s.addText(title,{x:0.4,y:0.5,w:12.5,h:0.6,fontSize:26,bold:true,color:INKC,fontFace:"Calibri"}); return s;};
       const tblOpts={x:0.4,y:1.3,w:12.5,fontSize:11,color:INKC,border:{pt:0.5,color:"D8DCE0"},fill:{color:"FFFFFF"},autoPage:true,autoPageRepeatHeader:true};
       const hdr=t=>t.map(x=>({text:x,options:{bold:true,fill:{color:"EEF4F1"},color:INKC}}));
@@ -3463,6 +3492,18 @@ Respond ONLY with JSON, no markdown fences:
             {x,y,w:6.2,h:2.7,fill:{color:fill},valign:"top",inset:0.12});
         });
       }
+      // PESTLE (matches the Word section — was missing from this deck entirely)
+      if(models.pestle){ s=slide("PESTLE");
+        s.addTable([hdr(["Factor","Assessment"]),
+          ...PESTLE_KEYS.map(k=>[k,(models.pestle[k]&&models.pestle[k].text)||""])],{...tblOpts,colW:[2.6,9.9],fontSize:11});
+      }
+      // Research findings (matches the Word section — was missing from this deck entirely)
+      if(research&&research.overview){ s=slide("Research findings (as of "+research.when+")");
+        s.addText(research.overview,{x:0.4,y:0.8,w:12.5,h:1.6,fontSize:12.5,color:INKC,valign:"top",lineSpacingMultiple:1.15});
+        if(research.priceOutlook) s.addText("Price outlook: "+research.priceOutlook,{x:0.4,y:2.5,w:12.5,h:0.5,fontSize:11.5,italic:true,color:INKC});
+        if((research.pestleRegulatory||[]).length) s.addTable([hdr(["Area","Finding","Source"]),
+          ...research.pestleRegulatory.slice(0,8).map(r=>[r.area,r.finding,r.source||""])],{...tblOpts,x:0.4,y:3.1,colW:[2.2,7.8,2.5],fontSize:10});
+      }
       // 6 Suppliers
       if(suppliers.length){ s=slide("Supplier segmentation & tiering");
         const tn=(TIER_SCHEMES[tierScheme]||TIER_SCHEMES.gsb||TIER_SCHEMES.standard);
@@ -3478,6 +3519,11 @@ Respond ONLY with JSON, no markdown fences:
           ...[...risks].sort((a,b)=>b.likelihood*b.impact-a.likelihood*a.impact).slice(0,5).map(r=>[r.risk,String(r.likelihood),String(r.impact),r.mitigation])],
           {...tblOpts,w:7.2,colW:[3.0,0.6,0.6,3.0]});
         chartImg("catrisk",{x:7.8,y:1.3,w:5.3,h:3.62});
+      }
+      // ESG & social value opportunities (matches the Word section — was missing from this deck entirely)
+      if(esgOps&&esgOps.length){ s=slide("ESG & social value opportunities");
+        s.addTable([hdr(["Opportunity","Type","Action","Benefit"]),
+          ...esgOps.slice(0,8).map(o=>[o.opportunity,o.type,o.action,o.benefit||""])],{...tblOpts,colW:[3.4,1.8,4.6,2.7],fontSize:10.5});
       }
       // 8 Chessboard — selection funnel image + chosen plays
       const km=chess?(chess.methods||[]).filter(m=>m.keep!==false):[];
@@ -3518,6 +3564,18 @@ Respond ONLY with JSON, no markdown fences:
       if(benefits&&benefits.length){ s=slide("Benefits register — five value types");
         s.addTable([hdr(["Benefit","Type","Metric","Planned","Delivered","Owner"]),
           ...benefits.slice(0,9).map(b=>[b.benefit,b.type,b.metric,b.planned,b.delivered,b.owner||""])],tblOpts);
+      }
+      // Assumption register — condensed (core variable board only; the Word
+      // doc has the fully exhaustive version incl. cost drivers, levers,
+      // suppliers, risks and chessboard). Was entirely absent from this
+      // deck before — a real trust/audit gap given the app's own guide text
+      // calls this table what reviewers use to decide how much to trust
+      // each part of the strategy.
+      { s=slide("Assumption register — core variables");
+        s.addTable([hdr(["Variable","Score","Confidence","Rationale"]),
+          ...ALL_VARS.map(v=>{const e=vars[v.id]||{}; return [v.label, (e.value||"—")+"/5", CONF[e.conf]?CONF[e.conf].label:"—", (e.rationale||"").slice(0,80)];})],
+          {...tblOpts,colW:[3.2,1.1,2.0,6.2],fontSize:9.5});
+        s.addText("Full audit trail (cost drivers, levers, suppliers, risks, chessboard plays) is in the Word document.",{x:0.4,y:6.6,w:12.5,h:0.4,fontSize:10,italic:true,color:A});
       }
       // Closing — outputs & next steps (deck mirrors the Word document)
       { s=slide("Outputs & next steps");
@@ -5060,7 +5118,7 @@ CATEGORY ARCHETYPES:\n${Object.entries(CATEGORY_ARCHETYPES).map(([k,a])=>{const 
     setQ(""); setBusy(true);
     try{
       const text=await askClaude(
-        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.31.4): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.31.4 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
+        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.32.0): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.32.0 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
         false, false);
       setMsgs(m=>[...m,{role:"assistant",text}]);
     }catch(e){ setMsgs(m=>[...m,{role:"assistant",text:e.message}]); }
@@ -5834,6 +5892,143 @@ async function buildExcelInputTemplate(portfolioDetails, cats){
   XLSX.utils.book_append_sheet(wb,ws2,"Composition");
   XLSX.writeFile(wb,"portfolio-input-template.xlsx");
 }
+/* Category profile label <-> key map for the Excel round-trip (order = template order). */
+const CATEGORY_PROFILE_FIELDS=[
+  ["Category name","name"],["Sector","sector"],["Region","region"],
+  ["Scope & context notes","notes"],
+  ["Incumbent suppliers (comma-separated)","suppliers"],
+  ["Known pain points (comma-separated)","pains"]
+];
+async function buildCategoryInputTemplate(profile, vars, suppliers, risks){
+  const ok=await ensureXLSX(); if(!ok) throw new Error("Spreadsheet library unavailable (offline?) — try again once online.");
+  const XLSX=window.XLSX;
+  const wb=XLSX.utils.book_new();
+
+  // Sheet 1 — Profile (label/value, same pattern as the Portfolio Charter sheet)
+  const profRows=[["Field","Value","Guidance"]];
+  CATEGORY_PROFILE_FIELDS.forEach(([label,key])=>{
+    let val=profile[key];
+    if(Array.isArray(val)) val=val.join(", ");
+    profRows.push([label, val||"", key==="suppliers"||key==="pains"?"Comma-separated list":"Free text"]);
+  });
+  const ws1=XLSX.utils.aoa_to_sheet(profRows);
+  ws1["!cols"]=[{wch:30},{wch:60},{wch:35}];
+  XLSX.utils.book_append_sheet(wb,ws1,"Profile");
+
+  // Sheet 2 — Market & internal variables (the most tedious one-by-one task in
+  // the wizard — highest value for offline bulk entry)
+  const varRows=[["Variable","Score (1-5)","Rationale (optional)"]];
+  ALL_VARS.forEach(v=>{ const e=vars[v.id]||{}; varRows.push([v.label, e.value||"", e.rationale||""]); });
+  const ws2=XLSX.utils.aoa_to_sheet(varRows);
+  ws2["!cols"]=[{wch:38},{wch:12},{wch:55}];
+  XLSX.utils.book_append_sheet(wb,ws2,"Variables");
+
+  // Sheet 3 — Suppliers (core scoring fields only — the richer scorecard
+  // dimensions like quality/delivery/ESG stay an in-app AI-assess feature,
+  // not duplicated here)
+  const supRows=[["Supplier name","Capability (1-5)","Alignment (1-5)","Notes"]];
+  const supExample=[["EXAMPLE — Acme Corp",4,3,"Delete or overwrite the EXAMPLE row"]];
+  ((suppliers&&suppliers.length)?suppliers:supExample).forEach(s=>{
+    supRows.push(Array.isArray(s)?s:[s.name||"", s.capability||"", s.alignment||"", s.rationale||""]);
+  });
+  const ws3=XLSX.utils.aoa_to_sheet(supRows);
+  ws3["!cols"]=[{wch:28},{wch:16},{wch:16},{wch:50}];
+  XLSX.utils.book_append_sheet(wb,ws3,"Suppliers");
+
+  // Sheet 4 — Risks (core register fields)
+  const riskRows=[["Risk","Likelihood (1-5)","Impact (1-5)","Mitigation"]];
+  const riskExample=[["EXAMPLE — Single-source dependency",3,4,"Delete or overwrite the EXAMPLE row"]];
+  ((risks&&risks.length)?risks:riskExample).forEach(r=>{
+    riskRows.push(Array.isArray(r)?r:[r.risk||"", r.likelihood||"", r.impact||"", r.mitigation||""]);
+  });
+  const ws4=XLSX.utils.aoa_to_sheet(riskRows);
+  ws4["!cols"]=[{wch:38},{wch:14},{wch:12},{wch:50}];
+  XLSX.utils.book_append_sheet(wb,ws4,"Risks");
+
+  XLSX.writeFile(wb,"category-input-template.xlsx");
+}
+
+async function parseCategoryInputTemplate(file){
+  const ok=await ensureXLSX(); if(!ok) throw new Error("Spreadsheet library unavailable (offline?)");
+  const XLSX=window.XLSX;
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array"});
+  const out={profile:{}, vars:{}, suppliers:[], risks:[], warnings:[]};
+
+  const pSheet=wb.Sheets["Profile"];
+  if(pSheet){
+    const rows=XLSX.utils.sheet_to_json(pSheet,{header:1});
+    const byLabel={}; CATEGORY_PROFILE_FIELDS.forEach(([label,key])=>byLabel[label.toLowerCase()]=key);
+    rows.slice(1).forEach(r=>{
+      const label=String(r[0]||"").trim().toLowerCase(); const val=r[1];
+      if(!label||!byLabel[label]||val===undefined||String(val).trim()==="") return;
+      const key=byLabel[label];
+      out.profile[key] = (key==="suppliers"||key==="pains")
+        ? String(val).split(",").map(s=>s.trim()).filter(Boolean)
+        : String(val).trim();
+    });
+  } else out.warnings.push("No 'Profile' sheet found — category profile unchanged.");
+
+  const vSheet=wb.Sheets["Variables"];
+  if(vSheet){
+    const rows=XLSX.utils.sheet_to_json(vSheet,{header:1});
+    const headerRow=(rows[0]||[]).map(h=>String(h||"").trim().toLowerCase());
+    const findCol=(...variants)=>{ for(const v of variants){ const i=headerRow.indexOf(v.toLowerCase()); if(i!==-1) return i; } return -1; };
+    const colVar=findCol("variable"), colScore=findCol("score (1-5)","score"), colRat=findCol("rationale (optional)","rationale");
+    if(colVar===-1||colScore===-1){
+      out.warnings.push("Variables sheet: couldn't recognize the expected column headers — variables were NOT imported from this sheet, to avoid misreading the data.");
+    } else {
+      const byLabel={}; ALL_VARS.forEach(v=>byLabel[v.label.toLowerCase()]=v.id);
+      rows.slice(1).forEach(r=>{
+        const label=String(r[colVar]||"").trim().toLowerCase(); const score=r[colScore];
+        if(!label||!byLabel[label]||score===undefined||String(score).trim()==="") return;
+        const n=Math.max(1,Math.min(5,Number(score)||3));
+        out.vars[byLabel[label]]={value:n, conf:"user", rationale: colRat!==-1?String(r[colRat]||"").trim()||"Set via input template.":"Set via input template."};
+      });
+    }
+  } else out.warnings.push("No 'Variables' sheet found — market/internal variables unchanged.");
+
+  const sSheet=wb.Sheets["Suppliers"];
+  if(sSheet){
+    const rows=XLSX.utils.sheet_to_json(sSheet,{header:1});
+    const headerRow=(rows[0]||[]).map(h=>String(h||"").trim().toLowerCase());
+    const findCol=(...variants)=>{ for(const v of variants){ const i=headerRow.indexOf(v.toLowerCase()); if(i!==-1) return i; } return -1; };
+    const colName=findCol("supplier name","name"), colCap=findCol("capability (1-5)","capability"), colAlign=findCol("alignment (1-5)","alignment"), colNotes=findCol("notes");
+    if(colName===-1){
+      out.warnings.push("Suppliers sheet: couldn't recognize the expected column headers — suppliers were NOT imported from this sheet, to avoid misreading the data.");
+    } else {
+      rows.slice(1).forEach(r=>{
+        const name=String(r[colName]||"").trim();
+        if(!name||name.toUpperCase().startsWith("EXAMPLE")) return;
+        const cap=colCap!==-1?Math.max(1,Math.min(5,Number(r[colCap])||3)):3;
+        const align=colAlign!==-1?Math.max(1,Math.min(5,Number(r[colAlign])||3)):3;
+        out.suppliers.push({name, capability:cap, alignment:align, accountAttractiveness:3, relativeValue:3, conf:"user", rationale: colNotes!==-1?String(r[colNotes]||"").trim()||"Set via input template.":"Set via input template."});
+      });
+    }
+  } else out.warnings.push("No 'Suppliers' sheet found — suppliers unchanged.");
+
+  const rSheet=wb.Sheets["Risks"];
+  if(rSheet){
+    const rows=XLSX.utils.sheet_to_json(rSheet,{header:1});
+    const headerRow=(rows[0]||[]).map(h=>String(h||"").trim().toLowerCase());
+    const findCol=(...variants)=>{ for(const v of variants){ const i=headerRow.indexOf(v.toLowerCase()); if(i!==-1) return i; } return -1; };
+    const colRisk=findCol("risk"), colLike=findCol("likelihood (1-5)","likelihood"), colImp=findCol("impact (1-5)","impact"), colMit=findCol("mitigation");
+    if(colRisk===-1){
+      out.warnings.push("Risks sheet: couldn't recognize the expected column headers — risks were NOT imported from this sheet, to avoid misreading the data.");
+    } else {
+      rows.slice(1).forEach(r=>{
+        const risk=String(r[colRisk]||"").trim();
+        if(!risk||risk.toUpperCase().startsWith("EXAMPLE")) return;
+        const like=colLike!==-1?Math.max(1,Math.min(5,Number(r[colLike])||3)):3;
+        const imp=colImp!==-1?Math.max(1,Math.min(5,Number(r[colImp])||3)):3;
+        out.risks.push({risk, likelihood:like, impact:imp, mitigation: colMit!==-1?String(r[colMit]||"").trim():"", conf:"user"});
+      });
+    }
+  } else out.warnings.push("No 'Risks' sheet found — risks unchanged.");
+
+  return out;
+}
+
 async function parseExcelInputTemplate(file){
   const ok=await ensureXLSX(); if(!ok) throw new Error("Spreadsheet library unavailable (offline?)");
   const XLSX=window.XLSX;
@@ -9245,8 +9440,8 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.31.4</span></div>
-          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.31.4 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.32.0</span></div>
+          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.32.0 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <AIStatusChip/>
@@ -9547,7 +9742,7 @@ function App(){
               </div>
             );
           })()}
-          {step==="profile" && <Step1 profile={profile} setProfile={setProfile} next={()=>setStep("internal")}/>}
+          {step==="profile" && <Step1 profile={profile} setProfile={setProfile} vars={vars} setVars={setVars} suppliers={suppliers} setSuppliers={setSuppliers} risks={risks} setRisks={setRisks} next={()=>setStep("internal")}/>}
           {step==="internal" && <Step3 vars={vars} setVar={setVar} internal={internal} setInternal={setInternal}
             next={()=>{setGeneric(false);setStep("market");}} skip={()=>{setGeneric(true);setStep("market");}}/>}
           {step==="market" && <div>
