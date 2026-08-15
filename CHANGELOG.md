@@ -1,5 +1,52 @@
 # Changelog
 
+Comprehensive verification on CategoryAI v2.32.0 at
+https://rags1816.github.io/CategoryAI/ (confirm header version). Use
+Claude · API key from C:\Users\DELL8\OneDrive\Desktop\Procurement
+Category Management\.env. Never print/log the key.
+
+This is the FINAL check for this session — covers everything patched
+since the last full verification, in one pass. Don't re-test anything
+outside this list; it's already confirmed solid.
+
+1. NEW: Category input template (Step 1)
+   Fill a category partially (name, sector, 2-3 variables, 1 supplier,
+   1 risk). Click "⬇ Download input template" — confirm a real .xlsx
+   downloads with 4 sheets (Profile, Variables, Suppliers, Risks) and
+   your entered data appears correctly in it. Edit the file: add 3 more
+   variable scores, add 2 more suppliers, add 1 more risk, change the
+   sector. Upload it back via "⬆ Upload filled template" — confirm the
+   pre-apply dialog shows correct counts, and after applying, all the
+   new data is genuinely reflected in the wizard (check Step 1 fields,
+   the Variables step, Suppliers step, Risks step).
+   Then: delete the header row entirely from the Variables sheet in a
+   fresh copy, upload it. CHECK: does it correctly refuse to import that
+   sheet with a clear warning (matching the Excel corruption fix from
+   earlier this session), rather than silently misreading scores?
+
+2. NEW: PowerPoint export completeness (4 previously-missing slides)
+   Build a category with PESTLE generated, Research Assistant run, ESG
+   opportunities generated, and a full assumption register (several
+   variables scored). Generate Strategy, download PowerPoint. CHECK: all
+   4 slides now present — "PESTLE", "Research findings", "ESG & social
+   value opportunities", "Assumption register — core variables" — each
+   with real content, not empty tables.
+
+3. RE-CONFIRM: Excel corruption fix still holds (Portfolio)
+   Quick re-check only, not the full adversarial suite from before:
+   delete a column from the Portfolio Composition template, upload it,
+   confirm it's still refused (not silently misimported).
+
+4. RE-CONFIRM: Duplicate-as-child still holds (Portfolio)
+   Quick re-check: duplicate a line with real notes/playbook as a child,
+   open the child, confirm real inherited text still appears (not
+   placeholder content).
+
+Report as: Confirmed Working (with concrete evidence — exact values
+observed, not just "looks right") or Issue Found (exact repro + exact
+problem). This should be the last verification round needed before this
+version is considered stable.
+
 ## v2.31.4
 ### Fixed
 - **Excel import: the v2.31.3 warning informed but didn't prevent the
