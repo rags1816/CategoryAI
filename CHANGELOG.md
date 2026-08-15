@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.31.3
+### Fixed
+- **Excel Composition sheet import mapped columns by fixed position, not
+  header name** (the Charter sheet already did this correctly — this
+  brings Composition in line with it). A deleted or reordered column
+  previously shifted every field silently: names showed as raw spend
+  numbers, spend silently zeroed, risk/Kraljic fell back to arbitrary
+  defaults — with zero warning anywhere in the import flow. Now matches
+  columns by their actual header text (accepting both "Playbook" and the
+  pre-rename "Archetype" for backward compatibility with older
+  downloaded templates); if the header row can't be recognized at all,
+  a clear warning is now shown before import rather than silent
+  corruption.
+- **Incomplete strategy exports gave no self-declaring indication of
+  their own incompleteness.** A .docx/.pptx/.md downloaded without a
+  completed Generate Strategy run looked structurally clean and
+  complete — real headings, real content, real charts — with the only
+  trace being a small "GENERIC MODE" tag and text buried in a table.
+  The in-app warning dialog only protects the person downloading; once
+  shared or forwarded, nothing in the file itself told a reader they
+  were looking at a partial export. All three export formats now open
+  with a bold, explicit "⚠ DRAFT — Generate Strategy has not been run"
+  notice listing exactly what's missing, whenever `strategy` is empty.
+
+### Note
+Both were found via the impact-assessment pass, not routine testing —
+worth keeping that kind of deliberate "what happens if this data is
+adversarial or incomplete" check as a standard part of pre-rollout review
+going forward, not just happy-path regression.
+
 ## v2.31.2
 ### Fixed
 - **Intermittent JSON parse failures on AI generation** — root-cause was
