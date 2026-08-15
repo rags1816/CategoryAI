@@ -1,5 +1,40 @@
 # Changelog
 
+## v2.31.4
+### Fixed
+- **Excel import: the v2.31.3 warning informed but didn't prevent the
+  corruption it warned about.** When column headers couldn't be
+  recognized, the importer still fell back to guessed positions — a
+  deleted "Service line name" column shifted every field left, landing a
+  spend number as literal text in the name field. Spend/Risk/Kraljic
+  happened to survive because they fail type/enum validation and fall
+  back safely; the free-text name field had no such guard. Now: if
+  headers can't be recognized, **nothing is imported from that sheet at
+  all** (same as "no sheet found") rather than guessing — the warning is
+  now actually protective, not just informational.
+- **Duplicate-as-child: real notes/playbook weren't appearing on the
+  child's Category profile — a different bug than the one fixed in
+  v2.30.3, not a regression of it.** The v2.30.3 fix correctly stores
+  notes/archetype/channel on the tree node when duplicating. But
+  `customizeCategoryInWizard` (the "Deep-dive" function) built the
+  child's profile from `portfolioDetails.categories` — a list children
+  deliberately never appear in, by the app's own Phase B design — so
+  that lookup was always empty for a child, silently falling through to
+  generic placeholder defaults instead of reading the real data sitting
+  on the tree node two lines above it. Now pulls `existing.notes` and
+  `existing.archetype` (the tree node's own fields) first, folding the
+  inherited playbook into the notes text alongside the other inherited
+  context (objectives, governance, etc.) — no dedicated "Playbook" field
+  exists on the profile screen to put it in directly, so this matches
+  the pattern already used for everything else inherited there.
+
+### Note
+Both fixes came directly from the exception-based verification report,
+which caught these with concrete evidence (network traces, exact
+corrupted values, exact missing content) rather than vague suspicion —
+worth continuing that standard for future verification passes rather
+than accepting a "PASS" without evidence behind it.
+
 ## v2.31.3
 ### Fixed
 - **Excel Composition sheet import mapped columns by fixed position, not
