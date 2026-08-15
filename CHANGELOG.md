@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.32.2
+### Fixed
+- **Segmentation/preferencing charts rendered malformed (invalid SVG
+  `<circle r="NaN">`) for Excel-imported suppliers.** Same class of bug
+  as v2.32.1's crash — a field every other supplier-creation path
+  provides (`share`, the spend-share used to size chart markers) was
+  never set by the new Category input template import. Fixed at the
+  source (import now sets `share:0`, matching the manual-add convention)
+  and defensively at both chart render sites (`(s.share||0)`), so a
+  future path with the same gap degrades to a small marker instead of a
+  broken one.
+- **Manual "+ Add supplier" button was completely broken — pre-existing,
+  not something this session introduced.** `StepSuppliers` never
+  received `setProfile` as a prop, but both its Enter-key handler and
+  its "+Add" button called it anyway, throwing `ReferenceError` on every
+  use with a silent no-op (typed name stayed in the box, nothing was
+  added). Found only because this session's verification happened to
+  exercise that specific button while checking something else. Fixed by
+  threading `setProfile` through from `App()`.
+
+### Note
+Both found via the same verification discipline as the last two
+patches — real, reproducible evidence, not assumption. The manual-add
+bug in particular is a good example of why re-testing adjacent
+functionality (not just the thing you changed) matters: it was sitting
+there before any of this session's work touched that screen.
+
 ## v2.32.1
 ### Fixed
 - **Category input template's Suppliers sheet crashed the Supplier
