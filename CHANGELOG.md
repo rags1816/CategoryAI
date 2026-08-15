@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.32.1
+### Fixed
+- **Category input template's Suppliers sheet crashed the Supplier
+  segmentation screen** — found immediately in verification of the new
+  v2.32.0 feature, 100% reproducible. Root cause: Excel-imported
+  suppliers only carried Capability/Alignment/Notes, but the screen
+  unconditionally reads `s.scorecard[dd]` (quality/delivery/cost/
+  innovation/ESG) for every supplier — `TypeError: Cannot read
+  properties of undefined`. Fixed at three levels: (1) Excel-imported
+  suppliers now get the same default scorecard
+  (`Object.fromEntries(SCORECARD_DIMS.map(d=>[d,3]))`) every other
+  supplier-creation path already provides; (2) the actual crash site now
+  guards against a missing scorecard regardless of cause — found in the
+  process that the AI-assess path spreads the AI's raw JSON response
+  without guaranteeing a scorecard field either, so this protects that
+  path too, current and future; (3) the two document-generation
+  dereferences (Module Review export, main Supplier segmentation table
+  in `buildMd()`) got the same guard, since a document-export crash from
+  the identical root cause would be at least as bad as a screen crash.
+
+### Note
+Caught within the same session the feature shipped, via the
+comprehensive verification prompt rather than a separate later report —
+this is what that verification standard is for.
+
 Comprehensive verification on CategoryAI v2.32.0 at
 https://rags1816.github.io/CategoryAI/ (confirm header version). Use
 Claude · API key from C:\Users\DELL8\OneDrive\Desktop\Procurement
