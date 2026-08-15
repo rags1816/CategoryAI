@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.32.3
+### Changed
+- **In-app guide text synced with the new Category input template
+  feature** — the Step 1 Reference Library context and the master
+  AI-wide context string both previously described Excel round-trip as
+  Portfolio-only (P1). Both now mention the Category track's own
+  download/upload template, so a user asking the Reference Library
+  "does the category side have an offline input option?" gets an
+  accurate answer instead of a stale one. Text-only, no logic changes.
+- Confirmed no other stale claims: the Demo Tour (Sandbox pre-loaded
+  data, doesn't touch the upload flow), Elevator Pitch guide text, and
+  Admin panel tooltips were all already accurate and needed no changes.
+
 ## v2.32.2
 ### Fixed
 - **Segmentation/preferencing charts rendered malformed (invalid SVG
