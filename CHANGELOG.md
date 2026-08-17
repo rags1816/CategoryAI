@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.32.4
+### Fixed
+- **Both Excel template downloads (Portfolio and Category input
+  templates) could save with a UUID filename and no extension instead
+  of a proper .xlsx name** — found by the user directly, not by prior
+  testing, which checked file contents thoroughly but never specifically
+  confirmed the filename shown in the browser's download list. Root
+  cause: `XLSX.writeFile()`'s built-in browser-download mechanism wasn't
+  reliably honoring the filename in this environment. Replaced with an
+  explicit download (manually build the Blob, set the anchor's
+  `download` attribute directly) in both places, giving full control
+  instead of trusting that black box.
+
+### Note
+This means your frozen v2.32.3 checksum
+(90524adec1ff117e3410d3db163046e4ab3c179c3270c7d682b86261a88fb7d0) is
+now superseded — v2.32.4 is the new frozen candidate, pending
+verification.
+
 ## v2.32.3
 ### Changed
 - **In-app guide text synced with the new Category input template
