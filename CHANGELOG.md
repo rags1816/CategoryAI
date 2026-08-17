@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.32.4 (frozen)
+SHA-256: 19a0ca5b284355478ed3e25137bb426a0621b966c30245e9ae1c1662b8557f5c
+Supersedes v2.32.3's freeze — fixed both Excel template downloads
+saving with a UUID filename/no extension instead of a proper .xlsx
+name (XLSX.writeFile()'s built-in browser-download path wasn't
+reliably honoring the filename; replaced with an explicit Blob +
+anchor download). Verified: both templates confirmed opening directly
+in Excel with correct filenames, valid zip/XLSX structure checked
+directly, no rename needed.
+
 ## v2.32.4
 ### Fixed
 - **Both Excel template downloads (Portfolio and Category input
