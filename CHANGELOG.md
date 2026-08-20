@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.33.2
+### Changed — item 22
+- Category maturity self-assessment scale labels changed from
+  "Ad hoc" / "Leading practice" to "Disagree" / "Agree." Kept the same
+  1=worst/5=best direction as before, so nothing downstream (scoring,
+  rollups) needed to change — only the wording. The separate staged
+  maturity CHECKLIST's own stage name "Leading practice" is a different
+  feature (categorical stage titles, not this continuous scale) and was
+  correctly left untouched. Guide text updated to match.
+
 ## v2.33.1
 ### Fixed — Research Assistant, properly this time (item 7)
 - Replaced the confirm-before-overwrite guard with genuine accumulate
