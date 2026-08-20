@@ -1,5 +1,26 @@
 # Changelog
 
+
+## v2.33.5
+### Fixed — item 21, and my own earlier mistake
+- **Item 21 doesn't need a new feature — it already exists.** The
+  "⚡ AI-build pipeline, KPIs & maturity" button already generates
+  AI-suggested savings pipeline, KPI targets, AND maturity self-assessment
+  scores in one call, all editable afterward. A separate
+  "⚡ AI-build benefits register" button also already exists. Both were
+  incorrectly documented as absent in a guide-text edit I made earlier
+  this session — I trusted your quoted paraphrase of an older chat
+  response instead of re-verifying against the actual `gen()`/
+  `genBenefits()` functions. Corrected, and both claims now verified
+  directly against code (confirmed zero `askClaude` calls in SRM and the
+  staged checklist specifically — those two claims were accurate).
+
+### Note
+This should have been caught the first time — worth flagging plainly
+rather than quietly fixing it. Going forward, any guide-text claim about
+what a screen can or can't do gets checked against the actual function,
+not inferred from what a person remembers being told.
+
 ## v2.33.4
 ### Fixed — item 11 (final item, closes the full report)
 - The Supplier Preferencing table had no visible confidence indicator at
