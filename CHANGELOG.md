@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.33.6
+### Fixed — item 20c
+- Savings Pipeline had no confidence indicator at all, unlike Benefits/
+  Risks/ESG/Chessboard/Suppliers. Confirmed the underlying `conf` field
+  is shared across the whole pipeline+KPI+maturity object (not per-row,
+  matching Negotiation/Execution's pattern) — added a single visible
+  badge next to the AI-build button rather than retrofitting per-row
+  tracking that doesn't match how the data is actually structured.
+
+### Fixed — item 20d
+- Found a real cause, not just a vague positioning complaint: the Demo
+  Tour's draggable card defaults to bottom-right on desktop at
+  `zIndex:1000`, directly overlapping the Guide chat's bottom-right
+  button at `zIndex:50` — the Guide button was very likely completely
+  hidden underneath the tour card whenever a tour was active. Fixed by
+  hiding the Guide widget entirely during a tour rather than fighting
+  over the same corner; it reappears the instant the tour ends.
+
+### Fixed — item 25
+- The Strategy screen's guide text described business case *contents*
+  in detail but never explained *why* it exists or how it relates to
+  the category strategy. Added: it's a separate, downstream document
+  arguing the spend decision to whoever approves budget, assembled from
+  the same session data, with VM vs Five Case Model framed as "which
+  matches your organisation's approval process" rather than just two
+  format options.
 
 ## v2.33.5
 ### Fixed — item 21, and my own earlier mistake
