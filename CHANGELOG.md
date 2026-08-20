@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.33.4
+### Fixed — item 11 (final item, closes the full report)
+- The Supplier Preferencing table had no visible confidence indicator at
+  all, despite the banner right above it explicitly claiming scores are
+  "flagged AI-inferred." The underlying data always had the flag — it
+  just wasn't rendered in this specific table. Added a lightweight badge
+  next to each supplier's name (not a full editable ConfCell, since
+  `conf` is shared with the main segmentation table above — editing
+  belongs there, not duplicated here).
+
+### Note
+Caught and fixed a real syntax bug introduced by this exact edit before
+shipping it — the structural balance check (used throughout this
+session, not just today) is not just process theatre; it found a
+genuinely missing closing brace this time, not another string-literal
+false positive.
+
 ## v2.33.3
 ### Fixed — item 6
 - The "Continue to SWOT & PESTLE" button previously sat at the bottom of
