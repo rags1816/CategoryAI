@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.32.4</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.33.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -442,11 +442,11 @@ function deriveScores(vars, generic){
      become reachable. "generic" remains a pure UI/labelling flag. */
   const businessImpact = avg(BUSINESS_IMPACT_VAR_IDS.map(g));
   const porter = {
-    "Supplier power":     avg([g("supplierConcentration"),g("switchingDifficulty"),g("capacityTightness")]),
+    "Supplier power":     avg([g("supplierConcentration"),g("switchingDifficulty"),g("capacityTightness"),g("geoRisk")]),
     "Buyer power (yours)": avg([6-g("supplierConcentration"),6-g("switchingDifficulty"), g("spendShare")]),
     "Threat of substitutes": 6-g("substituteScarcity"),
-    "Threat of new entrants": 6-g("entryBarriers"),
-    "Competitive rivalry": avg([6-g("supplierConcentration"),g("techDisruption"),6-g("capacityTightness")]),
+    "Threat of new entrants": avg([6-g("entryBarriers"),6-g("regulatoryIntensity")]),
+    "Competitive rivalry": avg([6-g("supplierConcentration"),g("techDisruption"),6-g("capacityTightness"),g("priceVolatility")]),
   };
   const quadrant = supplyRisk>=3
     ? (businessImpact>=3 ? "Strategic" : "Bottleneck")
@@ -486,7 +486,7 @@ function storageGet(k){ try{ return window.localStorage.getItem(k); }catch(e){ r
 function storageSet(k,v){ try{ window.localStorage.setItem(k,v); return true; }catch(e){ return false; } }
 function storageDel(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
 
-/* ================= IN-APP CONFIRM/ALERT MODAL (v2.32.4) =================
+/* ================= IN-APP CONFIRM/ALERT MODAL (v2.33.0) =================
    Replaces native window.confirm()/window.alert() everywhere in the app.
    Native dialogs are invisible to browser-automation tools (they live
    outside the DOM), which made every one of these un-testable and, for
@@ -1589,7 +1589,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
-        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.32.4 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
+        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.33.0 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
       </div>
     )]
   ];
@@ -2222,11 +2222,11 @@ const QUADRANT_META = {
 /* Which Market Intelligence variables feed each force — shown to the user
    so the derivation is transparent (point: 'derived from what?'). */
 const FORCE_SOURCES={
-  "Supplier power":["Supplier market concentration","Switching difficulty","Capacity tightness"],
+  "Supplier power":["Supplier market concentration","Switching difficulty","Capacity tightness","Geographic/geopolitical exposure"],
   "Buyer power (yours)":["Supplier market concentration (inverted)","Switching difficulty (inverted)","Share of addressable spend (internal)"],
   "Threat of substitutes":["Substitute scarcity (inverted)"],
-  "Threat of new entrants":["Barriers to entry (inverted)"],
-  "Competitive rivalry":["Supplier concentration (inverted)","Technology disruption pace","Capacity tightness (inverted)"],
+  "Threat of new entrants":["Barriers to entry (inverted)","Regulatory intensity (inverted)"],
+  "Competitive rivalry":["Supplier concentration (inverted)","Technology disruption pace","Capacity tightness (inverted)","Price volatility"],
 };
 const FORCE_MEANING={
   "Supplier power":{High:"Suppliers hold the cards — expect price resistance at renewal. Secure supply and reduce dependency before you negotiate hard.",Moderate:"Power is balanced — credible alternatives give you real room to negotiate.",Low:"You hold the leverage — competitive tension, short contracts and tendering will pay off."},
@@ -3253,7 +3253,7 @@ Respond ONLY with JSON, no markdown fences:
     setBusy(false);
   }
   function buildMd(){
-    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.32.4 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
+    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.33.0 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
     if(!strategy) md+=`**⚠ DRAFT — Generate Strategy has not been run (or did not complete).** Executive Summary, Objectives, Negotiation Approach, Roadmap, Risk register and Data gaps are not yet included below. This is a partial export, not a finished strategy.\n\n`;
     md+=`**Kraljic:** ${d.quadrant} (supply risk ${d.supplyRisk.toFixed(1)}/5, business impact ${d.businessImpact.toFixed(1)}/5)\n\n`;
     /* v2.13 — decision-paper order (per the management documents): summary,
@@ -3285,7 +3285,7 @@ Respond ONLY with JSON, no markdown fences:
       md+=`## PESTLE\n`+PESTLE_KEYS.map(k=>`- **${k}:** ${models.pestle[k].text}`).join("\n")+"\n\n";
     }
     if(research){
-      md+=`## Research findings (as of ${research.when})\n${research.overview}\n\n**Price outlook:** ${research.priceOutlook}\n\n### Regulatory, compliance & PESTLE signals\n| Area | Finding | Source |\n|---|---|---|\n`;
+      md+=`## Research findings (as of ${research.when}) — AI-inferred, verify before quoting\n${research.overview}\n\n**Price outlook:** ${research.priceOutlook}\n\n### Regulatory, compliance & PESTLE signals\n| Area | Finding | Source |\n|---|---|---|\n`;
       (research.pestleRegulatory||[]).forEach(r=>{md+=`| ${r.area} | ${r.finding} | ${r.source||""} ${r.url||""} |\n`;});
       md+=`\n### Supply-chain disruptions\n| Disruption | Impact on buyers | Source |\n|---|---|---|\n`;
       (research.disruptions||[]).forEach(r=>{md+=`| ${r.disruption} | ${r.impact} | ${r.source||""} ${r.url||""} |\n`;});
@@ -3433,7 +3433,7 @@ Respond ONLY with JSON, no markdown fences:
       const pptx=new PGJ(); pptx.layout="LAYOUT_WIDE";
       pptx.defineSlideMaster({title:"MAIN",background:{color:"FFFFFF"},objects:[
         {rect:{x:0,y:0,w:"100%",h:0.35,fill:{color:P}}},
-        {text:{text:"CategoryAI Strategic Category Suite v2.32.4",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
+        {text:{text:"CategoryAI Strategic Category Suite v2.33.0",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
       const slide=(title)=>{const s=pptx.addSlide({masterName:"MAIN"}); if(title) s.addText(title,{x:0.4,y:0.5,w:12.5,h:0.6,fontSize:26,bold:true,color:INKC,fontFace:"Calibri"}); return s;};
       const tblOpts={x:0.4,y:1.3,w:12.5,fontSize:11,color:INKC,border:{pt:0.5,color:"D8DCE0"},fill:{color:"FFFFFF"},autoPage:true,autoPageRepeatHeader:true};
       const hdr=t=>t.map(x=>({text:x,options:{bold:true,fill:{color:"EEF4F1"},color:INKC}}));
@@ -3511,7 +3511,8 @@ Respond ONLY with JSON, no markdown fences:
         const seg=x=>(x.capability>=3?(x.alignment>=3?"Strategic partner":"Transactional expert"):(x.alignment>=3?"Develop":"Tactical / phase out"));
         const tier=x=>{const g=seg(x); return g==="Strategic partner"||(x.share||0)>0.15?"Tier 1":(g==="Develop"||(x.share||0)>0.05?"Tier 2":"Tier 3");};
         s.addTable([hdr(["Supplier","Capability","Alignment","Segment","Tier"]),
-          ...suppliers.slice(0,8).map(x=>[x.name,x.capability+"/5",x.alignment+"/5",seg(x),tl(tier(x))])],tblOpts);
+          ...suppliers.slice(0,8).map(x=>[x.name,x.capability+"/5",x.alignment+"/5",seg(x),tl(tier(x))])],{...tblOpts,w:7.2,colW:[2.4,1.5,1.5,2.4,1.4]});
+        chartImg("catsuppliers",{x:7.8,y:1.3,w:5.3,h:3.62});
       }
       // 7 Risks (table + the 5×5 matrix image from the Word doc)
       if(risks.length){ s=slide("Top risks & mitigations");
@@ -4005,17 +4006,18 @@ function ResearchCard({profile,research,setResearch}){
   const [err,setErr]=useState("");
   const [topic,setTopic]=useState("");
   async function run(){
+    if(research&&((research.pestleRegulatory||[]).length||(research.disruptions||[]).length) && !(await confirmAsync("Run research again?\n\nThis REPLACES the current findings entirely — there's no merge or accumulate here. If you want to keep specific findings, note them down first."))) return;
     setBusy(true); setErr("");
     try{
       const out=await askClaude(
-        `You are a procurement research analyst with web search. Do a deep-dive on the supply market for the category "${profile.name}" (sector ${profile.sector||"unspecified"}, region ${profile.region||"Global"})${topic?`, with special focus on: "${topic}"`:""}. Search for the LATEST information and cite real sources (publication + URL) for every finding.
+        `You are a procurement research analyst with web search. Do a deep-dive on the supply market for the category "${profile.name}" (sector ${profile.sector||"unspecified"}, region ${profile.region||"Global"}).${profile.notes?" Scope & context: "+profile.notes:""}${profile.pains?.length?" Known pain points to research into: "+profile.pains.join("; ")+".":""}${topic?`, with special focus on: "${topic}"`:""}. Search for the LATEST information and cite real sources (publication + URL) for every finding.
 Respond ONLY with JSON, no fences:
 {"overview":"3-4 sentence current market overview",
  "pestleRegulatory":[{"area":"Political|Economic|Social|Technological|Legal|Environmental|Regulatory","finding":"one specific recent finding","source":"publication name","url":"https://..."}],
  "disruptions":[{"disruption":"supply-chain disruption or shift affecting this category","impact":"what it means for buyers","source":"publication","url":"https://..."}],
  "priceOutlook":"one sentence with source if found"}
 Give 5-8 pestleRegulatory items and 3-5 disruptions. If a source URL is uncertain, give the publication name and put "" for url — never invent URLs.`, true, true, 4096);
-      setResearch({...out, when:new Date().toISOString().slice(0,10), topic});
+      setResearch({...out, conf:"ai", when:new Date().toISOString().slice(0,10), topic});
     }catch(e){ setErr(e.message); }
     setBusy(false);
   }
@@ -4381,6 +4383,7 @@ function StepRisk({profile,research,risks,setRisks,esgOps,setEsgOps,next}){
   const [busy,setBusy]=useState("");
   const [err,setErr]=useState("");
   async function gen(){
+    if(risks&&risks.length && !(await confirmAsync("Regenerate the risk register?\n\nThis REPLACES all "+risks.length+" current risk(s), including any you've edited yourself — there's no merge or accumulate here (unlike Chessboard). If you want to keep specific risks, note them down first."))) return;
     setBusy("risks"); setErr("");
     try{
       const out=await askClaude(
@@ -4392,6 +4395,7 @@ Respond ONLY with JSON, no fences: {"risks":[{"risk":"","detail":"","likelihood"
     setBusy("");
   }
   async function genEsg(){
+    if(esgOps&&esgOps.length && !(await confirmAsync("Regenerate ESG & social value opportunities?\n\nThis REPLACES all "+esgOps.length+" current opportunit"+(esgOps.length===1?"y":"ies")+", including any you've edited yourself — there's no merge or accumulate here. If you want to keep specific ones, note them down first."))) return;
     setBusy("esg"); setErr("");
     try{
       const out=await askClaude(
@@ -4643,6 +4647,7 @@ function StepNego({profile,vars,generic,cl,chess,nego,setNego,next}){
   const [busy,setBusy]=useState(false);
   const [err,setErr]=useState("");
   async function gen(){
+    if(nego&&nego.issues&&nego.issues.length && !(await confirmAsync("Regenerate the negotiation plan?\n\nThis REPLACES the entire plan — objectives, BATNAs, all "+nego.issues.length+" issue(s), trades and behaviours — including anything you've edited yourself. If you want to keep specific parts, note them down first."))) return;
     setBusy(true); setErr("");
     try{
       const out=await askClaude(
@@ -4705,6 +4710,7 @@ function StepExec({profile,strategy,cl,exec,setExec,next}){
   const [busy,setBusy]=useState(false);
   const [err,setErr]=useState("");
   async function gen(){
+    if(exec&&exec.gantt&&exec.gantt.length && !(await confirmAsync("Regenerate the execution plan?\n\nThis REPLACES the current "+exec.gantt.length+"-workstream plan and RACI matrix entirely, including anything you've edited yourself. If you want to keep it, note it down first."))) return;
     setBusy(true); setErr("");
     try{
       const out=await askClaude(
@@ -4715,9 +4721,11 @@ Respond ONLY with JSON, no fences: {"gantt":[{"workstream":"","startQ":n,"endQ":
     }catch(e){ setErr(e.message); }
     setBusy(false);
   }
+  const updGantt=(i,patch)=>setExec(x=>({...x,conf:"user",gantt:x.gantt.map((g,j)=>j===i?{...g,...patch}:g)}));
+  const updRaci=(i,patch)=>setExec(x=>({...x,conf:"user",raci:x.raci.map((r,j)=>j===i?{...r,...patch}:r)}));
   return (
     <div className="card">
-      <h2 className="display">Category execution plan<Tip t="3-year Gantt of workstreams plus a RACI matrix — who is Responsible, Accountable, Consulted and Informed for each key activity."/></h2>
+      <h2 className="display">Category execution plan<Tip t="3-year Gantt of workstreams plus a RACI matrix — who is Responsible, Accountable, Consulted and Informed for each key activity. Edit any cell below the chart; edits are marked User and survive until you choose to regenerate."/></h2>
       <button className="btn dark" disabled={busy} onClick={gen}>{busy?"Planning…":exec?"↻ Regenerate plan":"⚡ AI-build execution plan"}</button>
       {busy && <Spinner label="Building the Gantt and RACI…"/>}
       {err && <div className="err">{err}</div>}
@@ -4735,11 +4743,29 @@ Respond ONLY with JSON, no fences: {"gantt":[{"workstream":"","startQ":n,"endQ":
               <text x={180+(g.startQ-1)*43+6} y={i*30+19} fontSize="8.5" fill="#fff">{g.owner}</text>
             </g>))}
         </svg>
-        <h3>RACI matrix</h3>
+        <h3>Edit workstreams<Tip t="Direct edits here — change the workstream name, its start/end quarter (1-12), or the owner. The Gantt chart above updates immediately."/></h3>
+        <div style={{overflowX:"auto"}}>
+        <table><thead><tr><th>Workstream</th><th>Start Q</th><th>End Q</th><th>Owner</th></tr></thead><tbody>
+          {exec.gantt.map((g,i)=>(
+            <tr key={i}>
+              <td><input value={g.workstream} onChange={e=>updGantt(i,{workstream:e.target.value})} style={{width:"100%",minWidth:140,fontSize:12,padding:"3px 5px"}}/></td>
+              <td><input type="number" min="1" max="12" value={g.startQ} onChange={e=>updGantt(i,{startQ:Math.max(1,Math.min(12,+e.target.value||1))})} style={{width:44,fontSize:12,padding:"3px 4px"}}/></td>
+              <td><input type="number" min="1" max="12" value={g.endQ} onChange={e=>updGantt(i,{endQ:Math.max(1,Math.min(12,+e.target.value||1))})} style={{width:44,fontSize:12,padding:"3px 4px"}}/></td>
+              <td><input value={g.owner} onChange={e=>updGantt(i,{owner:e.target.value})} style={{width:110,fontSize:12,padding:"3px 5px"}}/></td>
+            </tr>))}
+        </tbody></table>
+        </div>
+        <h3>RACI matrix<Tip t="Responsible does the work; Accountable owns the outcome; Consulted gives input beforehand; Informed is told afterward. Click any cell to edit."/></h3>
         <div style={{overflowX:"auto"}}>
         <table><thead><tr><th>Activity</th><th>R</th><th>A</th><th>C</th><th>I</th></tr></thead><tbody>
           {exec.raci.map((r,i)=>(
-            <tr key={i}><td><b>{r.activity}</b></td><td>{r.R}</td><td>{r.A}</td><td>{r.C}</td><td>{r.I}</td></tr>))}
+            <tr key={i}>
+              <td><input value={r.activity} onChange={e=>updRaci(i,{activity:e.target.value})} style={{width:"100%",minWidth:140,fontSize:12,padding:"3px 5px"}}/></td>
+              <td><input value={r.R} onChange={e=>updRaci(i,{R:e.target.value})} style={{width:100,fontSize:12,padding:"3px 5px"}}/></td>
+              <td><input value={r.A} onChange={e=>updRaci(i,{A:e.target.value})} style={{width:100,fontSize:12,padding:"3px 5px"}}/></td>
+              <td><input value={r.C} onChange={e=>updRaci(i,{C:e.target.value})} style={{width:120,fontSize:12,padding:"3px 5px"}}/></td>
+              <td><input value={r.I} onChange={e=>updRaci(i,{I:e.target.value})} style={{width:120,fontSize:12,padding:"3px 5px"}}/></td>
+            </tr>))}
         </tbody></table>
         </div>
       </div>)}
@@ -5074,8 +5100,8 @@ const STEP_GUIDE={
     kb:"SCREEN: Internal data (optional). Useful data: "+INTERNAL_DATA_CHECKLIST.map(d=>d.item+" — "+d.what+" (sharpens: "+d.feeds+")").join("; ")+". Skipping = generic mode: strategy built from market data only with assumptions flagged. The spend CSV needs supplier + spend columns; it auto-infers supplier concentration and puts top suppliers on the Kraljic chart."},
   models:{intro:"You're on Positioning models. Ask what Five Forces, Kraljic, SWOT or PESTLE mean, or what your scores imply.",
     kb:"SCREEN: Positioning models. PORTER'S FIVE FORCES analyses industry structure; each force derived from Market Intelligence variables: "+Object.entries(FORCE_SOURCES).map(([k,s])=>k+" from "+s.join("+")).join("; ")+". Meanings: high supplier power = price resistance, secure supply first; high buyer power = tender aggressively; high substitutes = negotiation leverage; high new entrants = market stays competitive; high rivalry = auctions produce sharp pricing. KRALJIC positions category by supply risk vs business impact: Strategic (create advantage — harness relationships, share risk); Leverage (minimise TCO — short commitments, generic specs); Bottleneck (minimise risk — secure supply, contingencies); Non-critical (simplify purchasing — standardise, consolidate). SWOT = buyer's position (AI-drafted, editable). PESTLE = macro forces on the supply market (Political Economic Social Technological Legal Environmental)."},
-  costlevers:{intro:"You're on Cost drivers & levers. Ask about any driver, lever, savings range or playbook.",
-    kb:""},
+  costlevers:{intro:"You're on Cost drivers & levers. Ask about any driver, lever, savings range, playbook, or where the savings/KPI/demand-driver numbers come from.",
+    kb:"SCREEN: Cost drivers & purchasing levers. TWO WAYS TO GET A STARTING POINT — '📚 Apply playbook' loads a curated, hand-built library entry for a matched category type: instant, offline, identical every time you run it — a governed, comparable baseline. '⚡ AI-generate' asks the AI to pick drivers and levers SPECIFICALLY for your exact category/sector/region, drawing on the same underlying libraries but tailoring the mix and weights (e.g. a category in a heavily-regulated sector gets compliance weighted higher than the generic playbook does) — richer and more specific, but needs an AI connection and can vary slightly run to run. Common pattern: apply the playbook first for a governed baseline, then AI-generate to compare or refine, or just drag any weight slider yourself (flips it to User). COST DRIVERS = the cost STRUCTURE (e.g. materials, labour, logistics, overhead) as %-of-total weights — should always sum to 100%. LEVERS = specific negotiation/sourcing actions applicable to this cost structure (e.g. volume consolidation, spec rationalisation). SAVINGS OPPORTUNITIES, KPIS, DEMAND DRIVERS AND CATEGORY RISKS shown on this screen come from the SAME source as the drivers/levers above them — either the matched playbook library entry, or the same AI-generate call if you used that instead; they are not separately sourced or separately assessed. If source documents were uploaded at the portfolio input stage (PDF/PPTX/DOCX/TXT), AI-extracted content from those can also feed these fields, with citations recorded in the bibliography."},
   assess:{intro:"You're on SWOT & PESTLE. Ask what they are or how to use the AI-drafted output.",
     kb:"SCREEN: SWOT & PESTLE. SWOT = buyer's position (Strengths/Weaknesses internal, Opportunities/Threats external), AI-drafted and editable per quadrant. PESTLE = macro forces on the supply market, one editable sentence per factor. Both feed the strategy document."},
   forces:{intro:"You're on Five Forces. Ask what a force means or why it's scored that way.",
@@ -5083,7 +5109,7 @@ const STEP_GUIDE={
   kraljic:{intro:"You're on the Kraljic matrix. Ask what your quadrant means or how the placement is calculated.",
     kb:"SCREEN: Kraljic. Supply risk (from market variables) vs business impact (from internal variables, assumed midpoint in generic mode). Strategic = create advantage via relationships; Leverage = minimise TCO, short commitments; Bottleneck = minimise risk, secure supply; Non-critical = simplify purchasing."},
   suppliers:{intro:"You're on Supplier segmentation. Ask about segments, the scorecard or contract tiers.",
-    kb:"SCREEN: Supplier segmentation & tiering. Each supplier scored on capability vs alignment → segments: Strategic partner (partner, joint plans), Develop (invest, grow carefully), Transactional expert (contract tightly), Tactical/phase out (consolidate away). Scorecard: quality, delivery, cost, innovation, ESG (1-5). Contract tier: Tier 1/Gold = strategic or >15% spend (quarterly exec QBRs); Tier 2/Silver = develop or >5% (bi-annual reviews); Tier 3/Bronze = rest (annual light touch). Gold/Silver/Bronze is the recognised public-procurement (GCF) naming. Also a TIER CALCULATOR: score any single contract on value/criticality (50%), supply risk (30%) and contract complexity (20%) → weighted score → suggested tier under the chosen naming scheme, with its governance regime; a decision aid for borderline cases, the segment+spend table stays the primary basis. Also SUPPLIER PREFERENCING — their view of US: account attractiveness × our share of their revenue → Core (they invest in us), Development (they grow us), Exploitable (they harvest margin), Nuisance (worst service — consolidate away or raise our attractiveness)."},
+    kb:"SCREEN: Supplier segmentation & tiering. AI-ASSESS SOURCE: one AI call scores every supplier by name, using the category name and sector as context — capability, alignment, account attractiveness, relative value, and a quality/delivery/cost/innovation/ESG scorecard all come from that SAME call, all sharing one confidence flag (AI-inferred) on the supplier record; it draws on the AI's own general knowledge of each named supplier, not on this session's other accumulated data (market research, SWOT etc.) — for very obscure or newly-formed suppliers the AI may have limited real knowledge, so scores should be sense-checked, especially capability/quality/delivery. PRIMARY BASIS — segment+spend: capability vs alignment → segments: Strategic partner (partner, joint plans), Develop (invest, grow carefully), Transactional expert (contract tightly), Tactical/phase out (consolidate away). Contract tier: Tier 1/Gold = strategic or >15% spend (quarterly exec QBRs); Tier 2/Silver = develop or >5% (bi-annual reviews); Tier 3/Bronze = rest (annual light touch). Gold/Silver/Bronze is the recognised public-procurement (GCF) naming. This segment+spend table is what actually drives the tier — it's the primary basis. SECONDARY, DECISION-AID ONLY — the TIER CALCULATOR scores a single CONTRACT (not the whole supplier relationship) on value/criticality (50%), supply risk (30%) and contract complexity (20%) → a suggested tier under the chosen naming scheme; useful for borderline cases where the segment+spend picture alone isn't conclusive, but its output should inform, never override, the segment+spend result. SUPPLIER PREFERENCING (a separate quadrant, their view of US, same AI-assess call, same confidence flag): account attractiveness × our share of their revenue → Core (they invest in us), Development (they grow us), Exploitable (they harvest margin), Nuisance (worst service — consolidate away or raise our attractiveness). SRM REVIEW (below the main scorecard) is entirely different and NOT AI-generated at all: a manual, periodic post-contract performance check you fill in yourself on the same five scorecard dimensions — each saved review is a dated snapshot forming a history, so you can see performance drift over time; it never overwrites the strategic AI-assess scorecard above, and appears after it because it's a later-stage, ongoing activity (post-contract-signature), not part of the initial strategic assessment."},
   risk:{intro:"You're on the Risk heatmap. Ask how scoring works or what to do with red risks.",
     kb:"SCREEN: 5×5 risk heatmap. Likelihood × impact; score ≥15 red (act now), 8-14 amber (mitigate & monitor), <8 green (accept & watch). AI generates 6-8 risks with mitigations; all editable. Feeds the risk register in the document. Below it: ESG & social value opportunities — the upside twin of the register (carbon, circularity, labour standards, SME/social spend), each with type, action and benefit."},
   chess:{intro:"You're on Chessboard levers. Ask about the four base strategies or the recommended plays.",
@@ -5093,7 +5119,7 @@ const STEP_GUIDE={
   exec:{intro:"You're on the Execution plan. Ask about the Gantt or RACI.",
     kb:"SCREEN: Execution plan. 3-year (12-quarter) Gantt of workstreams with owners, plus RACI matrix: Responsible does the work, Accountable owns the outcome (one per activity), Consulted gives input, Informed is kept up to date."},
   value:{intro:"You're on Savings & maturity. Ask about the pipeline, KPI targets or maturity dimensions.",
-    kb:"SCREEN: Savings pipeline (initiative, lever, est. % saving, horizon, status Idea→Validated→In delivery→Delivered; a Delivered % column records realised savings and is editable ONLY when status = Delivered — moving out of Delivered resets it to 0; totals show planned AND delivered, as % of spend and value where a spend CSV was uploaded) + 3-year KPI tracker (baseline, Y1-Y3 targets) + category maturity self-assessment across: "+MATURITY_DIMS.join(", ")+" (1 = ad hoc, 5 = leading practice) + BENEFITS TRACKING register across five benefit types: Cash (bankable savings), Cost avoidance (prevented increases), Efficiency (time/process), Carbon (tCO2e), Social value (jobs, SME spend) — each with metric, planned vs delivered, quarter and owner."},
+    kb:"SCREEN: Savings pipeline (initiative, lever, est. % saving, horizon, status Idea→Validated→In delivery→Delivered; a Delivered % column records realised savings and is editable ONLY when status = Delivered — moving out of Delivered resets it to 0; totals show planned AND delivered, as % of spend and value where a spend CSV was uploaded) + 3-year KPI tracker (baseline, Y1-Y3 targets, both manually entered — no AI suggestion applied to either the maturity scores or KPI targets; ask the guide chat for AI benchmarking commentary if wanted) + category maturity self-assessment (1=ad hoc, 5=leading practice, staged in the style of CIPS/Hackett maturity models) across: "+MATURITY_DIMS.join(", ")+" + a staged maturity CHECKLIST (tick practices genuinely in place; a stage is only awarded once every practice of that stage AND all earlier stages is ticked) — this is the tool's own built-in construct, evidence-staged in the CIPS/Hackett style rather than a licensed copy of either framework verbatim + BENEFITS TRACKING register across five benefit types: Cash (bankable savings), Cost avoidance (prevented increases), Efficiency (time/process), Carbon (tCO2e), Social value (jobs, SME spend) — each with metric, planned vs delivered, quarter and owner; rows are added manually here, there is no AI-generation button on this register."},
   sevenps:{intro:"You're on Commercial 7Ps. Ask what the 7Ps are, when to use them, or what a good answer looks like.",
     kb:"SCREEN: Commercial 7Ps (optional, sell-side). The 7Ps marketing mix — Product, Price, Place, Promotion, People, Process, Physical evidence — defines a commercial strategy. Only needed when the category IS the business (product line / service you sell), not for pure buy-side category strategy. AI generates 2 sector-specific questions per P; answers can be typed (User) or AI-drafted (AI-inferred); a canvas + narrative is then synthesised."},
   strategy:{intro:"You're on Strategy & plan. Ask about the preflight check, the composer, opportunities, the business-case formats, the downloads or how confidence works.",
@@ -5118,7 +5144,7 @@ CATEGORY ARCHETYPES:\n${Object.entries(CATEGORY_ARCHETYPES).map(([k,a])=>{const 
     setQ(""); setBusy(true);
     try{
       const text=await askClaude(
-        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.32.4): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.32.4 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 4-sheet .xlsx (Profile, Market & Internal Variables, Suppliers, Risks); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed).\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
+        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.33.0): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.33.0 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 4-sheet .xlsx (Profile, Market & Internal Variables, Suppliers, Risks); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed).\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
         false, false);
       setMsgs(m=>[...m,{role:"assistant",text}]);
     }catch(e){ setMsgs(m=>[...m,{role:"assistant",text:e.message}]); }
@@ -9455,8 +9481,8 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.32.4</span></div>
-          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.32.4 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.33.0</span></div>
+          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.33.0 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <AIStatusChip/>
