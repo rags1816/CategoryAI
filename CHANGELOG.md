@@ -1,5 +1,79 @@
 # Changelog
 
+## v2.33.0
+### Fixed — regeneration data loss (5 screens)
+- Risk Heatmap, ESG opportunities, Negotiation Plan, Execution Plan, and
+  Research Assistant all previously wiped existing data silently on
+  regenerate — no confirmation, no merge, unlike Chessboard's
+  accumulate-and-tick-to-keep pattern. All five now confirm first,
+  quoting exactly what will be lost, before proceeding.
+
+### Fixed — Execution Plan had zero editable fields
+- Confirmed via direct inspection (`onChange` count: 0) — the Gantt/RACI
+  plan was 100% AI-regenerate-only with no way to adjust a single value.
+  Added full inline editing for both the Gantt table (workstream,
+  start/end quarter, owner) and the RACI matrix, matching the edit
+  pattern already used on Suppliers/Risks elsewhere in the app.
+
+### Fixed — Research Assistant
+- Was missing its `conf:"ai"` flag entirely, despite the on-screen text
+  explicitly claiming "findings are flagged AI-inferred in the
+  document" — added the flag and wired it into the export header.
+- Expanded the prompt to use `profile.notes` and `profile.pains`, not
+  just category name/sector/region — more targeted research.
+
+### Fixed — three empty or incomplete guide-chat entries
+- Cost Drivers & Levers: guide text was a **completely empty string**.
+  Rewrote covering playbook-vs-AI-generate, cost driver vs. lever
+  distinction, and the source of savings/KPI/demand-driver/risk fields.
+- Suppliers/SRM: rewrote with AI-assess source transparency, explicit
+  primary (segment+spend) vs. secondary (tier calculator, contract-level)
+  basis, and clarified SRM review is entirely manual/non-AI — a real
+  distinction that existed in behavior but was undocumented anywhere.
+- Maturity checklist: added the CIPS/Hackett-style attribution that
+  already existed in code comments and the About tab, but was missing
+  from this specific screen's own guide text — the actual source of the
+  user's confusion.
+
+### Changed — Five Forces enrichment
+- Found 3 market variables collected on-screen but never used in any of
+  the 5 Porter's Forces calculations: `geoRisk`, `priceVolatility`,
+  `regulatoryIntensity`. Wired each into a directionally appropriate
+  force (geoRisk → Supplier power, regulatoryIntensity → Threat of new
+  entrants as a classic barrier-to-entry factor, priceVolatility →
+  Competitive rivalry) and kept the guide text's dynamic source list in
+  sync.
+
+### Added
+- PowerPoint Supplier segmentation slide now includes the chart image
+  (previously table-only, unlike every other module slide).
+
+### Verified, no fix needed
+- Kraljic's "not yet assessed" warning banner already exists and is
+  well-built (dynamic, explains exactly which axis is unconfirmed) —
+  confirmed real rather than assumed broken.
+- Chessboard's "AI-recommend" button exists and is correctly labelled.
+
+### Deferred — genuinely new scope, not this sweep
+- Expanding the input template to cover contract register, demand
+  forecast, specs, supplier performance, stakeholder map
+- A "what are we buying / capability" input feeding archetype matching
+- An in-app AI-assist button for the Maturity/KPI screen (currently
+  manual-only by design)
+- Minor remaining copy/UX items (SWOT-above-Research ordering, floating
+  guide visibility, a visible confidence badge specifically on the
+  Supplier Preferencing chart)
+
+### Note
+This sweep was done via careful source verification and static
+structural checks (all edited functions individually confirmed
+balanced), without a live Claude Code test round, per explicit
+instruction to conserve cost this time. **This means v2.33.0 has NOT
+been tested live** — recommend at least a light verification pass
+before treating it as stable, given the volume of real logic changes
+(5 confirm guards, new Execution Plan edit UI, a scoring formula
+change) in this release.
+
 ## v2.32.4 (frozen)
 SHA-256: 19a0ca5b284355478ed3e25137bb426a0621b966c30245e9ae1c1662b8557f5c
 Supersedes v2.32.3's freeze — fixed both Excel template downloads
