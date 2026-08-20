@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.33.3
+### Fixed — item 6
+- The "Continue to SWOT & PESTLE" button previously sat at the bottom of
+  Step2's own content (the 9 market variables), rendered ABOVE Research
+  Assistant on the same screen — meaning a user could click through and
+  move on without ever discovering Research Assistant existed. Moved the
+  button to after Research Assistant instead, so it's now the single,
+  true end-of-screen action.
+
+### Fixed — item 12 (remainder)
+- SRM review's scorecard sliders showed only a bare 1-5 number, no
+  indication of which end meant what. Added "Poor" / "Excellent" labels
+  at each end. Checked the main strategic supplier scorecard for the
+  same gap — it's a labeled table with numeric inputs, not a slider,
+  so no fix needed there.
+
 ## v2.33.2
 ### Changed — item 22
 - Category maturity self-assessment scale labels changed from
