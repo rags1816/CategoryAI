@@ -1,5 +1,41 @@
 # Changelog
 
+## v2.33.1
+### Fixed — Research Assistant, properly this time (item 7)
+- Replaced the confirm-before-overwrite guard with genuine accumulate
+  behavior, matching Chessboard's pattern: the AI is told what's already
+  found and asked for different findings, new results merge into the
+  existing lists rather than replacing them. Nothing is ever lost, so
+  the confirm dialog is gone too — it's no longer needed. Added a
+  "🗑 Clear all findings" button for a genuine reset when wanted.
+
+### Added — persistent demo-data banner (items 3, 4)
+- A shared warning now shows on every Category Workbench step whenever
+  the profile name still carries the Demo Tour's "(Demo)" marker — one
+  fix covering both the general request and the Market Info Hub-specific
+  one, rather than duplicating logic per screen.
+
+### Fixed — 3 more guide-text gaps
+- Market Intelligence: previously said nothing about Research Assistant
+  at all, despite it living on that screen — the direct cause of "is it
+  only PESTLE?" confusion. Now fully explains scope, source, and the new
+  accumulate behavior.
+- Negotiation Plan: added explicit single-source-call transparency
+  (issues matrix, trading board, and behaviours all come from the one
+  call) and regenerate behavior.
+- Execution Plan: added source (strategy roadmap + levers), the new
+  editability, and regenerate behavior.
+
+### Not addressed this round
+- Item 22 (maturity chart wording) — your note was unclear to me, need
+  clarification before implementing
+- Item 6 (SWOT/PESTLE button position vs Research) — not yet investigated
+- Item 11 (visible confidence badge on Preferencing chart specifically)
+- Item 12 (SRM bar chart low/high axis labels)
+- Items 1, 2, 21 — genuinely new scope, still deferred
+- Item 15 — confirmed the button exists in code; can't resolve what you
+  specifically saw without more detail from your own testing
+
 ## v2.33.0
 ### Fixed — regeneration data loss (5 screens)
 - Risk Heatmap, ESG opportunities, Negotiation Plan, Execution Plan, and
