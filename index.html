@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.33.6</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.35.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -486,7 +486,7 @@ function storageGet(k){ try{ return window.localStorage.getItem(k); }catch(e){ r
 function storageSet(k,v){ try{ window.localStorage.setItem(k,v); return true; }catch(e){ return false; } }
 function storageDel(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
 
-/* ================= IN-APP CONFIRM/ALERT MODAL (v2.33.6) =================
+/* ================= IN-APP CONFIRM/ALERT MODAL (v2.35.0) =================
    Replaces native window.confirm()/window.alert() everywhere in the app.
    Native dialogs are invisible to browser-automation tools (they live
    outside the DOM), which made every one of these un-testable and, for
@@ -1095,6 +1095,73 @@ function buildChessQuadChart(quad,keptCount){
   return chartResult(c,W,H);
 }
 
+/* v2.35 — 2-page Category Execution Plan (CEP): a dense, at-a-glance
+   summary distinct from the full strategy document — one page of
+   position (spend/scope, spend profile, demand & strategy, Five Forces,
+   supplier landscape, 3-year plan, near-term actions) and one page of
+   disruptors/horizon-scan. Structure validated against real-world
+   category-management templates, fully genericized — no company-
+   specific branding or content, built entirely from data already in
+   this session. Reuses the existing markdown→docx pipeline rather than
+   new low-level table code — real Word tables, already proven. */
+function buildCepMarkdown(profile, d, internal, suppliers, strategy, pitch, research, cl, demandForecast){
+  const spend = internal?.spend;
+  const spendStr = spend ? "$"+(spend.total/1e6).toFixed(1)+"m" : "[To complete — no spend data captured]";
+  const scopeStr = profile.sector||"[sector not set]";
+  const summary = (pitch&&pitch.text) ? pitch.text
+    : (strategy?.executiveSummary) ? strategy.executiveSummary
+    : "[To complete — generate the strategy (Step 14) or the elevator pitch for a summary here.]";
+
+  let md = `# ${profile.name||"[Category name]"} — Category Execution Plan\n`;
+  md += `**Spend:** ${spendStr}  |  **Scope:** ${scopeStr}  |  **Kraljic:** ${d?.quadrant||"[not yet assessed]"}\n\n`;
+  md += `${summary}\n\n`;
+
+  md += `| Spend profile | Demand & strategy |\n|---|---|\n`;
+  const spendCell = spend
+    ? `Total spend ${spendStr}. Top-3 supplier concentration ${(spend.top3Share*100).toFixed(0)}%. `+spend.suppliers.slice(0,3).map(s=>s.supplier).join(", ")
+    : (profile.notes||"[No spend data or scope notes captured yet]");
+  const demandCell = [
+    (demandForecast&&demandForecast.length) ? "Forecast: "+demandForecast.map(f=>f.period+" "+f.amount+" ("+(f.trend||"Flat")+")").join("; ") : "",
+    (profile.pains&&profile.pains.length) ? "Pain points: "+profile.pains.join(", ") : "",
+    (strategy?.objectives?.length) ? "Objectives: "+strategy.objectives.slice(0,2).join("; ") : ""
+  ].filter(Boolean).join(". ") || "[No demand forecast or objectives captured yet]";
+  md += `| ${spendCell.replace(/\n/g," ")} | ${demandCell.replace(/\n/g," ")} |\n\n`;
+
+  md += `| Five Forces | Supplier landscape |\n|---|---|\n`;
+  const forcesCell = d?.porter
+    ? Object.entries(d.porter).map(([k,v])=>{
+        const label=v>=3.5?"High":v>=2.5?"Moderate":"Low";
+        return k+": "+label;
+      }).join(". ")
+    : "[Not yet assessed — Step 5, Five Forces]";
+  const supplierCell = (suppliers&&suppliers.length)
+    ? suppliers.slice(0,5).map(s=>{
+        const seg = s.capability>=3 ? (s.alignment>=3?"Strategic partner":"Transactional expert") : (s.alignment>=3?"Develop":"Tactical");
+        return s.name+" ("+seg+")";
+      }).join(", ")
+    : "[No suppliers assessed yet]";
+  md += `| ${forcesCell} | ${supplierCell} |\n\n`;
+
+  md += `| 3-year plan | Near-term actions |\n|---|---|\n`;
+  const roadmapCell = strategy?.roadmap?.length
+    ? strategy.roadmap.map(p=>p.phase+": "+(p.actions||[]).slice(0,2).join("; ")).join(". ")
+    : "[To complete — generate the strategy for a roadmap]";
+  const actionsCell = strategy?.roadmap?.[0]?.actions?.length
+    ? strategy.roadmap[0].actions.join("; ")
+    : "[To complete]";
+  md += `| ${roadmapCell.replace(/\n/g," ")} | ${actionsCell.replace(/\n/g," ")} |\n\n`;
+
+  md += `\n## Disruptors & developments — future of the category\n\n`;
+  md += `| What? | Impact | Response |\n|---|---|---|\n`;
+  if(research?.disruptions?.length){
+    research.disruptions.forEach(x=>{
+      md += `| ${(x.disruption||"").replace(/\n/g," ")} | ${(x.impact||"").replace(/\n/g," ")} | [To complete — add your response] |\n`;
+    });
+  } else {
+    md += `| [Run the Research Assistant (Step 3) to populate this from live market disruptions] | | |\n`;
+  }
+  return md;
+}
 async function downloadAsWord(md,baseName){
   // Try real .docx first; fall back to legacy HTML-in-.doc
   try{
@@ -1589,7 +1656,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
-        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.33.6 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
+        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.35.0 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
       </div>
     )]
   ];
@@ -2133,6 +2200,19 @@ function Tip({t}){ return <span className="info" title={t}>i</span>; }
 
 const CONF_HELP="Confidence = where this value came from and how much to trust it. User (you set or confirmed it — most defensible), AI-inferred (the AI generated it, awaiting your review), AI Draft — unconfirmed (a proposed score awaiting explicit accept/edit — does not yet count as assessed), Assumed (an untouched default). Change it here, or click ✓ to confirm the AI's value as your own.";
 function ConfHeader(){ return <th title={CONF_HELP}>Confidence <span className="info" style={{marginLeft:2}}>i</span></th>; }
+function Collapsible({title,defaultOpen=true,badge,children}){
+  const [open,setOpen]=useState(defaultOpen);
+  return (
+    <div style={{borderTop:"1px solid var(--line)",paddingTop:10,marginTop:10}}>
+      <button onClick={()=>setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:8,width:"100%",textAlign:"left",background:"none",border:"none",cursor:"pointer",padding:"4px 0"}}>
+        <span style={{fontSize:11,color:"var(--slate)",display:"inline-block",transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span>
+        <h3 style={{margin:0,flex:1}}>{title}</h3>
+        {badge}
+      </button>
+      {open && <div style={{marginTop:2}}>{children}</div>}
+    </div>
+  );
+}
 function ConfCell({conf,onChange}){
   return (
     <td>
@@ -2439,7 +2519,7 @@ function SelectOrOther({value,onChange,options,placeholder}){
   );
 }
 
-function Step1({profile,setProfile,vars,setVars,suppliers,setSuppliers,risks,setRisks,next}){
+function Step1({profile,setProfile,vars,setVars,suppliers,setSuppliers,risks,setRisks,stakeholderMap,setStakeholderMap,contracts,setContracts,demandForecast,setDemandForecast,srmReviews,setSrmReviews,next}){
   const set=(k,v)=>setProfile(p=>({...p,[k]:v}));
   const [busy,setBusy]=useState("");
   const [err,setErr]=useState("");
@@ -2447,7 +2527,7 @@ function Step1({profile,setProfile,vars,setVars,suppliers,setSuppliers,risks,set
   const categorySuggestions=[...Object.keys(CATEGORY_ARCHETYPES).map(k=>k.replace(/\b\w/g,c=>c.toUpperCase())),"Ocean Freight","Road Freight","Marketing Agencies","MRO","Office Supplies","Utilities","Insurance","Security Services","Catering","Waste Management"];
   async function downloadTemplate(){
     setTplBusy("dl"); setErr("");
-    try{ await buildCategoryInputTemplate(profile, vars, suppliers, risks); }
+    try{ await buildCategoryInputTemplate(profile, vars, suppliers, risks, contracts, demandForecast, stakeholderMap, srmReviews); }
     catch(e){ setErr(e.message); }
     setTplBusy("");
   }
@@ -2458,11 +2538,16 @@ function Step1({profile,setProfile,vars,setVars,suppliers,setSuppliers,risks,set
       const nProfile=Object.keys(parsed.profile).length;
       const nVars=Object.keys(parsed.vars).length;
       const nSup=parsed.suppliers.length, nRisk=parsed.risks.length;
-      if(!(await confirmAsync("Apply from \""+file.name+"\"?\n\n• Profile: "+nProfile+" field(s)\n• Variables: "+nVars+" score(s)\n• Suppliers: "+nSup+" (replaces the current list if any)\n• Risks: "+nRisk+" (replaces the current list if any)\n\nOnly fields with content in the file are applied; everything else stays as it is."+(parsed.warnings.length?"\n\nNotes: "+parsed.warnings.join(" "):"")))){ setTplBusy(""); return; }
+      const nCon=parsed.contracts.length, nDem=parsed.demandForecast.length, nStk=parsed.stakeholderMap.length, nSrm=parsed.srmReviews.length;
+      if(!(await confirmAsync("Apply from \""+file.name+"\"?\n\n• Profile: "+nProfile+" field(s)\n• Variables: "+nVars+" score(s)\n• Suppliers: "+nSup+" (replaces the current list if any)\n• Risks: "+nRisk+" (replaces the current list if any)\n• Contracts: "+nCon+" (replaces the current list if any)\n• Demand forecast: "+nDem+" period(s) (replaces the current list if any)\n• Stakeholders: "+nStk+" (replaces the current list if any)\n• Supplier performance reviews: "+nSrm+" (ADDS to SRM history, does not replace)\n\nOnly fields with content in the file are applied; everything else stays as it is."+(parsed.warnings.length?"\n\nNotes: "+parsed.warnings.join(" "):"")))){ setTplBusy(""); return; }
       if(nProfile) setProfile(p=>({...p,...parsed.profile}));
       if(nVars) setVars(v=>({...v,...parsed.vars}));
       if(nSup) setSuppliers(parsed.suppliers);
       if(nRisk) setRisks(parsed.risks);
+      if(nCon) setContracts(parsed.contracts);
+      if(nDem) setDemandForecast(parsed.demandForecast);
+      if(nStk) setStakeholderMap(parsed.stakeholderMap);
+      if(nSrm) setSrmReviews(rs=>[...(rs||[]),...parsed.srmReviews]);
     }catch(e){ setErr(e.message); }
     setTplBusy("");
   }
@@ -2521,6 +2606,41 @@ function Step1({profile,setProfile,vars,setVars,suppliers,setSuppliers,risks,set
         <button className="btn" style={{background:"var(--amberSoft)",color:"var(--ai)",border:"none"}} disabled={busy==="notes"||!profile.name.trim()} onClick={draftNotes}>
           {busy==="notes"?"Drafting…":"⚡ AI draft the notes from the fields above"}</button>
       </div>
+      <h3 style={{marginTop:14}}>Specs & requirements <span style={{fontWeight:400,fontSize:11,color:"var(--slate)"}}>(optional)</span><Tip t="What are we actually buying — the technical/functional spec, service levels, capability or capacity needed. Kept as free text deliberately: real-world specs are usually narrative or supplied as documents, not a fixed set of fields. Feeds Research Assistant, SWOT, and playbook matching so downstream content reflects what's actually being sourced, not just the category name."/></h3>
+      <textarea placeholder="What are we buying? Technical/functional spec, service levels, required capability or capacity…" value={profile.specs||""} onChange={e=>set("specs",e.target.value)}/>
+      <h3 style={{marginTop:18}}>Stakeholder map <span style={{fontWeight:400,fontSize:11,color:"var(--slate)"}}>(optional)</span><Tip t="Mendelow's power-interest grid — a standard stakeholder-management framework. Influence = how much say they have over this category's decisions. Interest = how closely they're watching it. Manual entry: who's involved is organisational fact, not something AI should invent."/></h3>
+      {(stakeholderMap||[]).length===0 && <p className="hint">No stakeholders mapped yet.</p>}
+      {(stakeholderMap||[]).length>0 && (
+        <div style={{display:"flex",gap:20,flexWrap:"wrap",alignItems:"flex-start"}}>
+          <svg viewBox="0 0 320 300" style={{flex:"0 1 340px",width:"100%",maxWidth:360}}>
+            <rect x="40" y="12" width="130" height="127" fill="#F6E3DE"/><rect x="170" y="12" width="130" height="127" fill="var(--petrolSoft)"/>
+            <rect x="40" y="139" width="130" height="127" fill="#EAF1F8"/><rect x="170" y="139" width="130" height="127" fill="var(--amberSoft)"/>
+            <text x="46" y="26" fontSize="8.5" fontWeight="700" fill="var(--red)">KEEP SATISFIED</text>
+            <text x="296" y="26" fontSize="8.5" fontWeight="700" fill="var(--petrol)" textAnchor="end">MANAGE CLOSELY</text>
+            <text x="46" y="260" fontSize="8.5" fontWeight="700" fill="#2E6FB3">MONITOR</text>
+            <text x="296" y="260" fontSize="8.5" fontWeight="700" fill="var(--amber)" textAnchor="end">KEEP INFORMED</text>
+            {(stakeholderMap||[]).map((s,i)=>{
+              const x=40+(((s.interest||3)-1)/4)*260, y=266-(((s.influence||3)-1)/4)*254;
+              return (<g key={i}><circle cx={x} cy={y} r={7} fill="var(--ink)" opacity=".7"/>
+                <text x={x+9} y={y+3} fontSize="8.5" fill="var(--ink)">{(s.name||"").slice(0,16)}</text></g>);
+            })}
+            <text x="160" y="292" fontSize="10" fill="var(--slate)" textAnchor="middle">Interest →</text>
+            <text x="14" y="150" fontSize="10" fill="var(--slate)" textAnchor="middle" transform="rotate(-90 14 150)">Influence →</text>
+          </svg>
+          <div style={{flex:"1 1 280px",overflowX:"auto"}}>
+            <table><thead><tr><th>Name / role</th><th>Influence</th><th>Interest</th><th/></tr></thead><tbody>
+              {(stakeholderMap||[]).map((s,i)=>(
+                <tr key={i}>
+                  <td><input value={s.name||""} placeholder="e.g. Head of IT" onChange={e=>setStakeholderMap(ss=>ss.map((x,j)=>j===i?{...x,name:e.target.value}:x))} style={{width:130,fontSize:12,padding:"3px 5px"}}/></td>
+                  <td><input type="number" min="1" max="5" value={s.influence||3} onChange={e=>setStakeholderMap(ss=>ss.map((x,j)=>j===i?{...x,influence:Math.max(1,Math.min(5,+e.target.value||1))}:x))} style={{width:44,fontSize:12,padding:"3px 4px"}}/></td>
+                  <td><input type="number" min="1" max="5" value={s.interest||3} onChange={e=>setStakeholderMap(ss=>ss.map((x,j)=>j===i?{...x,interest:Math.max(1,Math.min(5,+e.target.value||1))}:x))} style={{width:44,fontSize:12,padding:"3px 4px"}}/></td>
+                  <td><button className="btn ghost" style={{border:"none",color:"var(--red)"}} onClick={()=>setStakeholderMap(ss=>ss.filter((x,j)=>j!==i))}>✕</button></td>
+                </tr>))}
+            </tbody></table>
+          </div>
+        </div>
+      )}
+      <button className="btn" style={{marginTop:8}} onClick={()=>setStakeholderMap(ss=>[...(ss||[]),{name:"",influence:3,interest:3}])}>+ Add stakeholder</button>
       {err && <div className="err">{err}</div>}
       <div style={{marginTop:14}}>
         <button className="btn primary" disabled={!profile.name.trim()} onClick={next}>Continue to spend profile →</button>
@@ -2590,7 +2710,7 @@ const INTERNAL_DATA_CHECKLIST=[
   {item:"Stakeholder map",    what:"Budget owners, their priorities, and who signs off the strategy.",                                 feeds:"Stakeholder / regulator visibility"},
 ];
 
-function Step3({vars,setVar,internal,setInternal,next,skip}){
+function Step3({vars,setVar,internal,setInternal,demandForecast,setDemandForecast,next,skip}){
   const fileRef=useRef();
   const [err,setErr]=useState("");
   function onCSV(e){
@@ -2644,6 +2764,21 @@ function Step3({vars,setVar,internal,setInternal,next,skip}){
       <h3 style={{marginTop:18}}>Internal assessment<Tip t="Five 1-5 judgements about YOUR organisation's relationship with this category (not the market): how big it is in your spend, how critical to your operations, where your demand is heading, who's watching it, and how much value headroom is left. Together they form the 'business impact' axis of the Kraljic matrix."/></h3>
       <p className="hint">These five questions are about <b>your organisation</b>, not the supply market: how much this category matters to you. They set the vertical (business impact) axis of the Kraljic matrix — the market questions on the next step set the horizontal (supply risk) axis. Answer what you know; leave the rest and they stay flagged Assumed.</p>
       {INTERNAL_VARS.map(v=><VarRow key={v.id} def={v} entry={vars[v.id]} onChange={e=>setVar(v.id,e)}/>)}
+      <h3 style={{marginTop:18}}>Demand forecast <span style={{fontWeight:400,fontSize:11,color:"var(--slate)"}}>(optional)</span><Tip t="Your own future volume/spend expectations for this category — period by period. Manual entry (or upload via the Step 1 input template): this is your organisation's plan, not something AI should invent. Feeds the negotiation plan (growing demand = leverage) and the market/internal narrative."/></h3>
+      {demandForecast.length===0 && <p className="hint">No forecast entered yet.</p>}
+      {demandForecast.length>0 && (<div style={{overflowX:"auto"}}>
+        <table><thead><tr><th>Period</th><th>Expected volume/spend</th><th>vs. current</th><th/></tr></thead><tbody>
+          {demandForecast.map((d,i)=>(
+            <tr key={i}>
+              <td><input value={d.period||""} placeholder="e.g. FY27" onChange={e=>setDemandForecast(ds=>ds.map((x,j)=>j===i?{...x,period:e.target.value}:x))} style={{width:100,fontSize:12,padding:"3px 5px"}}/></td>
+              <td><input value={d.amount||""} placeholder="e.g. £1.2M or 500 units" onChange={e=>setDemandForecast(ds=>ds.map((x,j)=>j===i?{...x,amount:e.target.value}:x))} style={{width:140,fontSize:12,padding:"3px 5px"}}/></td>
+              <td><select value={d.trend||"Flat"} onChange={e=>setDemandForecast(ds=>ds.map((x,j)=>j===i?{...x,trend:e.target.value}:x))} style={{fontSize:11.5,padding:"3px 4px"}}>
+                <option>Growing</option><option>Flat</option><option>Declining</option></select></td>
+              <td><button className="btn ghost" style={{border:"none",color:"var(--red)"}} onClick={()=>setDemandForecast(ds=>ds.filter((x,j)=>j!==i))}>✕</button></td>
+            </tr>))}
+        </tbody></table>
+      </div>)}
+      <button className="btn" style={{marginTop:8}} onClick={()=>setDemandForecast(ds=>[...ds,{period:"",amount:"",trend:"Flat"}])}>+ Add period</button>
       <div style={{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}}>
         <button className="btn primary" onClick={next}>Continue to market info hub →</button>
         <button className="btn" onClick={skip}>Skip — continue in generic mode (market data only)</button>
@@ -3135,7 +3270,7 @@ function TemplatesCard(ctx){
   );
 }
 
-function Step5({profile,vars,setVar,generic,internal,marketBrief,strategy,setStrategy,opps,setOpps,sevenPs,cl,setCl,models,research,suppliers,srmReviews,matCheck,risks,chess,nego,exec,value,esgOps,benefits,pitch,setPitch,tierScheme,saveSessionNow,exportSession,importSession}){
+function Step5({profile,vars,setVar,generic,internal,marketBrief,strategy,setStrategy,opps,setOpps,sevenPs,cl,setCl,models,research,suppliers,srmReviews,matCheck,risks,chess,nego,exec,value,esgOps,benefits,pitch,setPitch,demandForecast,tierScheme,saveSessionNow,exportSession,importSession}){
   const [busy,setBusy]=useState(false);
   const [err,setErr]=useState("");
   const [copied,setCopied]=useState(false);
@@ -3252,7 +3387,7 @@ Respond ONLY with JSON, no markdown fences:
     setBusy(false);
   }
   function buildMd(){
-    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.33.6 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
+    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.35.0 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
     if(!strategy) md+=`**⚠ DRAFT — Generate Strategy has not been run (or did not complete).** Executive Summary, Objectives, Negotiation Approach, Roadmap, Risk register and Data gaps are not yet included below. This is a partial export, not a finished strategy.\n\n`;
     md+=`**Kraljic:** ${d.quadrant} (supply risk ${d.supplyRisk.toFixed(1)}/5, business impact ${d.businessImpact.toFixed(1)}/5)\n\n`;
     /* v2.13 — decision-paper order (per the management documents): summary,
@@ -3432,7 +3567,7 @@ Respond ONLY with JSON, no markdown fences:
       const pptx=new PGJ(); pptx.layout="LAYOUT_WIDE";
       pptx.defineSlideMaster({title:"MAIN",background:{color:"FFFFFF"},objects:[
         {rect:{x:0,y:0,w:"100%",h:0.35,fill:{color:P}}},
-        {text:{text:"CategoryAI Strategic Category Suite v2.33.6",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
+        {text:{text:"CategoryAI Strategic Category Suite v2.35.0",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
       const slide=(title)=>{const s=pptx.addSlide({masterName:"MAIN"}); if(title) s.addText(title,{x:0.4,y:0.5,w:12.5,h:0.6,fontSize:26,bold:true,color:INKC,fontFace:"Calibri"}); return s;};
       const tblOpts={x:0.4,y:1.3,w:12.5,fontSize:11,color:INKC,border:{pt:0.5,color:"D8DCE0"},fill:{color:"FFFFFF"},autoPage:true,autoPageRepeatHeader:true};
       const hdr=t=>t.map(x=>({text:x,options:{bold:true,fill:{color:"EEF4F1"},color:INKC}}));
@@ -3651,6 +3786,7 @@ Respond ONLY with JSON, no markdown fences:
           <button className="btn dark" disabled={busy} onClick={generate} title="Checks completeness first (you'll see any missing inputs and choose to continue with available data), then sends everything you've entered — with confidence flags — to the AI, which writes the full strategy document below.">{busy?"Synthesising…":strategy?"↻ Regenerate strategy":"⚡ Generate strategy"}</button>
           <span style={{flexBasis:"100%", fontSize:10.5, fontWeight:800, color:"var(--slate)", textTransform:"uppercase", letterSpacing:"0.05em", marginTop:6}}>Outputs — one strategy, several formats:</span>
           <button className="btn primary" onClick={async()=>{ if(!strategy && !(await confirmAsync("No completed strategy synthesis yet — this Word document will be missing several sections (executive summary, objectives, roadmap, and likely Chessboard/Cost drivers/Suppliers/Risk register too).\n\nDownload the incomplete document anyway?"))) return; downloadDoc(); }} title="Downloads the full strategy as a real Word document (.docx, with automatic .doc fallback offline) — the format to circulate to stakeholders.">⬇ Download Word document (.docx)</button>
+          <button className="btn" onClick={async()=>{ const d=deriveScores(vars,generic); const md=buildCepMarkdown(profile,d,internal,suppliers,strategy,pitch,research,cl,demandForecast); const slug=(profile.name||"category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"category"; await downloadAsWord(md,slug+"-execution-plan"); }} title="A dense, 2-page at-a-glance summary — spend/scope, position, 3-year plan and disruptors. Distinct from the full strategy document; built from whatever's in this session, [To complete] markers where data isn't captured yet.">⬇ 2-page Category Execution Plan</button>
           <button className="btn primary" onClick={()=>downloadBusinessCase("vm")} title="RECOMMENDED — procurement-linked format. Business Case & Benefits Delivery Plan in your organisation's Value Management template: stakeholders → opportunity → benefits delivery plan (L1/L2/L3 tangibility, owners, phasing) → project economics (Capex/Opex distinguished) → risks & alternatives incl. do-nothing. Assembled from this session; anything the app can't know (sponsor names, baselines, Capex/Opex) is an explicit [To complete] marker — a business case needs named accountability, so nothing is invented.">📑 Business case (VM · recommended)</button>
           <button className="btn" onClick={()=>downloadBusinessCase("5c")} title="The same session data argued as a Five Case Model business case: Strategic (why intervene) · Economic (options & value for money, from your kept opportunities) · Commercial (procurement route, plays, BATNA, suppliers) · Financial (affordability — to complete with Finance) · Management (delivery plan, benefits realisation, risks, governance). Choose whichever format your approval route expects.">📑 Business case (Five Case Model)</button>
           <button className="btn primary" style={{background:"var(--amber)",borderColor:"var(--amber)",color:"#2A2004"}} disabled={pptBusy} onClick={downloadPpt} title="Builds a widescreen PowerPoint board deck — one slide per module with native charts (market bars, five forces, cost-driver pie, planned-vs-delivered savings) and tables. Loads the pptxgenjs library from a CDN on first use.">{pptBusy?"Building deck…":"⬇ Download PowerPoint deck (.pptx)"}</button>
@@ -3664,22 +3800,32 @@ Respond ONLY with JSON, no markdown fences:
         <div className="card">
           <h2 className="display">{profile.name} — {d.quadrant} category</h2>
           <p style={{fontSize:14,lineHeight:1.55}}>{strategy.executiveSummary}</p>
-          <h3>Objectives</h3>{strategy.objectives.map(o=><div key={o} className="hint" style={{margin:"0 0 5px"}}>• {o}</div>)}
-          <h3>Sourcing levers</h3>
-          <table><thead><tr><th>Lever</th><th>Horizon</th><th>Rationale</th></tr></thead><tbody>
-            {strategy.levers.map((l,i)=><tr key={i}><td><b>{l.name}</b></td><td className="mono">{l.horizon}</td><td>{l.rationale}</td></tr>)}
-          </tbody></table>
-          <h3>Negotiation approach</h3><p style={{fontSize:13.5,lineHeight:1.5}}>{strategy.negotiationApproach}</p>
-          <h3>Roadmap</h3>
-          {strategy.roadmap.map(p=>(
-            <div key={p.phase}><b style={{fontSize:13}}>{p.phase}</b>{p.actions.map(a=><div key={a} className="hint" style={{margin:"2px 0 2px 12px"}}>• {a}</div>)}</div>
-          ))}
-          <h3>Risk register</h3>
-          <table><thead><tr><th>Risk</th><th>Mitigation</th></tr></thead><tbody>
-            {strategy.risks.map((r,i)=><tr key={i}><td>{r.risk}</td><td>{r.mitigation}</td></tr>)}
-          </tbody></table>
-          {strategy.dataGaps&&strategy.dataGaps.length>0 && (<div><h3>Data gaps to close</h3>
-            {strategy.dataGaps.map(g=><div key={g} className="hint" style={{margin:"0 0 5px"}}>• {g}</div>)}</div>)}
+          <Collapsible title="Objectives">
+            {strategy.objectives.map(o=><div key={o} className="hint" style={{margin:"0 0 5px"}}>• {o}</div>)}
+          </Collapsible>
+          <Collapsible title="Sourcing levers">
+            <table><thead><tr><th>Lever</th><th>Horizon</th><th>Rationale</th></tr></thead><tbody>
+              {strategy.levers.map((l,i)=><tr key={i}><td><b>{l.name}</b></td><td className="mono">{l.horizon}</td><td>{l.rationale}</td></tr>)}
+            </tbody></table>
+          </Collapsible>
+          <Collapsible title="Negotiation approach">
+            <p style={{fontSize:13.5,lineHeight:1.5}}>{strategy.negotiationApproach}</p>
+          </Collapsible>
+          <Collapsible title="Roadmap">
+            {strategy.roadmap.map(p=>(
+              <div key={p.phase}><b style={{fontSize:13}}>{p.phase}</b>{p.actions.map(a=><div key={a} className="hint" style={{margin:"2px 0 2px 12px"}}>• {a}</div>)}</div>
+            ))}
+          </Collapsible>
+          <Collapsible title="Risk register">
+            <table><thead><tr><th>Risk</th><th>Mitigation</th></tr></thead><tbody>
+              {strategy.risks.map((r,i)=><tr key={i}><td>{r.risk}</td><td>{r.mitigation}</td></tr>)}
+            </tbody></table>
+          </Collapsible>
+          {strategy.dataGaps&&strategy.dataGaps.length>0 && (
+            <Collapsible title="Data gaps to close" defaultOpen={false} badge={<span className="badge assumed" style={{fontSize:9}}>{strategy.dataGaps.length}</span>}>
+              {strategy.dataGaps.map(g=><div key={g} className="hint" style={{margin:"0 0 5px"}}>• {g}</div>)}
+            </Collapsible>
+          )}
         </div>
       )}
       {hasCL && (
@@ -4009,7 +4155,7 @@ function ResearchCard({profile,research,setResearch}){
     setBusy(true); setErr("");
     try{
       const out=await askClaude(
-        `You are a procurement research analyst with web search. Do a deep-dive on the supply market for the category "${profile.name}" (sector ${profile.sector||"unspecified"}, region ${profile.region||"Global"}).${profile.notes?" Scope & context: "+profile.notes:""}${profile.pains?.length?" Known pain points to research into: "+profile.pains.join("; ")+".":""}${topic?`, with special focus on: "${topic}"`:""}. Search for the LATEST information and cite real sources (publication + URL) for every finding.${already?" Already found (do NOT repeat these — find DIFFERENT ones): PESTLE — "+(already.pestleRegulatory||[]).map(r=>r.finding).join("; ")+". Disruptions — "+(already.disruptions||[]).map(r=>r.disruption).join("; ")+".":""}
+        `You are a procurement research analyst with web search. Do a deep-dive on the supply market for the category "${profile.name}" (sector ${profile.sector||"unspecified"}, region ${profile.region||"Global"}).${profile.specs?" What's actually being bought/required: "+profile.specs:""}${profile.notes?" Scope & context: "+profile.notes:""}${profile.pains?.length?" Known pain points to research into: "+profile.pains.join("; ")+".":""}${topic?`, with special focus on: "${topic}"`:""}. Search for the LATEST information and cite real sources (publication + URL) for every finding.${already?" Already found (do NOT repeat these — find DIFFERENT ones): PESTLE — "+(already.pestleRegulatory||[]).map(r=>r.finding).join("; ")+". Disruptions — "+(already.disruptions||[]).map(r=>r.disruption).join("; ")+".":""}
 Respond ONLY with JSON, no fences:
 {"overview":"3-4 sentence current market overview",
  "pestleRegulatory":[{"area":"Political|Economic|Social|Technological|Legal|Environmental|Regulatory","finding":"one specific recent finding","source":"publication name","url":"https://..."}],
@@ -4205,7 +4351,7 @@ function TierCalculator({tierLabel}){
   );
 }
 
-function StepSuppliers({profile,setProfile,internal,suppliers,setSuppliers,tierScheme,setTierScheme,srmReviews,setSrmReviews,next}){
+function StepSuppliers({profile,setProfile,internal,suppliers,setSuppliers,tierScheme,setTierScheme,srmReviews,setSrmReviews,contracts,setContracts,next}){
   const [busy,setBusy]=useState(false);
   const [err,setErr]=useState("");
   const tierNames=TIER_SCHEMES[tierScheme]||TIER_SCHEMES.standard;
@@ -4382,6 +4528,28 @@ Respond ONLY with JSON, no fences: {"suppliers":[{"name":"","capability":n,"alig
       </div>
       )}
       {suppliers.length>0 && <SrmPanel suppliers={suppliers} srmReviews={srmReviews} setSrmReviews={setSrmReviews}/>}
+      <div className="card">
+        <h3>📄 Contract register<Tip t="Live contracts for this category — who, what value, what dates, what notice period. Manual entry (or upload via the Step 1 input template) — this is factual record-keeping, not something AI should guess. Expiry dates feed the negotiation plan's timing and BATNA."/></h3>
+        {contracts.length===0 && <p className="hint">No contracts recorded yet.</p>}
+        {contracts.length>0 && (<div style={{overflowX:"auto"}}>
+          <table><thead><tr><th>Contract</th><th>Supplier</th><th>Start</th><th>End</th><th>Value/yr</th><th>Notice period</th><th>Status</th><th/></tr></thead><tbody>
+            {contracts.map((c,i)=>{
+              const updC=(patch)=>setContracts(cs=>cs.map((x,j)=>j===i?{...x,...patch}:x));
+              return (<tr key={i}>
+                <td><input value={c.name||""} onChange={e=>updC({name:e.target.value})} style={{width:130,fontSize:12,padding:"3px 5px"}}/></td>
+                <td><input value={c.supplier||""} onChange={e=>updC({supplier:e.target.value})} style={{width:100,fontSize:12,padding:"3px 5px"}}/></td>
+                <td><input type="date" value={c.start||""} onChange={e=>updC({start:e.target.value})} style={{fontSize:11.5,padding:"3px 4px"}}/></td>
+                <td><input type="date" value={c.end||""} onChange={e=>updC({end:e.target.value})} style={{fontSize:11.5,padding:"3px 4px"}}/></td>
+                <td><input type="number" min="0" value={c.value||""} onChange={e=>updC({value:e.target.value})} style={{width:90,fontSize:12,padding:"3px 5px"}}/></td>
+                <td><input value={c.notice||""} placeholder="e.g. 90 days" onChange={e=>updC({notice:e.target.value})} style={{width:90,fontSize:12,padding:"3px 5px"}}/></td>
+                <td><select value={c.status||"Active"} onChange={e=>updC({status:e.target.value})} style={{fontSize:11.5,padding:"3px 4px"}}>
+                  <option>Active</option><option>Expiring</option><option>Expired</option><option>In negotiation</option></select></td>
+                <td><button className="btn ghost" style={{border:"none",color:"var(--red)"}} onClick={()=>setContracts(cs=>cs.filter((x,j)=>j!==i))}>✕</button></td>
+              </tr>);})}
+          </tbody></table>
+        </div>)}
+        <button className="btn" style={{marginTop:8}} onClick={()=>setContracts(cs=>[...cs,{name:"",supplier:"",start:"",end:"",value:"",notice:"",status:"Active"}])}>+ Add contract</button>
+      </div>
       <div className="card"><button className="btn primary" onClick={next}>Continue to risk heatmap →</button></div>
     </div>
   );
@@ -5154,7 +5322,7 @@ CATEGORY ARCHETYPES:\n${Object.entries(CATEGORY_ARCHETYPES).map(([k,a])=>{const 
     setQ(""); setBusy(true);
     try{
       const text=await askClaude(
-        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.33.6): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.33.6 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 4-sheet .xlsx (Profile, Market & Internal Variables, Suppliers, Risks); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed).\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
+        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.35.0): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.35.0 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 4-sheet .xlsx (Profile, Market & Internal Variables, Suppliers, Risks); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed).\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
         false, false);
       setMsgs(m=>[...m,{role:"assistant",text}]);
     }catch(e){ setMsgs(m=>[...m,{role:"assistant",text:e.message}]); }
@@ -5250,6 +5418,47 @@ const STEP_HELP={
   value:"Savings pipeline, KPIs, maturity and benefits",
   sevenps:"Optional sell-side commercial 7Ps",
   strategy:"Assemble and export the full strategy document"};
+
+/* v2.35 — keyword search / "find" so a user can jump straight to a
+   screen instead of hunting the nav rail. Searches step titles AND the
+   one-line STEP_HELP description, so "spend" finds Internal Data even
+   though "spend" isn't in that step's title. */
+function StepSearch({open,setOpen,setStep}){
+  const [q,setQ]=useState("");
+  const inputRef=useRef();
+  useEffect(()=>{ if(open){ setQ(""); setTimeout(()=>inputRef.current?.focus(),30); } },[open]);
+  if(!open) return null;
+  const entries=STEPS.filter(s=>Array.isArray(s));
+  const query=q.trim().toLowerCase();
+  const results=query.length<1 ? entries : entries.filter(([id,title])=>
+    title.toLowerCase().includes(query) || (STEP_HELP[id]||"").toLowerCase().includes(query));
+  const go=(id)=>{ setStep(id); setOpen(false); };
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(20,22,26,.55)",zIndex:80,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"60px 14px"}}
+      onClick={()=>setOpen(false)}
+      onKeyDown={e=>{ if(e.key==="Escape") setOpen(false); else if(e.key==="Enter" && results[0]) go(results[0][0]); }}>
+      <div className="card" style={{width:520,maxWidth:"100%",maxHeight:"70vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}>
+          <span style={{fontSize:16}}>🔎</span>
+          <input ref={inputRef} type="text" placeholder="Search by name or keyword — e.g. 'spend', 'chessboard', 'negotiation'…"
+            value={q} onChange={e=>setQ(e.target.value)} style={{flex:1,fontSize:14,padding:"7px 10px"}}/>
+          <button className="btn ghost" style={{border:"none",padding:"2px 8px"}} onClick={()=>setOpen(false)}>✕</button>
+        </div>
+        <div style={{overflowY:"auto",display:"flex",flexDirection:"column",gap:2}}>
+          {results.length===0 && <p className="hint">No screens match "{q}".</p>}
+          {results.map(([id,title])=>(
+            <button key={id} onClick={()=>go(id)} style={{textAlign:"left",padding:"9px 10px",borderRadius:8,border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",gap:2}}
+              onMouseEnter={e=>e.currentTarget.style.background="var(--paper)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <span style={{fontWeight:600,fontSize:13}}>{title}</span>
+              {STEP_HELP[id] && <span style={{fontSize:11.5,color:"var(--slate)"}}>{STEP_HELP[id]}</span>}
+            </button>
+          ))}
+        </div>
+        <p className="hint" style={{marginTop:8,marginBottom:0}}>Esc to close · Enter to jump to the top result</p>
+      </div>
+    </div>
+  );
+}
 const SAVED=(function(){ try{ return JSON.parse(storageGet("categoryai_session")||"null"); }catch(e){ return null; } })();
 const sv=(k,d)=> (SAVED&&SAVED[k]!==undefined&&SAVED[k]!==null)?SAVED[k]:d;
 /* v2.26 fix: a saved/imported session can predate a variable being added
@@ -5346,7 +5555,7 @@ function buildNodeRecord(state){
    category is ever deep-dived (see customizeCategoryInWizard). */
 function defaultRecord(){
   return {
-    profile: {name:"",sector:"",region:"",notes:"",suppliers:[],pains:[]},
+    profile: {name:"",sector:"",region:"",notes:"",suppliers:[],pains:[],specs:""},
     vars: initVars(),
     generic: false,
     models: {swot:null,pestle:null},
@@ -5368,7 +5577,10 @@ function defaultRecord(){
     strategy: null,
     opps: [],
     sevenPs: {sector:SECTORS[0],questions:null,answers:{},canvas:null,narrative:""},
-    cl: {drivers:{},levers:[],demandDrivers:[],risks:[],savings:[],kpis:[],notes:"",source:""}
+    cl: {drivers:{},levers:[],demandDrivers:[],risks:[],savings:[],kpis:[],notes:"",source:""},
+    contracts: [],
+    demandForecast: [],
+    stakeholderMap: []
   };
 }
 
@@ -5948,13 +6160,40 @@ async function buildExcelInputTemplate(portfolioDetails, cats){
 const CATEGORY_PROFILE_FIELDS=[
   ["Category name","name"],["Sector","sector"],["Region","region"],
   ["Scope & context notes","notes"],
+  ["Specs & requirements — what are we buying","specs"],
   ["Incumbent suppliers (comma-separated)","suppliers"],
   ["Known pain points (comma-separated)","pains"]
 ];
-async function buildCategoryInputTemplate(profile, vars, suppliers, risks){
+async function buildCategoryInputTemplate(profile, vars, suppliers, risks, contracts, demandForecast, stakeholderMap, srmReviews){
   const ok=await ensureXLSX(); if(!ok) throw new Error("Spreadsheet library unavailable (offline?) — try again once online.");
   const XLSX=window.XLSX;
   const wb=XLSX.utils.book_new();
+
+  // Sheet 0 — Read Me: what each sheet is for, how it's used in the app,
+  // and the scoring criteria for every 1-5 field. Purely informational —
+  // the parser never reads this sheet, so it's zero-risk to add.
+  const readRows=[
+    ["CategoryAI — Input Template Guide",""],
+    ["",""],
+    ["Every 1-5 score below follows the same rule: 1 = the LEFT/weaker end, 5 = the RIGHT/stronger end. Score what you genuinely believe — a mid score (3) is a legitimate answer, not a cop-out.",""],
+    ["",""],
+    ["SHEET","WHAT IT'S FOR, AND HOW THE APP USES IT"],
+    ["Profile","Your category identity. The name and sector drive playbook matching (which sourcing playbook the app suggests) and every AI prompt downstream — get this right first, everything else builds on it."],
+    ["Variables","9 market + 5 internal 1-5 scores. These directly set the Kraljic matrix position (supply risk × business impact) and feed Porter's Five Forces — the two frameworks almost everything else in the strategy is built around. See the 1/5 meaning for each variable below."],
+    ["Suppliers","Capability (1=limited/unproven, 5=best-in-class) × Alignment (1=poor strategic/cultural fit, 5=excellent fit) determine segmentation (Strategic partner / Develop / Transactional expert / Tactical) and contract tier — which decides how much management attention each supplier gets."],
+    ["Risks","Standard 5x5 risk matrix. Likelihood (1=rare, unlikely to occur; 5=near-certain, expected to occur) × Impact (1=negligible, barely noticeable; 5=severe, could halt operations or cause major loss) plots directly onto the risk heatmap."],
+    ["Contracts","Factual record — no scores. Feeds negotiation timing (an approaching end date or short notice period is real leverage information) and flags renewal urgency."],
+    ["Demand forecast","Your own plan — no scores, just direction. A 'Growing' trend is a real negotiation lever (suppliers value growing accounts); 'Declining' changes what's worth negotiating for."],
+    ["Stakeholders","Influence (1=no real say in this category's decisions, 5=final decision-maker) × Interest (1=not watching this at all, 5=actively engaged/tracking closely) — the standard Mendelow power-interest grid. High-influence/high-interest people need managing closely; high-influence/low-interest need keeping satisfied so they don't become a blocker."],
+    ["Supplier performance","Feeds SRM (supplier relationship management) history — a dated, ongoing performance record, separate from the strategic Suppliers sheet above. Quality/Delivery/Cost/Innovation/ESG each 1=Poor, 5=Excellent."],
+    ["",""],
+    ["VARIABLE-BY-VARIABLE SCORING CRITERIA (Variables sheet)",""],
+    ["Variable","1 means... / 5 means..."],
+    ...ALL_VARS.map(v=>[v.label, "1 = "+v.lo+"  |  5 = "+v.hi+"  ("+v.help+")"]),
+  ];
+  const ws0=XLSX.utils.aoa_to_sheet(readRows);
+  ws0["!cols"]=[{wch:26},{wch:100}];
+  XLSX.utils.book_append_sheet(wb,ws0,"Read me");
 
   // Sheet 1 — Profile (label/value, same pattern as the Portfolio Charter sheet)
   const profRows=[["Field","Value","Guidance"]];
@@ -5967,35 +6206,81 @@ async function buildCategoryInputTemplate(profile, vars, suppliers, risks){
   ws1["!cols"]=[{wch:30},{wch:60},{wch:35}];
   XLSX.utils.book_append_sheet(wb,ws1,"Profile");
 
-  // Sheet 2 — Market & internal variables (the most tedious one-by-one task in
-  // the wizard — highest value for offline bulk entry)
-  const varRows=[["Variable","Score (1-5)","Rationale (optional)"]];
-  ALL_VARS.forEach(v=>{ const e=vars[v.id]||{}; varRows.push([v.label, e.value||"", e.rationale||""]); });
+  // Sheet 2 — Market & internal variables. "1 means / 5 means" columns
+  // added so the score itself is never ambiguous — pulled directly from
+  // the same lo/hi text the in-app sliders show, not a separate source
+  // that could drift out of sync.
+  const varRows=[["Variable","1 means...","5 means...","What it measures","Score (1-5)","Rationale (optional)"]];
+  ALL_VARS.forEach(v=>{ const e=vars[v.id]||{}; varRows.push([v.label, v.lo, v.hi, v.help, e.value||"", e.rationale||""]); });
   const ws2=XLSX.utils.aoa_to_sheet(varRows);
-  ws2["!cols"]=[{wch:38},{wch:12},{wch:55}];
+  ws2["!cols"]=[{wch:34},{wch:26},{wch:26},{wch:38},{wch:12},{wch:40}];
   XLSX.utils.book_append_sheet(wb,ws2,"Variables");
 
   // Sheet 3 — Suppliers (core scoring fields only — the richer scorecard
   // dimensions like quality/delivery/ESG stay an in-app AI-assess feature,
   // not duplicated here)
-  const supRows=[["Supplier name","Capability (1-5)","Alignment (1-5)","Notes"]];
+  const supRows=[["Supplier name","Capability (1=Limited/unproven, 5=Best-in-class)","Alignment (1=Poor strategic fit, 5=Excellent fit)","Notes"]];
   const supExample=[["EXAMPLE — Acme Corp",4,3,"Delete or overwrite the EXAMPLE row"]];
   ((suppliers&&suppliers.length)?suppliers:supExample).forEach(s=>{
     supRows.push(Array.isArray(s)?s:[s.name||"", s.capability||"", s.alignment||"", s.rationale||""]);
   });
   const ws3=XLSX.utils.aoa_to_sheet(supRows);
-  ws3["!cols"]=[{wch:28},{wch:16},{wch:16},{wch:50}];
+  ws3["!cols"]=[{wch:28},{wch:44},{wch:40},{wch:40}];
   XLSX.utils.book_append_sheet(wb,ws3,"Suppliers");
 
   // Sheet 4 — Risks (core register fields)
-  const riskRows=[["Risk","Likelihood (1-5)","Impact (1-5)","Mitigation"]];
+  const riskRows=[["Risk","Likelihood (1=Rare/unlikely, 5=Near-certain)","Impact (1=Negligible, 5=Severe/could halt operations)","Mitigation"]];
   const riskExample=[["EXAMPLE — Single-source dependency",3,4,"Delete or overwrite the EXAMPLE row"]];
   ((risks&&risks.length)?risks:riskExample).forEach(r=>{
     riskRows.push(Array.isArray(r)?r:[r.risk||"", r.likelihood||"", r.impact||"", r.mitigation||""]);
   });
   const ws4=XLSX.utils.aoa_to_sheet(riskRows);
-  ws4["!cols"]=[{wch:38},{wch:14},{wch:12},{wch:50}];
+  ws4["!cols"]=[{wch:38},{wch:38},{wch:44},{wch:40}];
   XLSX.utils.book_append_sheet(wb,ws4,"Risks");
+
+  // Sheet 5 — Contract register (factual record-keeping, not AI-scoreable)
+  const conRows=[["Contract","Supplier","Start (YYYY-MM-DD)","End (YYYY-MM-DD)","Value/yr","Notice period","Status"]];
+  const conExample=[["EXAMPLE — Master services agreement","Acme Corp","2025-01-01","2027-12-31","250000","90 days","Active"]];
+  ((contracts&&contracts.length)?contracts:conExample).forEach(c=>{
+    conRows.push(Array.isArray(c)?c:[c.name||"", c.supplier||"", c.start||"", c.end||"", c.value||"", c.notice||"", c.status||"Active"]);
+  });
+  const ws5=XLSX.utils.aoa_to_sheet(conRows);
+  ws5["!cols"]=[{wch:32},{wch:22},{wch:16},{wch:16},{wch:14},{wch:16},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws5,"Contracts");
+
+  // Sheet 6 — Demand forecast (your own plan, not AI-generated)
+  const demRows=[["Period","Expected volume/spend","Trend (Growing/Flat/Declining)"]];
+  const demExample=[["EXAMPLE — FY27","£1.2M or 500 units","Growing"]];
+  ((demandForecast&&demandForecast.length)?demandForecast:demExample).forEach(d=>{
+    demRows.push(Array.isArray(d)?d:[d.period||"", d.amount||"", d.trend||"Flat"]);
+  });
+  const ws6=XLSX.utils.aoa_to_sheet(demRows);
+  ws6["!cols"]=[{wch:16},{wch:28},{wch:24}];
+  XLSX.utils.book_append_sheet(wb,ws6,"Demand forecast");
+
+  // Sheet 7 — Stakeholder map (Mendelow's power-interest grid)
+  const stkRows=[["Name / role","Influence (1=No real say, 5=Final decision-maker)","Interest (1=Not watching this, 5=Actively engaged)"]];
+  const stkExample=[["EXAMPLE — Head of IT",4,3]];
+  ((stakeholderMap&&stakeholderMap.length)?stakeholderMap:stkExample).forEach(s=>{
+    stkRows.push(Array.isArray(s)?s:[s.name||"", s.influence||3, s.interest||3]);
+  });
+  const ws7=XLSX.utils.aoa_to_sheet(stkRows);
+  ws7["!cols"]=[{wch:28},{wch:36},{wch:36}];
+  XLSX.utils.book_append_sheet(wb,ws7,"Stakeholders");
+
+  // Sheet 8 — Supplier performance: writes into the EXISTING srmReviews
+  // state (post-contract SRM check), not a new concept — this sheet is
+  // just a bulk-entry offline route into it.
+  const perfRows=[["Date (YYYY-MM-DD)","Supplier","Quality (1=Poor, 5=Excellent)","Delivery (1=Poor, 5=Excellent)","Cost (1=Poor, 5=Excellent)","Innovation (1=Poor, 5=Excellent)","ESG (1=Poor, 5=Excellent)","Note"]];
+  const perfExample=[["EXAMPLE — 2026-06-30","Acme Corp",4,3,3,3,4,"Q2 service review"]];
+  ((srmReviews&&srmReviews.length)?srmReviews:perfExample).forEach(r=>{
+    if(Array.isArray(r)){ perfRows.push(r); return; }
+    const sc=r.scores||{};
+    perfRows.push([r.date||"", r.supplier||"", sc.quality||"", sc.delivery||"", sc.cost||"", sc.innovation||"", sc.esg||"", r.note||""]);
+  });
+  const ws8=XLSX.utils.aoa_to_sheet(perfRows);
+  ws8["!cols"]=[{wch:16},{wch:22},{wch:24},{wch:24},{wch:22},{wch:24},{wch:20},{wch:30}];
+  XLSX.utils.book_append_sheet(wb,ws8,"Supplier performance");
 
   downloadWorkbook(wb,"category-input-template.xlsx");
 }
@@ -6005,7 +6290,7 @@ async function parseCategoryInputTemplate(file){
   const XLSX=window.XLSX;
   const buf=await file.arrayBuffer();
   const wb=XLSX.read(buf,{type:"array"});
-  const out={profile:{}, vars:{}, suppliers:[], risks:[], warnings:[]};
+  const out={profile:{}, vars:{}, suppliers:[], risks:[], contracts:[], demandForecast:[], stakeholderMap:[], srmReviews:[], warnings:[]};
 
   const pSheet=wb.Sheets["Profile"];
   if(pSheet){
@@ -6045,7 +6330,7 @@ async function parseCategoryInputTemplate(file){
     const rows=XLSX.utils.sheet_to_json(sSheet,{header:1});
     const headerRow=(rows[0]||[]).map(h=>String(h||"").trim().toLowerCase());
     const findCol=(...variants)=>{ for(const v of variants){ const i=headerRow.indexOf(v.toLowerCase()); if(i!==-1) return i; } return -1; };
-    const colName=findCol("supplier name","name"), colCap=findCol("capability (1-5)","capability"), colAlign=findCol("alignment (1-5)","alignment"), colNotes=findCol("notes");
+    const colName=findCol("supplier name","name"), colCap=findCol("capability (1=limited/unproven, 5=best-in-class)","capability (1-5)","capability"), colAlign=findCol("alignment (1=poor strategic fit, 5=excellent fit)","alignment (1-5)","alignment"), colNotes=findCol("notes");
     if(colName===-1){
       out.warnings.push("Suppliers sheet: couldn't recognize the expected column headers — suppliers were NOT imported from this sheet, to avoid misreading the data.");
     } else {
@@ -6064,7 +6349,7 @@ async function parseCategoryInputTemplate(file){
     const rows=XLSX.utils.sheet_to_json(rSheet,{header:1});
     const headerRow=(rows[0]||[]).map(h=>String(h||"").trim().toLowerCase());
     const findCol=(...variants)=>{ for(const v of variants){ const i=headerRow.indexOf(v.toLowerCase()); if(i!==-1) return i; } return -1; };
-    const colRisk=findCol("risk"), colLike=findCol("likelihood (1-5)","likelihood"), colImp=findCol("impact (1-5)","impact"), colMit=findCol("mitigation");
+    const colRisk=findCol("risk"), colLike=findCol("likelihood (1=rare/unlikely, 5=near-certain)","likelihood (1-5)","likelihood"), colImp=findCol("impact (1=negligible, 5=severe/could halt operations)","impact (1-5)","impact"), colMit=findCol("mitigation");
     if(colRisk===-1){
       out.warnings.push("Risks sheet: couldn't recognize the expected column headers — risks were NOT imported from this sheet, to avoid misreading the data.");
     } else {
@@ -6077,6 +6362,89 @@ async function parseCategoryInputTemplate(file){
       });
     }
   } else out.warnings.push("No 'Risks' sheet found — risks unchanged.");
+
+  const cSheet=wb.Sheets["Contracts"];
+  if(cSheet){
+    const rows=XLSX.utils.sheet_to_json(cSheet,{header:1});
+    const headerRow=(rows[0]||[]).map(h=>String(h||"").trim().toLowerCase());
+    const findCol=(...variants)=>{ for(const v of variants){ const i=headerRow.indexOf(v.toLowerCase()); if(i!==-1) return i; } return -1; };
+    const colName=findCol("contract"), colSup=findCol("supplier"), colStart=findCol("start (yyyy-mm-dd)","start"), colEnd=findCol("end (yyyy-mm-dd)","end"), colVal=findCol("value/yr","value"), colNotice=findCol("notice period","notice"), colStatus=findCol("status");
+    if(colName===-1){
+      out.warnings.push("Contracts sheet: couldn't recognize the expected column headers — contracts were NOT imported from this sheet, to avoid misreading the data.");
+    } else {
+      rows.slice(1).forEach(r=>{
+        const name=String(r[colName]||"").trim();
+        if(!name||name.toUpperCase().startsWith("EXAMPLE")) return;
+        out.contracts.push({
+          name, supplier: colSup!==-1?String(r[colSup]||"").trim():"",
+          start: colStart!==-1?String(r[colStart]||"").trim():"", end: colEnd!==-1?String(r[colEnd]||"").trim():"",
+          value: colVal!==-1?String(r[colVal]||"").trim():"", notice: colNotice!==-1?String(r[colNotice]||"").trim():"",
+          status: colStatus!==-1?(String(r[colStatus]||"").trim()||"Active"):"Active"
+        });
+      });
+    }
+  } else out.warnings.push("No 'Contracts' sheet found — contract register unchanged.");
+
+  const dSheet=wb.Sheets["Demand forecast"];
+  if(dSheet){
+    const rows=XLSX.utils.sheet_to_json(dSheet,{header:1});
+    const headerRow=(rows[0]||[]).map(h=>String(h||"").trim().toLowerCase());
+    const findCol=(...variants)=>{ for(const v of variants){ const i=headerRow.indexOf(v.toLowerCase()); if(i!==-1) return i; } return -1; };
+    const colPeriod=findCol("period"), colAmount=findCol("expected volume/spend","amount"), colTrend=findCol("trend (growing/flat/declining)","trend");
+    if(colPeriod===-1){
+      out.warnings.push("Demand forecast sheet: couldn't recognize the expected column headers — forecast was NOT imported from this sheet, to avoid misreading the data.");
+    } else {
+      rows.slice(1).forEach(r=>{
+        const period=String(r[colPeriod]||"").trim();
+        if(!period||period.toUpperCase().startsWith("EXAMPLE")) return;
+        out.demandForecast.push({period, amount: colAmount!==-1?String(r[colAmount]||"").trim():"", trend: colTrend!==-1?(String(r[colTrend]||"").trim()||"Flat"):"Flat"});
+      });
+    }
+  } else out.warnings.push("No 'Demand forecast' sheet found — demand forecast unchanged.");
+
+  const stkSheet=wb.Sheets["Stakeholders"];
+  if(stkSheet){
+    const rows=XLSX.utils.sheet_to_json(stkSheet,{header:1});
+    const headerRow=(rows[0]||[]).map(h=>String(h||"").trim().toLowerCase());
+    const findCol=(...variants)=>{ for(const v of variants){ const i=headerRow.indexOf(v.toLowerCase()); if(i!==-1) return i; } return -1; };
+    const colName=findCol("name / role","name"), colInf=findCol("influence (1=no real say, 5=final decision-maker)","influence (1-5)","influence"), colInt=findCol("interest (1=not watching this, 5=actively engaged)","interest (1-5)","interest");
+    if(colName===-1){
+      out.warnings.push("Stakeholders sheet: couldn't recognize the expected column headers — stakeholder map was NOT imported from this sheet, to avoid misreading the data.");
+    } else {
+      rows.slice(1).forEach(r=>{
+        const name=String(r[colName]||"").trim();
+        if(!name||name.toUpperCase().startsWith("EXAMPLE")) return;
+        const inf=colInf!==-1?Math.max(1,Math.min(5,Number(r[colInf])||3)):3;
+        const int_=colInt!==-1?Math.max(1,Math.min(5,Number(r[colInt])||3)):3;
+        out.stakeholderMap.push({name, influence:inf, interest:int_});
+      });
+    }
+  } else out.warnings.push("No 'Stakeholders' sheet found — stakeholder map unchanged.");
+
+  const perfSheet=wb.Sheets["Supplier performance"];
+  if(perfSheet){
+    const rows=XLSX.utils.sheet_to_json(perfSheet,{header:1});
+    const headerRow=(rows[0]||[]).map(h=>String(h||"").trim().toLowerCase());
+    const findCol=(...variants)=>{ for(const v of variants){ const i=headerRow.indexOf(v.toLowerCase()); if(i!==-1) return i; } return -1; };
+    const colDate=findCol("date (yyyy-mm-dd)","date"), colSup=findCol("supplier"), colQ=findCol("quality (1=poor, 5=excellent)","quality (1-5)","quality"), colD=findCol("delivery (1=poor, 5=excellent)","delivery (1-5)","delivery"), colC=findCol("cost (1=poor, 5=excellent)","cost (1-5)","cost"), colI=findCol("innovation (1=poor, 5=excellent)","innovation (1-5)","innovation"), colE=findCol("esg (1=poor, 5=excellent)","esg (1-5)","esg"), colNote=findCol("note");
+    if(colDate===-1||colSup===-1){
+      out.warnings.push("Supplier performance sheet: couldn't recognize the expected column headers — performance reviews were NOT imported from this sheet, to avoid misreading the data.");
+    } else {
+      rows.slice(1).forEach(r=>{
+        const date=String(r[colDate]||"").trim(), supplier=String(r[colSup]||"").trim();
+        if(!date||!supplier||supplier.toUpperCase().startsWith("EXAMPLE")) return;
+        const clamp=(v)=>Math.max(1,Math.min(5,Number(v)||3));
+        out.srmReviews.push({
+          date, supplier,
+          scores:{
+            quality: colQ!==-1?clamp(r[colQ]):3, delivery: colD!==-1?clamp(r[colD]):3,
+            cost: colC!==-1?clamp(r[colC]):3, innovation: colI!==-1?clamp(r[colI]):3, esg: colE!==-1?clamp(r[colE]):3
+          },
+          note: colNote!==-1?String(r[colNote]||"").trim():""
+        });
+      });
+    }
+  } else out.warnings.push("No 'Supplier performance' sheet found — SRM reviews unchanged.");
 
   return out;
 }
@@ -9136,6 +9504,7 @@ function App(){
   }));
   const [aiOpen,setAiOpen]=useState(false);
   const [adminOpen,setAdminOpen]=useState(false);
+  const [searchOpen,setSearchOpen]=useState(false);
   const [restored,setRestored]=useState(!!(SAVED&&SAVED.profile&&SAVED.profile.name));
   /* v2.28 Phase A Step 4 — profile/vars/models/research/suppliers/srmReviews/
      matCheck/risks/chess/nego/exec/value/esgOps/benefits/pitch/tierScheme/
@@ -9261,6 +9630,9 @@ function App(){
   const srmReviews=activeRecord.srmReviews, setSrmReviews=bindField("srmReviews");
   const matCheck=activeRecord.matCheck, setMatCheck=bindField("matCheck");
   const risks=activeRecord.risks, setRisks=bindField("risks");
+  const contracts=activeRecord.contracts||[], setContracts=bindField("contracts");
+  const demandForecast=activeRecord.demandForecast||[], setDemandForecast=bindField("demandForecast");
+  const stakeholderMap=activeRecord.stakeholderMap||[], setStakeholderMap=bindField("stakeholderMap");
   const chess=activeRecord.chess, setChess=bindField("chess");
   const nego=activeRecord.nego, setNego=bindField("nego");
   const exec=activeRecord.exec, setExec=bindField("exec");
@@ -9492,8 +9864,8 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.33.6</span></div>
-          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.33.6 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.35.0</span></div>
+          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.35.0 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <AIStatusChip/>
@@ -9501,11 +9873,13 @@ function App(){
           <button className="btn" style={{background:"transparent",color:"#fff",borderColor:"#4A4F57"}} onClick={()=>{ if(step==="about"){ setStep(aboutReturn); } else { setAboutReturn(step); setStep("about"); } }} title="What CategoryAI is, how each module uses AI, and quick links into every step. Click again to return to where you were.">{step==="about"?"✕ Close About":"ℹ About"}</button>
           <button className="btn" style={{background:"var(--amber)",color:"#2A2004",borderColor:"var(--amber)",fontWeight:800}} onClick={startDemoTour} title="Guided walkthrough of all 15 modules on a full simulated Cloud Services dataset — offline, no key, everything labelled simulated.">▶ Demo tour</button>
           <button className="btn" style={{background:"transparent",color:"#fff",borderColor:"#4A4F57"}} onClick={()=>setAiOpen(o=>!o)} title="Choose the AI provider (Claude or Gemini), paste a key, Save or Clear.">⚙ AI settings</button>
+          <button className="btn" style={{background:"transparent",color:"#fff",borderColor:"#4A4F57"}} onClick={()=>setSearchOpen(true)} title="Jump to any screen — search by name or keyword.">🔎 Find</button>
           <button className="btn" style={{background:"transparent",color:"#fff",borderColor:"#4A4F57"}} onClick={()=>setAdminOpen(true)} title="API keys, local users, custom templates and custom category playbooks.">🛠 Admin</button>
         </div>
       </header>
       <AISettings open={aiOpen} setOpen={setAiOpen}/>
       <AdminPanel open={adminOpen} setOpen={setAdminOpen}/>
+      <StepSearch open={searchOpen} setOpen={setSearchOpen} setStep={setStep}/>
       <ConfirmModalHost/>
       <TourOverlay tour={tour} setTour={setTour} setStep={setStep}/>
       {restored && (
@@ -9799,8 +10173,8 @@ function App(){
               <b>📚 Demo data loaded.</b> This category ("{profile.name}") was populated by the Demo tour — everything you see (profile, variables, suppliers, risks and every other module) is simulated example content, not your real work. It will be overwritten as you edit each step, or you can rename the category above to a real one and re-enter your own data. Use <b>🛠 Start fresh</b> (header) for a genuinely blank slate instead if you'd rather not edit around it.
             </div>
           )}
-          {step==="profile" && <Step1 profile={profile} setProfile={setProfile} vars={vars} setVars={setVars} suppliers={suppliers} setSuppliers={setSuppliers} risks={risks} setRisks={setRisks} next={()=>setStep("internal")}/>}
-          {step==="internal" && <Step3 vars={vars} setVar={setVar} internal={internal} setInternal={setInternal}
+          {step==="profile" && <Step1 profile={profile} setProfile={setProfile} vars={vars} setVars={setVars} suppliers={suppliers} setSuppliers={setSuppliers} risks={risks} setRisks={setRisks} stakeholderMap={stakeholderMap} setStakeholderMap={setStakeholderMap} contracts={contracts} setContracts={setContracts} demandForecast={demandForecast} setDemandForecast={setDemandForecast} srmReviews={srmReviews} setSrmReviews={setSrmReviews} next={()=>setStep("internal")}/>}
+          {step==="internal" && <Step3 vars={vars} setVar={setVar} internal={internal} setInternal={setInternal} demandForecast={demandForecast} setDemandForecast={setDemandForecast}
             next={()=>{setGeneric(false);setStep("market");}} skip={()=>{setGeneric(true);setStep("market");}}/>}
           {step==="market" && <div>
             <Step2 profile={profile} vars={vars} setVar={setVar} marketBrief={marketBrief} setMarketBrief={setMarketBrief} next={()=>setStep("assess")}/>
@@ -9813,7 +10187,7 @@ function App(){
             marketBrief={marketBrief} models={models} setModels={setModels} research={research} next={()=>setStep("kraljic")}/>}
           {step==="kraljic" && <Step4 mode="kraljic" profile={profile} vars={vars} generic={generic&&!internalTouched} internal={internal}
             marketBrief={marketBrief} models={models} setModels={setModels} research={research} setVar={setVar} next={()=>setStep("suppliers")}/>}
-          {step==="suppliers" && <StepSuppliers profile={profile} setProfile={setProfile} internal={internal} suppliers={suppliers} setSuppliers={setSuppliers} tierScheme={tierScheme} setTierScheme={setTierScheme} srmReviews={srmReviews} setSrmReviews={setSrmReviews} next={()=>setStep("risk")}/>}
+          {step==="suppliers" && <StepSuppliers profile={profile} setProfile={setProfile} internal={internal} suppliers={suppliers} setSuppliers={setSuppliers} tierScheme={tierScheme} setTierScheme={setTierScheme} srmReviews={srmReviews} setSrmReviews={setSrmReviews} contracts={contracts} setContracts={setContracts} next={()=>setStep("risk")}/>}
           {step==="risk" && <StepRisk profile={profile} research={research} risks={risks} setRisks={setRisks} esgOps={esgOps} setEsgOps={setEsgOps} next={()=>setStep("chess")}/>}
           {step==="chess" && <StepChess profile={profile} vars={vars} generic={generic&&!internalTouched} chess={chess} setChess={setChess} next={()=>setStep("costlevers")}/>}
           {step==="costlevers" && <StepCostLevers profile={profile} cl={cl} setCl={setCl} next={()=>setStep("nego")}/>}
@@ -9867,7 +10241,7 @@ function App(){
           {step==="strategy" && <Step5 tierScheme={tierScheme} profile={profile} vars={vars} setVar={setVar} generic={generic&&!internalTouched} internal={internal} opps={opps} setOpps={setOpps}
             marketBrief={marketBrief} strategy={strategy} setStrategy={setStrategy} sevenPs={sevenPs} cl={cl} setCl={setCl} models={models}
             research={research} suppliers={suppliers} srmReviews={srmReviews} matCheck={matCheck} risks={risks} chess={chess} nego={nego} exec={exec} value={value}
-            esgOps={esgOps} benefits={benefits} pitch={pitch} setPitch={setPitch}
+            esgOps={esgOps} benefits={benefits} pitch={pitch} setPitch={setPitch} demandForecast={demandForecast}
             saveSessionNow={saveSessionNow} exportSession={exportSession} importSession={importSession}/>}
           <ModuleReview step={step} profile={profile} vars={vars} generic={generic&&!internalTouched} models={models}
             research={research} suppliers={suppliers} risks={risks} esgOps={esgOps} chess={chess} cl={cl} nego={nego}
