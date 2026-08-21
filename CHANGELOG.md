@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.37.0
+### Added — Spend folded into the Category input template
+- New **Spend sheet** in the 9-sheet Category input template (was 8;
+  now 9 with this addition), two columns: Supplier, Spend. Auto-strips
+  currency symbols/commas, matching the existing standalone spend CSV
+  upload's behavior exactly.
+- On upload, replicates the **exact same derivation formula** the
+  standalone CSV upload already used — total, top-10 suppliers by
+  spend, top-3 concentration share, and the same 1-5 supplier-
+  concentration inference with an AI-inferred confidence flag. Not a
+  simplified reimplementation; the same math, same thresholds.
+- **The standalone Step 2 spend CSV upload still works** — this is a
+  second route to the same result, not a replacement. Useful if someone
+  wants to refresh spend data alone without re-touching the whole
+  template.
+- Fixed two stale "4-sheet template" claims in the in-app guide text
+  (Step 1's own guide, and the master AI-wide context string) that
+  hadn't been updated since the template grew past 4 sheets several
+  versions ago — found while making this change, not something this
+  patch introduced.
+- Updated the Internal Data screen's own guide text to mention this
+  second route exists.
+
+### Note
+This closes the two-file friction flagged in conversation — a user
+filling in the offline template no longer needs to separately remember
+to visit Step 2 for a spend CSV; one file now covers profile, spend,
+variables, suppliers, risks, contracts, demand forecast, stakeholders,
+and supplier performance.
+
 ## v2.36.1 (frozen)
 SHA-256: 324e0585642a5d84f4525bbdcb53e83740b484405b1ca04436aa73c3f54d4e47
 Session close: 🔎 Find (keyword search), Step 14 collapsible sections,
