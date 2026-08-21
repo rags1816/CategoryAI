@@ -1,5 +1,39 @@
 # Changelog
 
+## v2.36.1
+### Fixed
+- **Supplier scatter chart overlap** — suppliers with identical/near-
+  identical capability+alignment scores plotted at the exact same
+  coordinate, causing dots and labels to overlap illegibly. Fixed with
+  deterministic offset: overlapping suppliers now spread horizontally
+  and their labels stack vertically instead of stacking directly on
+  each other.
+- **Chessboard quadrant chart caption/axis collision** — the "Demand
+  power →" axis label and the "Home strategy: ..." caption were only
+  6px apart vertically, guaranteed to overlap. Given genuine separation
+  (28px) and slightly taller canvas to accommodate it.
+- **Step 12 Continue button misroute** — `next={()=>setStep("ess")}`
+  sent users into Portfolio P3 instead of Step 13 (Savings & maturity),
+  despite the button reading "Continue to savings & maturity →". Fixed
+  to `setStep("value")`. A pre-existing bug, not something this
+  session's edits touched — found only because this release's testing
+  happened to exercise that specific button.
+- **Favicon 404** — added an inline SVG data-URI favicon (no external
+  file needed), eliminating the browser's default favicon.ico request
+  entirely.
+
+### Investigated, not a bug
+- **Step 5 phase-banner "mismatch"** — confirmed the banner is correct:
+  Five Forces genuinely belongs under UNDERSTAND per the app's own
+  canonical step structure (consistent with how the training deck
+  reviewed earlier this session groups it alongside SWOT/PESTLE). The
+  apparent contradiction came from `STEP_DONE.kraljic` sharing the exact
+  same completion condition as `STEP_DONE.forces` — so Kraljic's
+  sidebar counter auto-inflates the moment Five Forces data exists,
+  before the user has ever visited Kraljic. Pre-existing quirk, not
+  changed — fixing the banner to match a misleading counter would have
+  made the banner factually wrong.
+
 ## v2.36.0 — Recommendations A, B, C
 ### Added
 - **A — On-screen CEP preview** (Step 14): "👁 Preview before downloading"
