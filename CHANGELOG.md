@@ -1,5 +1,34 @@
 # Changelog
 
+## v2.35.0 — UI/UX + 2-page Category Execution Plan
+### Added
+- **🔎 Find** — new header button, keyword search across every screen in
+  both workbenches (title + one-line description). Type, see matches,
+  click to jump straight there. Built entirely on the app's existing
+  `STEPS`/`STEP_HELP` data — no new content to maintain separately.
+- **Collapsible sections on Step 14** — Objectives, Sourcing levers,
+  Negotiation approach, Roadmap, and Risk register are now individually
+  collapsible (Data gaps starts collapsed, since it's the "here's what's
+  missing" section, not the main content). Executive summary stays
+  always visible as the orientation anchor. New reusable `Collapsible`
+  component, colocated with other shared UI primitives.
+- **2-page Category Execution Plan export** (new button next to the
+  Word download on Step 14) — a dense, at-a-glance summary distinct from
+  the full strategy document: spend/scope header, spend profile, demand
+  & strategy, Five Forces, supplier landscape, 3-year plan, near-term
+  actions, and a disruptors/horizon-scan table (pulled from Research
+  Assistant's findings where available). Structure validated against
+  real-world category-management templates this session — fully
+  genericized, zero company-specific branding or content, built
+  entirely from data already in the session. Reuses the existing
+  markdown→docx pipeline rather than new low-level table code.
+
+### Note
+All three features verified structurally sound, including confirming a
+pre-existing harmless paren-count artifact in `Step5` (present in the
+baseline before any of today's edits) wasn't worsened by any of the new
+code — checked before and after each edit, not assumed.
+
 ## v2.34.1
 ### Fixed — template scoring criteria were unexplained
 - Every 1-5 field in the Category input template (Variables, Suppliers,
