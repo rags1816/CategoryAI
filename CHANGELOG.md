@@ -1,5 +1,50 @@
 # Changelog
 
+## v2.38.0 — Multi-category switcher + collapsible sections
+### Added — Multi-category switcher
+- **"📁 My categories"** header button — a real fix for a genuine gap:
+  typing a new name into Step 1 previously just renamed the currently
+  active record in place, silently carrying over every other field
+  (suppliers, risks, chessboard picks) under the new name. There was no
+  safe way to build a second, independent standalone category.
+- **"+ New category"** creates a genuinely blank, isolated node (same
+  `newCategoryNode()`/`defaultRecord()` pattern the app's own bootstrap
+  already used).
+- A list of every named category to switch between, with delete
+  (confirmed first). Deleting the *active* category is safely handled
+  by the app's existing defensive bootstrap effect, which already
+  auto-creates a blank node if `activeNodeId` ever points to nothing.
+
+### Added — Collapsible sections across the Category Workbench
+Applied consistently: AI-generated output/results collapse by default;
+active input surfaces, editable tracking tables, and anything with
+actionable alerts/warnings stay visible.
+
+- **Step 4**: Kraljic's sourcing levers, SWOT, PESTLE
+- **Step 8**: Risk heatmap+register, ESG opportunities
+- **Step 10**: savings/KPIs/demand drivers/risks grid
+- **Step 11**: negotiable issues matrix, trading board, behaviours
+  roadmap (Objectives/BATNA stays visible as the orientation summary)
+- **Step 2/3**: the read-only spend summary display
+
+**Deliberately left uncollapsed**, with consistent reasoning each time:
+- Step 1 (Stakeholder Map) — active manual input
+- Step 7 (Suppliers scorecard, Contract register) — active editable
+  inputs; Preferencing specifically also carries important mismatch
+  alerts that shouldn't be hidden
+- Step 9 (Chessboard) — the board + tick-to-keep table IS the primary
+  workflow interaction
+- Step 12 (Execution) — fully editable Gantt/RACI
+- Step 13 (Savings pipeline, Benefits register, KPI tracker, maturity
+  self-assessment, staged checklist) — these are ongoing *tracking*
+  tools with active per-row inputs (status, delivered%, owner), closer
+  in spirit to Execution's Gantt/RACI than to a one-time AI review
+
+### Note
+Every touched function individually verified structurally balanced —
+10 functions total across this build, checked incrementally as work
+progressed, not just once at the end.
+
 ## v2.37.2
 ### Fixed
 - **"Start here" banner: 2 of 3 buttons (and the Dismiss link) never
