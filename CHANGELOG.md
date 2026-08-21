@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.37.2
+### Fixed
+- **"Start here" banner: 2 of 3 buttons (and the Dismiss link) never
+  actually dismissed the banner** — confirmed via real React fiber
+  inspection, not touch/CSS/overlap. Banner visibility was computed
+  fresh on every render from a live `storageGet()` read, with no
+  dedicated state — it only disappeared as an *incidental side effect*
+  of some unrelated re-render happening to occur afterward.
+  - "Start the Portfolio (P1)" worked by accident: `setStep(
+    "portfolio_setup")` genuinely changes `step` from its default
+    ("profile"), which forces a re-render.
+  - "Start a Category (Step 1)" called `setStep("profile")` — but
+    `step` is *already* "profile" on a fresh session. React's same-value
+    `setState` bail-out means no re-render ever fires, so the banner
+    never re-evaluates, even though the localStorage flag was correctly
+    written.
+  - "Use ▶ Demo tour in the header" never called any state setter at
+    all — only wrote the flag, with no mechanism to trigger a re-render.
+  - The "Dismiss" link had the exact same latent bug, masked until now:
+    it called `setStep(step)` — always the *current* value, always a
+    no-op.
+  - Fixed with a proper dedicated `startDismissed` state, explicitly
+    set `true` by all four dismissal points — no longer depends on
+    `setStep` happening to trigger a re-render as a side effect.
+
+### Note
+Not a touch/mobile-specific bug, despite how it was first reported —
+confirmed via plain mouse clicks at mobile viewport width with no touch
+emulation. Genuinely useful diagnostic discipline: the original report
+led with "buttons not responsive on mobile," and the actual cause was
+pure JS state logic, unrelated to input modality or screen size.
+
 ## v2.37.1
 ### Fixed
 - **Spend sheet currency parsing bug**: `$1,234,567` silently landed as
