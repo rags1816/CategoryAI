@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.34.1
+### Fixed — template scoring criteria were unexplained
+- Every 1-5 field in the Category input template (Variables, Suppliers,
+  Risks, Stakeholders, Supplier performance) previously just said
+  "Score (1-5)" with zero criteria — a real usability gap: the in-app
+  sliders already show what 1 vs 5 means for every one of these, the
+  template just never carried that information over.
+- **New "Read me" sheet** — first sheet in the workbook. Explains what
+  each of the 8 sheets is for and *how the app actually uses it*
+  downstream (e.g. "Variables sets the Kraljic position and feeds Five
+  Forces," "Contracts feeds negotiation timing"), plus a full
+  variable-by-variable scoring reference.
+- **Variables sheet** — added "1 means.../5 means..." columns pulled
+  directly from the same `lo`/`hi` text the in-app sliders show, not a
+  separately-written source that could drift out of sync.
+- **Suppliers/Risks/Stakeholders/Supplier performance sheets** — column
+  headers themselves now carry the criteria inline (e.g. "Capability
+  (1=Limited/unproven, 5=Best-in-class)"), so it's visible at a glance
+  without needing to flip to the Read Me sheet.
+- **Old templates still work** — every parser was updated to recognize
+  both the new enriched headers AND the previous short ones
+  ("Capability (1-5)"), so a template downloaded before this version
+  still uploads correctly.
+
 ## v2.34.0 — item 1 (input template expansion)
 ### Added
 - **Contract register** (Suppliers screen) — contract name, supplier,
