@@ -1,5 +1,44 @@
 # Changelog
 
+## v2.36.0 — Recommendations A, B, C
+### Added
+- **A — On-screen CEP preview** (Step 14): "👁 Preview before downloading"
+  toggle renders the exact 2-page CEP content on-screen before
+  committing to a download, mirroring the precedent already set by
+  Portfolio's Report Preview tab. New lightweight `renderCepPreview()`
+  — scoped to exactly what `buildCepMarkdown()` produces, not a
+  general-purpose markdown parser.
+- **B — Category phase progress banner**: a chevron strip at the top of
+  every Category Workbench screen (Define → Understand → Strategise →
+  Source → Contract & Manage → Output), current phase highlighted,
+  completed phases marked. Built from the same phase grouping the nav
+  rail already used (`STEPS`' `{g:...}` markers) — computed once at
+  module load, not per-render.
+- **C — Charts embedded in Module Review's per-module Word exports**:
+  previously the on-screen chart was visible but never made it into the
+  downloaded .docx — only the data table did. Fixed for Five Forces,
+  Kraljic, Suppliers, Risk, and Chessboard by reusing the exact chart-
+  builder functions already used for the main strategy document (zero
+  new chart-rendering code for those). **New**: a should-cost breakdown
+  chart (`buildShouldCostChart`) — didn't exist anywhere in the app
+  before, now embedded in the Cost Drivers module export too.
+- **🔎 Find** — header keyword search across every screen (title + 
+  description) in both workbenches, click to jump.
+
+### Fixed — errors found in the separately-created User Reference Guide (.docx)
+- Corrected claim that the 2-page CEP includes PESTLE on page 2 —
+  verified directly against `buildCepMarkdown()`: it never did. Fixed
+  in my own maintained guide; flagging for correction in the .docx too.
+- Corrected claim that pressing Enter "searches" — verified against the
+  actual handler: Enter jumps to the top result of an already-open,
+  already-filtered search; it doesn't open search or trigger filtering.
+
+### Note
+All new code individually verified structurally balanced. The one
+pre-existing harmless paren-count artifact in `Step5` (confirmed present
+in the v2.32.4 baseline, before any of this session's work) was checked
+before and after every edit in this build — unchanged throughout.
+
 ## v2.35.0 — UI/UX + 2-page Category Execution Plan
 ### Added
 - **🔎 Find** — new header button, keyword search across every screen in
