@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.36.1 (frozen)
+SHA-256: 324e0585642a5d84f4525bbdcb53e83740b484405b1ca04436aa73c3f54d4e47
+Session close: 🔎 Find (keyword search), Step 14 collapsible sections,
+category phase banner, 2-page CEP export with on-screen preview, chart
+embedding across 6 Module Review exports (incl. new should-cost chart
+type) — plus 3 real bugs found and fixed via live testing (supplier
+chart overlap, chessboard chart caption collision, Step 12 navigation
+misroute). All verified live, evidence-based (image extraction, DOM
+queries), not source-assumed. User Reference Guide (.docx) finalized
+and fact-checked to match.
+
 ## v2.36.1
 ### Fixed
 - **Supplier scatter chart overlap** — suppliers with identical/near-
