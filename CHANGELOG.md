@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.37.1
+### Fixed
+- **Spend sheet currency parsing bug**: `$1,234,567` silently landed as
+  `234,567` on upload — off by exactly $1,000,000 — corrupting total
+  spend, top-3 concentration share, and the downstream AI-inferred
+  concentration score. The stripping regex itself was logically
+  correct for plain text input; the actual cause is most likely SheetJS
+  returning a formatted-string representation for numeric,
+  currency-formatted Excel cells that the string-based approach didn't
+  handle correctly (couldn't fully confirm the exact mechanism without
+  live SheetJS access in this environment). Fixed at the safer,
+  root-cause level: use the cell's raw numeric value directly when
+  SheetJS already parsed it as a genuine number, bypassing string
+  conversion entirely — only falling back to regex-stripping for
+  actual text cells. This sidesteps the whole class of bug rather than
+  patching around one symptom.
+- Confirmed this bug class is architecturally impossible in the
+  standalone Step 2 CSV upload (plain text has no numeric-cell
+  formatting to misread), consistent with that path testing clean.
+
+### Note
+Given I couldn't reproduce this locally (no `xlsx` package available,
+no network access to install one), this fix is reasoned from the most
+likely root cause rather than confirmed against the exact failure —
+worth a live re-test with the same `$1,234,567` value before treating
+this as fully closed.
+
 ## v2.37.0
 ### Added — Spend folded into the Category input template
 - New **Spend sheet** in the 9-sheet Category input template (was 8;
