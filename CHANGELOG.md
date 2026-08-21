@@ -1,5 +1,44 @@
 # Changelog
 
+## v2.34.0 — item 1 (input template expansion)
+### Added
+- **Contract register** (Suppliers screen) — contract name, supplier,
+  start/end dates, value/yr, notice period, status. Manual entry —
+  factual record-keeping, not AI-scoreable.
+- **Demand forecast** (Internal Data screen) — period, expected volume/
+  spend, trend (Growing/Flat/Declining). Manual entry — your own plan,
+  not something AI should invent.
+- **Stakeholder map** (Step 1) — Mendelow's power-interest grid (a
+  genuine, established stakeholder-management framework), same visual
+  quadrant-chart pattern as the existing Supplier Preferencing chart.
+- **Specs & requirements** (Step 1) — new free-text field, deliberately
+  kept narrative rather than structured (real-world specs are usually
+  prose or documents, not a fixed schema). Wired into the Research
+  Assistant prompt so it knows what's actually being bought, not just
+  the category name.
+- **Supplier performance** — deliberately NOT a new feature. Reuses the
+  existing SRM Review state (`srmReviews`); the new template sheet is a
+  bulk offline-entry route into data you can already see and edit
+  in-app, avoiding a duplicate, disconnected concept.
+- **Category input template expanded from 4 sheets to 8** — Profile,
+  Variables, Suppliers, Risks, Contracts, Demand forecast, Stakeholders,
+  Supplier performance. All 4 new sheets use the same header-name-
+  matching, refuse-not-guess-on-unrecognized-headers logic hardened
+  earlier this session (v2.31.3/v2.31.4) — not a weaker, newer pattern.
+  Supplier performance rows ADD to SRM history on upload; everything
+  else replaces the current list (with counts shown before you confirm).
+
+### Compatibility
+- All new state uses safe `||[]`/`||""` fallbacks — existing saved
+  sessions from before this version load without any migration step.
+
+### Note — this needs real testing before it's trusted
+This is the largest single feature build of the session — 3 new UI
+sections across 3 different screens, 4 new template sheets, and new
+state threaded through App(). Structural balance was verified for every
+touched function, but **zero live testing has happened.** Recommend the
+full round-trip check below before treating this as stable.
+
 ## v2.33.6
 ### Fixed — item 20c
 - Savings Pipeline had no confidence indicator at all, unlike Benefits/
