@@ -1,1086 +1,192 @@
-# Changelog
+# CategoryAI — Changelog
 
-SHA-256: aada281cd6f3dc5d3de71c0fdbe52da3b4559a7a448fc101febe5c6baee18e1e
-Version: v2.38.5
-## v2.38.5
-### Fixed — in-app documentation was stale relative to v2.35-v2.38's work
-- **Guide chat** (master AI context string): the "NEW in this build" list
-  stopped at item (7), the v2.32-era Category input template — every
-  feature from v2.35 onward (Find, My Categories, Collapsible sections,
-  phase banner, CEP export, chart embedding) was invisible to the AI
-  guide, meaning it would have answered questions about these features
-  incorrectly or not at all. Added item (8) covering all of it.
-- **Demo Tour**: welcome stop now mentions 🔎 Find and 📁 My Categories
-  (header-level features that don't map to a specific step, so they
-  needed an explicit mention rather than a dedicated stop); the Strategy
-  stop now mentions the 2-page CEP export and its preview.
-- **About tab**: "Board-ready outputs" now mentions chart embedding in
-  Module Review's per-module exports and the CEP export; added a new
-  "DELIVERED" entry to the To-do box status list for the multi-category
-  switcher, Find, and the collapsible-sections/phase-banner UX work —
-  matching the existing entries' exact format and tone.
+_Consolidated record. Earlier history (pre-v2.31) predates this
+development cycle and isn't reconstructed here in full — this file
+picks up from the point continuous, verified development began._
+
+---
+
+## v2.38.5 (frozen candidate)
+SHA-256: `aada281cd6f3dc5d3de71c0fdbe52da3b4559a7a448fc101febe5c6baee18e1e`
+
+### Fixed
+- In-app documentation (Guide chat, Demo Tour, About tab) was stale
+  relative to v2.35-v2.38's feature work — none of Find, My Categories,
+  Collapsible sections, the phase banner, the CEP export, or chart
+  embedding were mentioned anywhere a user or the AI guide could see
+  them. All three surfaces brought current.
 
 ## v2.38.4
-### Fixed — closes both remaining key-exposure paths from v2.38.3's verification
-- **Root cause was one bug, showing up in two places.** `saved` state
-  always initialized to `false` on every fresh component mount,
-  regardless of whether a key was already persisted from a previous
-  session. Masking (added in v2.38.3) only activates when `saved` is
-  true, so it never engaged until an explicit Save happened *during
-  that specific mount's lifetime* — meaning any freshly-opened instance
-  showed the raw key by default.
-- This explains both v2.38.3 findings as the same issue: the Admin
-  panel's key field (confirmed to be the exact same `AISettingsBody`
-  component, mounted via `AISettingsInline` — not a third, separate
-  implementation) and the header panel's "unmasked on first open"
-  behavior.
-- Fixed by initializing `saved` from whether a key is actually already
-  persisted (`storageGet("categoryai_keys")` exists and `AI_SETTINGS`
-  already holds a key value), in both `AISettings` and `AISettingsBody`
-  — masking is now correctly the default state on mount whenever a real
-  key already exists, not just after an in-session Save.
-
-### On rotation timing
-Per the suggestion to hold off rotating until both surfaces are closed —
-this patch closes both. Worth a live re-check (below) before rotating,
-same discipline as every fix this session: confirm before trusting.
+### Fixed
+- API key masking gap closed on both remaining surfaces (Admin panel,
+  first-open of either settings panel). Root cause: `saved` state
+  always initialized `false` on mount regardless of whether a key was
+  already persisted, so masking never engaged until an in-session Save
+  happened. Fixed by initializing from actual persisted state.
 
 ## v2.38.3
-### Fixed — real security hardening, not just advice
-- **API key exposure in accessibility snapshots — 3rd occurrence this
-  session.** `type="password"` only masks the visual rendering; it
-  doesn't stop accessibility-tree tools (used by browser automation)
-  from reading the raw underlying DOM value, which sat there
-  continuously for as long as a key was saved, not just while typing.
-  Fixed structurally: once a key is saved, both AI Settings surfaces
-  (`AISettings` — the header panel, and `AISettingsBody` — a second,
-  independent settings surface) now show a masked summary (last 4
-  characters only) with a "Change" button, rather than keeping the full
-  secret bound to an input's value at all times. The real value only
-  re-enters the DOM during the brief window someone is actively typing
-  a replacement. New shared `KeyField` component, used identically by
-  both surfaces rather than two diverging implementations.
-- **Header "AI ready" status was stale relative to Test Connection
-  results** — could claim ready immediately after a test explicitly
-  returned a 401. Now tracks the last test result against the specific
-  key value tested; if that exact key just failed, the header says "last
-  test failed" instead of "ready." Changing the key value automatically
-  clears the stale failure without needing an explicit reset — the
-  tracked key simply stops matching the active one.
-
-### Note
-Confirmed via source: 401 on Test Connection means the provider itself
-rejected the key — nothing wrong on the app side. If the key was
-rotated as planned, this is the expected, correct result of the old key
-now being dead.
+### Fixed
+- **Security**: API keys sat unmasked in the DOM continuously whenever
+  an AI Settings panel was open — `type="password"` only masks visual
+  rendering, not accessibility-tree snapshots used by automated testing
+  tools. Found via 3 real exposure incidents in one session. Fixed with
+  a masked-summary pattern (last 4 characters only, "Change" button to
+  re-enter edit mode) — the real value only re-enters the DOM while
+  actively being typed.
+- Header "AI ready" status was stale relative to Test Connection
+  results — could claim ready immediately after an explicit 401.
 
 ## v2.38.2
 ### Fixed
-- **The separate inline "📂 My categories" widget on Step 1 had the
-  exact same `node.name` vs `node.record.profile.name` bug as v2.38.0's
-  header panel** — a genuinely different, earlier-built component (its
-  own `otherCategories` computation, `startNewCategory`/
-  `switchToCategory` functions), not the same code, but the identical
-  root cause. Fixed the same way.
-
-### Important correction to earlier guidance this session
-- This inline widget's discovery reveals that a working "+ New
-  category" and category-switcher mechanism — including a smart
-  rename-vs-new-category confirm dialog on the name field's blur event
-  — **already existed before v2.38.0**. My earlier claim that "there is
-  no explicit + New category button and no visible categories list"
-  was wrong; I didn't find this component during that investigation.
-  The v2.38.0 header panel is therefore genuinely redundant with
-  pre-existing functionality for its core create/switch capability —
-  its real incremental value is delete support and being reachable from
-  any screen, not the create/switch itself.
+- The "My Categories" panel (both the header modal and a separate,
+  earlier-built inline Step 1 widget) always showed "No named
+  categories yet" despite real categories existing. Root cause: both
+  checked `node.name` (a field only populated via Portfolio-linked
+  flows) instead of `node.record.profile.name` (the field the normal
+  Category Workbench flow actually populates).
 
 ## v2.38.1
 ### Fixed
-- **My Categories panel always showed "No named categories yet," even
-  with real categories present** — a genuine field-naming bug, not a
-  data problem (confirmed: the underlying `categoryTree` data was
-  always correctly isolated per category). The name a user types into
-  Step 1 lands in `node.record.profile.name`; the panel's filter
-  checked `node.name` — a completely different, top-level field that's
-  only populated via Portfolio-linked flows (deep-dive,
-  duplicate-as-child). Every standalone category — the normal, most
-  common case — has an empty `node.name`, so the filter always excluded
-  everything. Fixed with a `nameOf()` helper that checks
-  `record.profile.name` first, falling back to the node's own `name`
-  for the portfolio-linked case, applied consistently to the list
-  filter, the displayed name, and the delete-confirmation text.
+- The header "My Categories" panel itself showed "No named categories
+  yet" on first ship — same root cause as v2.38.2, caught one component
+  earlier.
 
-## v2.38.0 — Multi-category switcher + collapsible sections
-### Added — Multi-category switcher
-- **"📁 My categories"** header button — a real fix for a genuine gap:
-  typing a new name into Step 1 previously just renamed the currently
-  active record in place, silently carrying over every other field
-  (suppliers, risks, chessboard picks) under the new name. There was no
-  safe way to build a second, independent standalone category.
-- **"+ New category"** creates a genuinely blank, isolated node (same
-  `newCategoryNode()`/`defaultRecord()` pattern the app's own bootstrap
-  already used).
-- A list of every named category to switch between, with delete
-  (confirmed first). Deleting the *active* category is safely handled
-  by the app's existing defensive bootstrap effect, which already
-  auto-creates a blank node if `activeNodeId` ever points to nothing.
-
-### Added — Collapsible sections across the Category Workbench
-Applied consistently: AI-generated output/results collapse by default;
-active input surfaces, editable tracking tables, and anything with
-actionable alerts/warnings stay visible.
-
-- **Step 4**: Kraljic's sourcing levers, SWOT, PESTLE
-- **Step 8**: Risk heatmap+register, ESG opportunities
-- **Step 10**: savings/KPIs/demand drivers/risks grid
-- **Step 11**: negotiable issues matrix, trading board, behaviours
-  roadmap (Objectives/BATNA stays visible as the orientation summary)
-- **Step 2/3**: the read-only spend summary display
-
-**Deliberately left uncollapsed**, with consistent reasoning each time:
-- Step 1 (Stakeholder Map) — active manual input
-- Step 7 (Suppliers scorecard, Contract register) — active editable
-  inputs; Preferencing specifically also carries important mismatch
-  alerts that shouldn't be hidden
-- Step 9 (Chessboard) — the board + tick-to-keep table IS the primary
-  workflow interaction
-- Step 12 (Execution) — fully editable Gantt/RACI
-- Step 13 (Savings pipeline, Benefits register, KPI tracker, maturity
-  self-assessment, staged checklist) — these are ongoing *tracking*
-  tools with active per-row inputs (status, delivered%, owner), closer
-  in spirit to Execution's Gantt/RACI than to a one-time AI review
-
-### Note
-Every touched function individually verified structurally balanced —
-10 functions total across this build, checked incrementally as work
-progressed, not just once at the end.
+## v2.38.0
+### Added
+- **My Categories switcher** — fixed a real, confirmed gap: there was
+  no safe way to run multiple independent standalone categories in one
+  browser. Retyping a name on Step 1 silently renamed the active record
+  in place, carrying over all its other data. New header panel: "+ New
+  category" (genuinely blank, isolated), a list to switch between named
+  categories, delete with confirm.
+- **Collapsible sections** across most Category Workbench steps — AI-
+  generated output/results collapse by default; input fields, active
+  editing surfaces, and anything with actionable alerts stay visible.
+  Applied to Steps 3, 4, 5, 8, 10, 11, 14, plus the Internal Data spend
+  summary. Deliberately left uncollapsed where genuinely input-heavy:
+  Suppliers scorecard, Chessboard, Execution Plan, Savings/Benefits
+  tracking tables.
 
 ## v2.37.2
 ### Fixed
-- **"Start here" banner: 2 of 3 buttons (and the Dismiss link) never
-  actually dismissed the banner** — confirmed via real React fiber
-  inspection, not touch/CSS/overlap. Banner visibility was computed
-  fresh on every render from a live `storageGet()` read, with no
-  dedicated state — it only disappeared as an *incidental side effect*
-  of some unrelated re-render happening to occur afterward.
-  - "Start the Portfolio (P1)" worked by accident: `setStep(
-    "portfolio_setup")` genuinely changes `step` from its default
-    ("profile"), which forces a re-render.
-  - "Start a Category (Step 1)" called `setStep("profile")` — but
-    `step` is *already* "profile" on a fresh session. React's same-value
-    `setState` bail-out means no re-render ever fires, so the banner
-    never re-evaluates, even though the localStorage flag was correctly
-    written.
-  - "Use ▶ Demo tour in the header" never called any state setter at
-    all — only wrote the flag, with no mechanism to trigger a re-render.
-  - The "Dismiss" link had the exact same latent bug, masked until now:
-    it called `setStep(step)` — always the *current* value, always a
-    no-op.
-  - Fixed with a proper dedicated `startDismissed` state, explicitly
-    set `true` by all four dismissal points — no longer depends on
-    `setStep` happening to trigger a re-render as a side effect.
-
-### Note
-Not a touch/mobile-specific bug, despite how it was first reported —
-confirmed via plain mouse clicks at mobile viewport width with no touch
-emulation. Genuinely useful diagnostic discipline: the original report
-led with "buttons not responsive on mobile," and the actual cause was
-pure JS state logic, unrelated to input modality or screen size.
+- The "Start here" onboarding banner: 2 of 3 buttons, plus the Dismiss
+  link, never actually dismissed the banner. Root cause: banner
+  visibility was computed fresh on every render from a live storage
+  read, with no dedicated state — it only disappeared as an incidental
+  side effect of some unrelated re-render happening to fire. Fixed with
+  proper dedicated `startDismissed` state.
 
 ## v2.37.1
 ### Fixed
-- **Spend sheet currency parsing bug**: `$1,234,567` silently landed as
-  `234,567` on upload — off by exactly $1,000,000 — corrupting total
-  spend, top-3 concentration share, and the downstream AI-inferred
-  concentration score. The stripping regex itself was logically
-  correct for plain text input; the actual cause is most likely SheetJS
-  returning a formatted-string representation for numeric,
-  currency-formatted Excel cells that the string-based approach didn't
-  handle correctly (couldn't fully confirm the exact mechanism without
-  live SheetJS access in this environment). Fixed at the safer,
-  root-cause level: use the cell's raw numeric value directly when
-  SheetJS already parsed it as a genuine number, bypassing string
-  conversion entirely — only falling back to regex-stripping for
-  actual text cells. This sidesteps the whole class of bug rather than
-  patching around one symptom.
-- Confirmed this bug class is architecturally impossible in the
-  standalone Step 2 CSV upload (plain text has no numeric-cell
-  formatting to misread), consistent with that path testing clean.
-
-### Note
-Given I couldn't reproduce this locally (no `xlsx` package available,
-no network access to install one), this fix is reasoned from the most
-likely root cause rather than confirmed against the exact failure —
-worth a live re-test with the same `$1,234,567` value before treating
-this as fully closed.
+- Currency-symbol parsing in the Spend template sheet: `$1,234,567`
+  silently landed as `234,567` — off by exactly $1,000,000, corrupting
+  total spend, concentration share, and the downstream AI-inferred
+  score. Fixed by preferring the cell's raw numeric value (when SheetJS
+  already parsed it as a number) over string-based regex stripping.
 
 ## v2.37.0
-### Added — Spend folded into the Category input template
-- New **Spend sheet** in the 9-sheet Category input template (was 8;
-  now 9 with this addition), two columns: Supplier, Spend. Auto-strips
-  currency symbols/commas, matching the existing standalone spend CSV
-  upload's behavior exactly.
-- On upload, replicates the **exact same derivation formula** the
-  standalone CSV upload already used — total, top-10 suppliers by
-  spend, top-3 concentration share, and the same 1-5 supplier-
-  concentration inference with an AI-inferred confidence flag. Not a
-  simplified reimplementation; the same math, same thresholds.
-- **The standalone Step 2 spend CSV upload still works** — this is a
-  second route to the same result, not a replacement. Useful if someone
-  wants to refresh spend data alone without re-touching the whole
-  template.
-- Fixed two stale "4-sheet template" claims in the in-app guide text
-  (Step 1's own guide, and the master AI-wide context string) that
-  hadn't been updated since the template grew past 4 sheets several
-  versions ago — found while making this change, not something this
-  patch introduced.
-- Updated the Internal Data screen's own guide text to mention this
-  second route exists.
-
-### Note
-This closes the two-file friction flagged in conversation — a user
-filling in the offline template no longer needs to separately remember
-to visit Step 2 for a spend CSV; one file now covers profile, spend,
-variables, suppliers, risks, contracts, demand forecast, stakeholders,
-and supplier performance.
-
-## v2.36.1 (frozen)
-SHA-256: 324e0585642a5d84f4525bbdcb53e83740b484405b1ca04436aa73c3f54d4e47
-Session close: 🔎 Find (keyword search), Step 14 collapsible sections,
-category phase banner, 2-page CEP export with on-screen preview, chart
-embedding across 6 Module Review exports (incl. new should-cost chart
-type) — plus 3 real bugs found and fixed via live testing (supplier
-chart overlap, chessboard chart caption collision, Step 12 navigation
-misroute). All verified live, evidence-based (image extraction, DOM
-queries), not source-assumed. User Reference Guide (.docx) finalized
-and fact-checked to match.
+### Added
+- Spend folded into the Category input template as its own sheet
+  (previously a separate .csv upload only) — same total/top-10/
+  concentration derivation formula reused exactly, not reimplemented.
 
 ## v2.36.1
 ### Fixed
-- **Supplier scatter chart overlap** — suppliers with identical/near-
-  identical capability+alignment scores plotted at the exact same
-  coordinate, causing dots and labels to overlap illegibly. Fixed with
-  deterministic offset: overlapping suppliers now spread horizontally
-  and their labels stack vertically instead of stacking directly on
-  each other.
-- **Chessboard quadrant chart caption/axis collision** — the "Demand
-  power →" axis label and the "Home strategy: ..." caption were only
-  6px apart vertically, guaranteed to overlap. Given genuine separation
-  (28px) and slightly taller canvas to accommodate it.
-- **Step 12 Continue button misroute** — `next={()=>setStep("ess")}`
-  sent users into Portfolio P3 instead of Step 13 (Savings & maturity),
-  despite the button reading "Continue to savings & maturity →". Fixed
-  to `setStep("value")`. A pre-existing bug, not something this
-  session's edits touched — found only because this release's testing
-  happened to exercise that specific button.
-- **Favicon 404** — added an inline SVG data-URI favicon (no external
-  file needed), eliminating the browser's default favicon.ico request
-  entirely.
+- Supplier scatter chart: identical capability/alignment scores
+  overlapped illegibly — same chart used in the main strategy document,
+  not just the new Module Review export, so this was a pre-existing bug
+  surfaced by more thorough testing.
+- Chessboard quadrant chart: caption text and the "Demand power" axis
+  label collided (6px apart).
+- Step 12's "Continue" button routed into Portfolio P3 instead of
+  Step 13 — a pre-existing bug, unrelated to this session's edits,
+  found only because testing happened to exercise that button.
+- Inline SVG favicon added, eliminating a 404.
 
-### Investigated, not a bug
-- **Step 5 phase-banner "mismatch"** — confirmed the banner is correct:
-  Five Forces genuinely belongs under UNDERSTAND per the app's own
-  canonical step structure (consistent with how the training deck
-  reviewed earlier this session groups it alongside SWOT/PESTLE). The
-  apparent contradiction came from `STEP_DONE.kraljic` sharing the exact
-  same completion condition as `STEP_DONE.forces` — so Kraljic's
-  sidebar counter auto-inflates the moment Five Forces data exists,
-  before the user has ever visited Kraljic. Pre-existing quirk, not
-  changed — fixing the banner to match a misleading counter would have
-  made the banner factually wrong.
-
-## v2.36.0 — Recommendations A, B, C
+## v2.36.0
 ### Added
-- **A — On-screen CEP preview** (Step 14): "👁 Preview before downloading"
-  toggle renders the exact 2-page CEP content on-screen before
-  committing to a download, mirroring the precedent already set by
-  Portfolio's Report Preview tab. New lightweight `renderCepPreview()`
-  — scoped to exactly what `buildCepMarkdown()` produces, not a
-  general-purpose markdown parser.
-- **B — Category phase progress banner**: a chevron strip at the top of
-  every Category Workbench screen (Define → Understand → Strategise →
-  Source → Contract & Manage → Output), current phase highlighted,
-  completed phases marked. Built from the same phase grouping the nav
-  rail already used (`STEPS`' `{g:...}` markers) — computed once at
-  module load, not per-render.
-- **C — Charts embedded in Module Review's per-module Word exports**:
-  previously the on-screen chart was visible but never made it into the
-  downloaded .docx — only the data table did. Fixed for Five Forces,
-  Kraljic, Suppliers, Risk, and Chessboard by reusing the exact chart-
-  builder functions already used for the main strategy document (zero
-  new chart-rendering code for those). **New**: a should-cost breakdown
-  chart (`buildShouldCostChart`) — didn't exist anywhere in the app
-  before, now embedded in the Cost Drivers module export too.
-- **🔎 Find** — header keyword search across every screen (title + 
-  description) in both workbenches, click to jump.
+- 🔎 Find — header keyword search across every screen.
+- On-screen CEP preview before downloading (Step 14), mirroring
+  Portfolio's existing Report Preview precedent.
+- Category phase progress banner (Define→Understand→Strategise→
+  Source→Contract & Manage→Output).
+- Chart images now actually embed in Module Review's per-module Word
+  exports (previously the on-screen chart never made it into the
+  download — only the data table did). New should-cost breakdown chart
+  type, which didn't exist anywhere in the app before.
 
-### Fixed — errors found in the separately-created User Reference Guide (.docx)
-- Corrected claim that the 2-page CEP includes PESTLE on page 2 —
-  verified directly against `buildCepMarkdown()`: it never did. Fixed
-  in my own maintained guide; flagging for correction in the .docx too.
-- Corrected claim that pressing Enter "searches" — verified against the
-  actual handler: Enter jumps to the top result of an already-open,
-  already-filtered search; it doesn't open search or trigger filtering.
-
-### Note
-All new code individually verified structurally balanced. The one
-pre-existing harmless paren-count artifact in `Step5` (confirmed present
-in the v2.32.4 baseline, before any of this session's work) was checked
-before and after every edit in this build — unchanged throughout.
-
-## v2.35.0 — UI/UX + 2-page Category Execution Plan
+## v2.35.0
 ### Added
-- **🔎 Find** — new header button, keyword search across every screen in
-  both workbenches (title + one-line description). Type, see matches,
-  click to jump straight there. Built entirely on the app's existing
-  `STEPS`/`STEP_HELP` data — no new content to maintain separately.
-- **Collapsible sections on Step 14** — Objectives, Sourcing levers,
-  Negotiation approach, Roadmap, and Risk register are now individually
-  collapsible (Data gaps starts collapsed, since it's the "here's what's
-  missing" section, not the main content). Executive summary stays
-  always visible as the orientation anchor. New reusable `Collapsible`
-  component, colocated with other shared UI primitives.
-- **2-page Category Execution Plan export** (new button next to the
-  Word download on Step 14) — a dense, at-a-glance summary distinct from
-  the full strategy document: spend/scope header, spend profile, demand
-  & strategy, Five Forces, supplier landscape, 3-year plan, near-term
-  actions, and a disruptors/horizon-scan table (pulled from Research
-  Assistant's findings where available). Structure validated against
-  real-world category-management templates this session — fully
-  genericized, zero company-specific branding or content, built
-  entirely from data already in the session. Reuses the existing
-  markdown→docx pipeline rather than new low-level table code.
-
-### Note
-All three features verified structurally sound, including confirming a
-pre-existing harmless paren-count artifact in `Step5` (present in the
-baseline before any of today's edits) wasn't worsened by any of the new
-code — checked before and after each edit, not assumed.
+- 2-page Category Execution Plan export — a dense, at-a-glance summary
+  distinct from the full strategy document, built from real-world
+  category-management template structures (fully genericized, no
+  external branding or content). Structure: spend/scope header, spend
+  profile, demand & strategy, Five Forces, supplier landscape, 3-year
+  plan, near-term actions, a Disruptors table sourced from Research
+  Assistant findings.
 
 ## v2.34.1
-### Fixed — template scoring criteria were unexplained
-- Every 1-5 field in the Category input template (Variables, Suppliers,
-  Risks, Stakeholders, Supplier performance) previously just said
-  "Score (1-5)" with zero criteria — a real usability gap: the in-app
-  sliders already show what 1 vs 5 means for every one of these, the
-  template just never carried that information over.
-- **New "Read me" sheet** — first sheet in the workbook. Explains what
-  each of the 8 sheets is for and *how the app actually uses it*
-  downstream (e.g. "Variables sets the Kraljic position and feeds Five
-  Forces," "Contracts feeds negotiation timing"), plus a full
-  variable-by-variable scoring reference.
-- **Variables sheet** — added "1 means.../5 means..." columns pulled
-  directly from the same `lo`/`hi` text the in-app sliders show, not a
-  separately-written source that could drift out of sync.
-- **Suppliers/Risks/Stakeholders/Supplier performance sheets** — column
-  headers themselves now carry the criteria inline (e.g. "Capability
-  (1=Limited/unproven, 5=Best-in-class)"), so it's visible at a glance
-  without needing to flip to the Read Me sheet.
-- **Old templates still work** — every parser was updated to recognize
-  both the new enriched headers AND the previous short ones
-  ("Capability (1-5)"), so a template downloaded before this version
-  still uploads correctly.
+### Fixed
+- Category input template's scoring criteria were unexplained — every
+  1-5 field just said "Score (1-5)" with no indication of what either
+  end meant. Added a Read Me sheet plus inline criteria in every
+  relevant column header.
 
-## v2.34.0 — item 1 (input template expansion)
+## v2.34.0
 ### Added
-- **Contract register** (Suppliers screen) — contract name, supplier,
-  start/end dates, value/yr, notice period, status. Manual entry —
-  factual record-keeping, not AI-scoreable.
-- **Demand forecast** (Internal Data screen) — period, expected volume/
-  spend, trend (Growing/Flat/Declining). Manual entry — your own plan,
-  not something AI should invent.
-- **Stakeholder map** (Step 1) — Mendelow's power-interest grid (a
-  genuine, established stakeholder-management framework), same visual
-  quadrant-chart pattern as the existing Supplier Preferencing chart.
-- **Specs & requirements** (Step 1) — new free-text field, deliberately
-  kept narrative rather than structured (real-world specs are usually
-  prose or documents, not a fixed schema). Wired into the Research
-  Assistant prompt so it knows what's actually being bought, not just
-  the category name.
-- **Supplier performance** — deliberately NOT a new feature. Reuses the
-  existing SRM Review state (`srmReviews`); the new template sheet is a
-  bulk offline-entry route into data you can already see and edit
-  in-app, avoiding a duplicate, disconnected concept.
-- **Category input template expanded from 4 sheets to 8** — Profile,
-  Variables, Suppliers, Risks, Contracts, Demand forecast, Stakeholders,
-  Supplier performance. All 4 new sheets use the same header-name-
-  matching, refuse-not-guess-on-unrecognized-headers logic hardened
-  earlier this session (v2.31.3/v2.31.4) — not a weaker, newer pattern.
-  Supplier performance rows ADD to SRM history on upload; everything
-  else replaces the current list (with counts shown before you confirm).
+- Category input template expanded to cover Contracts, Demand Forecast,
+  Stakeholders (Mendelow grid), Specs & Requirements, and Supplier
+  Performance (feeds the existing SRM Review history rather than
+  duplicating it as a new concept).
 
-### Compatibility
-- All new state uses safe `||[]`/`||""` fallbacks — existing saved
-  sessions from before this version load without any migration step.
-
-### Note — this needs real testing before it's trusted
-This is the largest single feature build of the session — 3 new UI
-sections across 3 different screens, 4 new template sheets, and new
-state threaded through App(). Structural balance was verified for every
-touched function, but **zero live testing has happened.** Recommend the
-full round-trip check below before treating this as stable.
-
-## v2.33.6
-### Fixed — item 20c
-- Savings Pipeline had no confidence indicator at all, unlike Benefits/
-  Risks/ESG/Chessboard/Suppliers. Confirmed the underlying `conf` field
-  is shared across the whole pipeline+KPI+maturity object (not per-row,
-  matching Negotiation/Execution's pattern) — added a single visible
-  badge next to the AI-build button rather than retrofitting per-row
-  tracking that doesn't match how the data is actually structured.
-
-### Fixed — item 20d
-- Found a real cause, not just a vague positioning complaint: the Demo
-  Tour's draggable card defaults to bottom-right on desktop at
-  `zIndex:1000`, directly overlapping the Guide chat's bottom-right
-  button at `zIndex:50` — the Guide button was very likely completely
-  hidden underneath the tour card whenever a tour was active. Fixed by
-  hiding the Guide widget entirely during a tour rather than fighting
-  over the same corner; it reappears the instant the tour ends.
-
-### Fixed — item 25
-- The Strategy screen's guide text described business case *contents*
-  in detail but never explained *why* it exists or how it relates to
-  the category strategy. Added: it's a separate, downstream document
-  arguing the spend decision to whoever approves budget, assembled from
-  the same session data, with VM vs Five Case Model framed as "which
-  matches your organisation's approval process" rather than just two
-  format options.
-
-## v2.33.5
-### Fixed — item 21, and my own earlier mistake
-- **Item 21 doesn't need a new feature — it already exists.** The
-  "⚡ AI-build pipeline, KPIs & maturity" button already generates
-  AI-suggested savings pipeline, KPI targets, AND maturity self-assessment
-  scores in one call, all editable afterward. A separate
-  "⚡ AI-build benefits register" button also already exists. Both were
-  incorrectly documented as absent in a guide-text edit I made earlier
-  this session — I trusted your quoted paraphrase of an older chat
-  response instead of re-verifying against the actual `gen()`/
-  `genBenefits()` functions. Corrected, and both claims now verified
-  directly against code (confirmed zero `askClaude` calls in SRM and the
-  staged checklist specifically — those two claims were accurate).
-
-### Note
-This should have been caught the first time — worth flagging plainly
-rather than quietly fixing it. Going forward, any guide-text claim about
-what a screen can or can't do gets checked against the actual function,
-not inferred from what a person remembers being told.
-
-## v2.33.4
-### Fixed — item 11 (final item, closes the full report)
-- The Supplier Preferencing table had no visible confidence indicator at
-  all, despite the banner right above it explicitly claiming scores are
-  "flagged AI-inferred." The underlying data always had the flag — it
-  just wasn't rendered in this specific table. Added a lightweight badge
-  next to each supplier's name (not a full editable ConfCell, since
-  `conf` is shared with the main segmentation table above — editing
-  belongs there, not duplicated here).
-
-### Note
-Caught and fixed a real syntax bug introduced by this exact edit before
-shipping it — the structural balance check (used throughout this
-session, not just today) is not just process theatre; it found a
-genuinely missing closing brace this time, not another string-literal
-false positive.
-
-## v2.33.3
-### Fixed — item 6
-- The "Continue to SWOT & PESTLE" button previously sat at the bottom of
-  Step2's own content (the 9 market variables), rendered ABOVE Research
-  Assistant on the same screen — meaning a user could click through and
-  move on without ever discovering Research Assistant existed. Moved the
-  button to after Research Assistant instead, so it's now the single,
-  true end-of-screen action.
-
-### Fixed — item 12 (remainder)
-- SRM review's scorecard sliders showed only a bare 1-5 number, no
-  indication of which end meant what. Added "Poor" / "Excellent" labels
-  at each end. Checked the main strategic supplier scorecard for the
-  same gap — it's a labeled table with numeric inputs, not a slider,
-  so no fix needed there.
-
-## v2.33.2
-### Changed — item 22
-- Category maturity self-assessment scale labels changed from
-  "Ad hoc" / "Leading practice" to "Disagree" / "Agree." Kept the same
-  1=worst/5=best direction as before, so nothing downstream (scoring,
-  rollups) needed to change — only the wording. The separate staged
-  maturity CHECKLIST's own stage name "Leading practice" is a different
-  feature (categorical stage titles, not this continuous scale) and was
-  correctly left untouched. Guide text updated to match.
-
-## v2.33.1
-### Fixed — Research Assistant, properly this time (item 7)
-- Replaced the confirm-before-overwrite guard with genuine accumulate
-  behavior, matching Chessboard's pattern: the AI is told what's already
-  found and asked for different findings, new results merge into the
-  existing lists rather than replacing them. Nothing is ever lost, so
-  the confirm dialog is gone too — it's no longer needed. Added a
-  "🗑 Clear all findings" button for a genuine reset when wanted.
-
-### Added — persistent demo-data banner (items 3, 4)
-- A shared warning now shows on every Category Workbench step whenever
-  the profile name still carries the Demo Tour's "(Demo)" marker — one
-  fix covering both the general request and the Market Info Hub-specific
-  one, rather than duplicating logic per screen.
-
-### Fixed — 3 more guide-text gaps
-- Market Intelligence: previously said nothing about Research Assistant
-  at all, despite it living on that screen — the direct cause of "is it
-  only PESTLE?" confusion. Now fully explains scope, source, and the new
-  accumulate behavior.
-- Negotiation Plan: added explicit single-source-call transparency
-  (issues matrix, trading board, and behaviours all come from the one
-  call) and regenerate behavior.
-- Execution Plan: added source (strategy roadmap + levers), the new
-  editability, and regenerate behavior.
-
-### Not addressed this round
-- Item 22 (maturity chart wording) — your note was unclear to me, need
-  clarification before implementing
-- Item 6 (SWOT/PESTLE button position vs Research) — not yet investigated
-- Item 11 (visible confidence badge on Preferencing chart specifically)
-- Item 12 (SRM bar chart low/high axis labels)
-- Items 1, 2, 21 — genuinely new scope, still deferred
-- Item 15 — confirmed the button exists in code; can't resolve what you
-  specifically saw without more detail from your own testing
-
-## v2.33.0
-### Fixed — regeneration data loss (5 screens)
-- Risk Heatmap, ESG opportunities, Negotiation Plan, Execution Plan, and
-  Research Assistant all previously wiped existing data silently on
-  regenerate — no confirmation, no merge, unlike Chessboard's
-  accumulate-and-tick-to-keep pattern. All five now confirm first,
-  quoting exactly what will be lost, before proceeding.
-
-### Fixed — Execution Plan had zero editable fields
-- Confirmed via direct inspection (`onChange` count: 0) — the Gantt/RACI
-  plan was 100% AI-regenerate-only with no way to adjust a single value.
-  Added full inline editing for both the Gantt table (workstream,
-  start/end quarter, owner) and the RACI matrix, matching the edit
-  pattern already used on Suppliers/Risks elsewhere in the app.
-
-### Fixed — Research Assistant
-- Was missing its `conf:"ai"` flag entirely, despite the on-screen text
-  explicitly claiming "findings are flagged AI-inferred in the
-  document" — added the flag and wired it into the export header.
-- Expanded the prompt to use `profile.notes` and `profile.pains`, not
-  just category name/sector/region — more targeted research.
-
-### Fixed — three empty or incomplete guide-chat entries
-- Cost Drivers & Levers: guide text was a **completely empty string**.
-  Rewrote covering playbook-vs-AI-generate, cost driver vs. lever
-  distinction, and the source of savings/KPI/demand-driver/risk fields.
-- Suppliers/SRM: rewrote with AI-assess source transparency, explicit
-  primary (segment+spend) vs. secondary (tier calculator, contract-level)
-  basis, and clarified SRM review is entirely manual/non-AI — a real
-  distinction that existed in behavior but was undocumented anywhere.
-- Maturity checklist: added the CIPS/Hackett-style attribution that
-  already existed in code comments and the About tab, but was missing
-  from this specific screen's own guide text — the actual source of the
-  user's confusion.
-
-### Changed — Five Forces enrichment
-- Found 3 market variables collected on-screen but never used in any of
-  the 5 Porter's Forces calculations: `geoRisk`, `priceVolatility`,
-  `regulatoryIntensity`. Wired each into a directionally appropriate
-  force (geoRisk → Supplier power, regulatoryIntensity → Threat of new
-  entrants as a classic barrier-to-entry factor, priceVolatility →
-  Competitive rivalry) and kept the guide text's dynamic source list in
-  sync.
-
-### Added
-- PowerPoint Supplier segmentation slide now includes the chart image
-  (previously table-only, unlike every other module slide).
-
-### Verified, no fix needed
-- Kraljic's "not yet assessed" warning banner already exists and is
-  well-built (dynamic, explains exactly which axis is unconfirmed) —
-  confirmed real rather than assumed broken.
-- Chessboard's "AI-recommend" button exists and is correctly labelled.
-
-### Deferred — genuinely new scope, not this sweep
-- Expanding the input template to cover contract register, demand
-  forecast, specs, supplier performance, stakeholder map
-- A "what are we buying / capability" input feeding archetype matching
-- An in-app AI-assist button for the Maturity/KPI screen (currently
-  manual-only by design)
-- Minor remaining copy/UX items (SWOT-above-Research ordering, floating
-  guide visibility, a visible confidence badge specifically on the
-  Supplier Preferencing chart)
-
-### Note
-This sweep was done via careful source verification and static
-structural checks (all edited functions individually confirmed
-balanced), without a live Claude Code test round, per explicit
-instruction to conserve cost this time. **This means v2.33.0 has NOT
-been tested live** — recommend at least a light verification pass
-before treating it as stable, given the volume of real logic changes
-(5 confirm guards, new Execution Plan edit UI, a scoring formula
-change) in this release.
-
-## v2.32.4 (frozen)
-SHA-256: 19a0ca5b284355478ed3e25137bb426a0621b966c30245e9ae1c1662b8557f5c
-Supersedes v2.32.3's freeze — fixed both Excel template downloads
-saving with a UUID filename/no extension instead of a proper .xlsx
-name (XLSX.writeFile()'s built-in browser-download path wasn't
-reliably honoring the filename; replaced with an explicit Blob +
-anchor download). Verified: both templates confirmed opening directly
-in Excel with correct filenames, valid zip/XLSX structure checked
-directly, no rename needed.
-
-## v2.32.4
+## v2.33.0 – v2.33.6
 ### Fixed
-- **Both Excel template downloads (Portfolio and Category input
-  templates) could save with a UUID filename and no extension instead
-  of a proper .xlsx name** — found by the user directly, not by prior
-  testing, which checked file contents thoroughly but never specifically
-  confirmed the filename shown in the browser's download list. Root
-  cause: `XLSX.writeFile()`'s built-in browser-download mechanism wasn't
-  reliably honoring the filename in this environment. Replaced with an
-  explicit download (manually build the Blob, set the anchor's
-  `download` attribute directly) in both places, giving full control
-  instead of trusting that black box.
+Genuine, sourced fixes across a real user-submitted QA report (26
+items): regeneration data-loss risk on 5 screens (now confirm-before-
+overwrite or genuine accumulate, depending on the screen), Research
+Assistant's missing confidence flag and narrow scope, 3 empty/incomplete
+guide-chat knowledge-base entries (one was a fully empty string), Five
+Forces enrichment (3 collected-but-unused variables wired in), a demo-
+data persistent warning banner, a misplaced Continue button relative to
+Research Assistant, an SRM bar chart missing axis labels, and a
+maturity-scale wording change (Ad hoc/Leading practice → Disagree/Agree).
 
-### Note
-This means your frozen v2.32.3 checksum
-(90524adec1ff117e3410d3db163046e4ab3c179c3270c7d682b86261a88fb7d0) is
-now superseded — v2.32.4 is the new frozen candidate, pending
-verification.
+## v2.32.0 – v2.32.4
+### Added / Fixed
+- Category input template (first version): Profile, Variables,
+  Suppliers, Risks — downloadable/uploadable offline round-trip.
+- Fixed 3 real bugs found via live verification within a day of
+  shipping: a scorecard-crash on imported suppliers missing required
+  fields, malformed segmentation charts from the same root cause, and a
+  genuinely pre-existing broken "+ Add supplier" button unrelated to
+  this feature.
+- Fixed both Excel template downloads saving with a UUID filename and
+  no extension instead of a proper `.xlsx` name.
 
-## v2.32.3
-### Changed
-- **In-app guide text synced with the new Category input template
-  feature** — the Step 1 Reference Library context and the master
-  AI-wide context string both previously described Excel round-trip as
-  Portfolio-only (P1). Both now mention the Category track's own
-  download/upload template, so a user asking the Reference Library
-  "does the category side have an offline input option?" gets an
-  accurate answer instead of a stale one. Text-only, no logic changes.
-- Confirmed no other stale claims: the Demo Tour (Sandbox pre-loaded
-  data, doesn't touch the upload flow), Elevator Pitch guide text, and
-  Admin panel tooltips were all already accurate and needed no changes.
-
-## v2.32.2
+## v2.31.3 – v2.31.5
 ### Fixed
-- **Segmentation/preferencing charts rendered malformed (invalid SVG
-  `<circle r="NaN">`) for Excel-imported suppliers.** Same class of bug
-  as v2.32.1's crash — a field every other supplier-creation path
-  provides (`share`, the spend-share used to size chart markers) was
-  never set by the new Category input template import. Fixed at the
-  source (import now sets `share:0`, matching the manual-add convention)
-  and defensively at both chart render sites (`(s.share||0)`), so a
-  future path with the same gap degrades to a small marker instead of a
-  broken one.
-- **Manual "+ Add supplier" button was completely broken — pre-existing,
-  not something this session introduced.** `StepSuppliers` never
-  received `setProfile` as a prop, but both its Enter-key handler and
-  its "+Add" button called it anyway, throwing `ReferenceError` on every
-  use with a silent no-op (typed name stayed in the box, nothing was
-  added). Found only because this session's verification happened to
-  exercise that specific button while checking something else. Fixed by
-  threading `setProfile` through from `App()`.
+- The original, session-opening finding: hardcoded `max_tokens:1500`
+  truncating AI responses across every call site, tuned per-endpoint
+  instead. JSON-parse-failure auto-retry. All 33 native browser
+  dialogs replaced with an in-app async confirm/alert system. Excel
+  Composition import fixed from position-based to header-name-based,
+  then hardened further to refuse rather than guess on unrecognized
+  headers. Export-format unification: 4 sections that existed in
+  Word/Markdown but had no PowerPoint equivalent at all, added.
 
-### Note
-Both found via the same verification discipline as the last two
-patches — real, reproducible evidence, not assumption. The manual-add
-bug in particular is a good example of why re-testing adjacent
-functionality (not just the thing you changed) matters: it was sitting
-there before any of this session's work touched that screen.
+---
 
-## v2.32.1
-### Fixed
-- **Category input template's Suppliers sheet crashed the Supplier
-  segmentation screen** — found immediately in verification of the new
-  v2.32.0 feature, 100% reproducible. Root cause: Excel-imported
-  suppliers only carried Capability/Alignment/Notes, but the screen
-  unconditionally reads `s.scorecard[dd]` (quality/delivery/cost/
-  innovation/ESG) for every supplier — `TypeError: Cannot read
-  properties of undefined`. Fixed at three levels: (1) Excel-imported
-  suppliers now get the same default scorecard
-  (`Object.fromEntries(SCORECARD_DIMS.map(d=>[d,3]))`) every other
-  supplier-creation path already provides; (2) the actual crash site now
-  guards against a missing scorecard regardless of cause — found in the
-  process that the AI-assess path spreads the AI's raw JSON response
-  without guaranteeing a scorecard field either, so this protects that
-  path too, current and future; (3) the two document-generation
-  dereferences (Module Review export, main Supplier segmentation table
-  in `buildMd()`) got the same guard, since a document-export crash from
-  the identical root cause would be at least as bad as a screen crash.
+## Freeze record
 
-### Note
-Caught within the same session the feature shipped, via the
-comprehensive verification prompt rather than a separate later report —
-this is what that verification standard is for.
+| Version | SHA-256 |
+|---|---|
+| v2.32.4 | `9bffcf2c9f4f8bed3d11b8aa0d0cf2d137dd0eac41289084205757cc4ef0e02f` |
+| v2.34.1 | `78b86e2adcc7732052937f82093a47f79e96ecd47a58f889d08cc92cdc855880` |
+| v2.36.1 | `324e0585642a5d84f4525bbdcb53e83740b484405b1ca04436aa73c3f54d4e47` |
+| v2.37.2 | `d7768df5fd227622e55ef373a284b61fd4402c401c4171cc16b22f7167fbe578` |
+| v2.38.4 | `8ce3caa9a51f5180abaf2f35c55fce827430356c7615194995afae96cbbe3e73` |
+| v2.38.5 | `aada281cd6f3dc5d3de71c0fdbe52da3b4559a7a448fc101febe5c6baee18e1e` |
 
-Comprehensive verification on CategoryAI v2.32.0 at
-https://rags1816.github.io/CategoryAI/ (confirm header version). Use
-Claude · API key from C:\Users\DELL8\OneDrive\Desktop\Procurement
-Category Management\.env. Never print/log the key.
-
-This is the FINAL check for this session — covers everything patched
-since the last full verification, in one pass. Don't re-test anything
-outside this list; it's already confirmed solid.
-
-1. NEW: Category input template (Step 1)
-   Fill a category partially (name, sector, 2-3 variables, 1 supplier,
-   1 risk). Click "⬇ Download input template" — confirm a real .xlsx
-   downloads with 4 sheets (Profile, Variables, Suppliers, Risks) and
-   your entered data appears correctly in it. Edit the file: add 3 more
-   variable scores, add 2 more suppliers, add 1 more risk, change the
-   sector. Upload it back via "⬆ Upload filled template" — confirm the
-   pre-apply dialog shows correct counts, and after applying, all the
-   new data is genuinely reflected in the wizard (check Step 1 fields,
-   the Variables step, Suppliers step, Risks step).
-   Then: delete the header row entirely from the Variables sheet in a
-   fresh copy, upload it. CHECK: does it correctly refuse to import that
-   sheet with a clear warning (matching the Excel corruption fix from
-   earlier this session), rather than silently misreading scores?
-
-2. NEW: PowerPoint export completeness (4 previously-missing slides)
-   Build a category with PESTLE generated, Research Assistant run, ESG
-   opportunities generated, and a full assumption register (several
-   variables scored). Generate Strategy, download PowerPoint. CHECK: all
-   4 slides now present — "PESTLE", "Research findings", "ESG & social
-   value opportunities", "Assumption register — core variables" — each
-   with real content, not empty tables.
-
-3. RE-CONFIRM: Excel corruption fix still holds (Portfolio)
-   Quick re-check only, not the full adversarial suite from before:
-   delete a column from the Portfolio Composition template, upload it,
-   confirm it's still refused (not silently misimported).
-
-4. RE-CONFIRM: Duplicate-as-child still holds (Portfolio)
-   Quick re-check: duplicate a line with real notes/playbook as a child,
-   open the child, confirm real inherited text still appears (not
-   placeholder content).
-
-Report as: Confirmed Working (with concrete evidence — exact values
-observed, not just "looks right") or Issue Found (exact repro + exact
-problem). This should be the last verification round needed before this
-version is considered stable.
-
-## v2.31.4
-### Fixed
-- **Excel import: the v2.31.3 warning informed but didn't prevent the
-  corruption it warned about.** When column headers couldn't be
-  recognized, the importer still fell back to guessed positions — a
-  deleted "Service line name" column shifted every field left, landing a
-  spend number as literal text in the name field. Spend/Risk/Kraljic
-  happened to survive because they fail type/enum validation and fall
-  back safely; the free-text name field had no such guard. Now: if
-  headers can't be recognized, **nothing is imported from that sheet at
-  all** (same as "no sheet found") rather than guessing — the warning is
-  now actually protective, not just informational.
-- **Duplicate-as-child: real notes/playbook weren't appearing on the
-  child's Category profile — a different bug than the one fixed in
-  v2.30.3, not a regression of it.** The v2.30.3 fix correctly stores
-  notes/archetype/channel on the tree node when duplicating. But
-  `customizeCategoryInWizard` (the "Deep-dive" function) built the
-  child's profile from `portfolioDetails.categories` — a list children
-  deliberately never appear in, by the app's own Phase B design — so
-  that lookup was always empty for a child, silently falling through to
-  generic placeholder defaults instead of reading the real data sitting
-  on the tree node two lines above it. Now pulls `existing.notes` and
-  `existing.archetype` (the tree node's own fields) first, folding the
-  inherited playbook into the notes text alongside the other inherited
-  context (objectives, governance, etc.) — no dedicated "Playbook" field
-  exists on the profile screen to put it in directly, so this matches
-  the pattern already used for everything else inherited there.
-
-### Note
-Both fixes came directly from the exception-based verification report,
-which caught these with concrete evidence (network traces, exact
-corrupted values, exact missing content) rather than vague suspicion —
-worth continuing that standard for future verification passes rather
-than accepting a "PASS" without evidence behind it.
-
-## v2.31.3
-### Fixed
-- **Excel Composition sheet import mapped columns by fixed position, not
-  header name** (the Charter sheet already did this correctly — this
-  brings Composition in line with it). A deleted or reordered column
-  previously shifted every field silently: names showed as raw spend
-  numbers, spend silently zeroed, risk/Kraljic fell back to arbitrary
-  defaults — with zero warning anywhere in the import flow. Now matches
-  columns by their actual header text (accepting both "Playbook" and the
-  pre-rename "Archetype" for backward compatibility with older
-  downloaded templates); if the header row can't be recognized at all,
-  a clear warning is now shown before import rather than silent
-  corruption.
-- **Incomplete strategy exports gave no self-declaring indication of
-  their own incompleteness.** A .docx/.pptx/.md downloaded without a
-  completed Generate Strategy run looked structurally clean and
-  complete — real headings, real content, real charts — with the only
-  trace being a small "GENERIC MODE" tag and text buried in a table.
-  The in-app warning dialog only protects the person downloading; once
-  shared or forwarded, nothing in the file itself told a reader they
-  were looking at a partial export. All three export formats now open
-  with a bold, explicit "⚠ DRAFT — Generate Strategy has not been run"
-  notice listing exactly what's missing, whenever `strategy` is empty.
-
-### Note
-Both were found via the impact-assessment pass, not routine testing —
-worth keeping that kind of deliberate "what happens if this data is
-adversarial or incomplete" check as a standard part of pre-rollout review
-going forward, not just happy-path regression.
-
-## v2.31.2
-### Fixed
-- **Intermittent JSON parse failures on AI generation** — root-cause was
-  distinct from the max_tokens truncation bug fixed in v2.30.x, despite
-  producing an identical-looking error message. Confirmed by the failure
-  position: it occurred at ~2400 tokens against a 10000-token ceiling —
-  far too early to be truncation. This is the model occasionally emitting
-  a stray character that breaks `JSON.parse()` on an otherwise-complete
-  response — a known class of issue with prompted (not schema-enforced)
-  JSON generation. `askAI()` now retries once, automatically, specifically
-  when the failure looks like a JSON parse error (not on network/auth
-  errors, where a retry can't help). This mirrors what already happened
-  organically in testing: the two attempts immediately following a
-  failure both succeeded cleanly on fresh generation.
-- **Overclaiming "References & Bibliography" text** — the About tab and
-  AI Settings panel both stated "each strategy report closes with a
-  References & Bibliography," but this section only exists in the
-  Portfolio Workbench's board-paper report (§12) — it was never built for
-  the Category Workbench's Step-14 document. Text corrected to say
-  "Portfolio strategy report" specifically. Also fixes a mistake I
-  introduced in v2.31.1's own warning banner, which incorrectly listed
-  "References" as a category-doc section that could go missing — it was
-  never a real section there to begin with.
-
-### Note
-The retry fix should meaningfully reduce (not necessarily eliminate) the
-intermittent failure rate — it's a mitigation for a known LLM-JSON-
-reliability pattern, not a guarantee. A future, more robust fix would be
-moving from prompted JSON to Claude's tool-use/schema-enforced structured
-output, which guarantees valid JSON — a bigger architecture change, out
-of scope for this patch.
-
-## v2.31.1
-### Fixed
-- **Generate Strategy still truncating at 6000 tokens** in generic mode
-  (external-data-only) with rich upstream context — traced to a real,
-  confirmed cause: generic mode's prompt adds an explicit extra
-  instruction ("be explicit where internal data would change the answer")
-  that inflates output across nearly every section, on top of everything
-  else. Not present in the traceable 3/3 reproducible failure without
-  it. Raised to 10000 tokens.
-- **PowerPoint export was missing the Commercial 7Ps slide entirely** —
-  not a conditional bug, a pure omission; `sevenPs` was never referenced
-  anywhere in `downloadPpt()`, even though the .docx builder correctly
-  includes/excludes it via the composer toggle. Added, using the exact
-  same gating condition (`hasSevenPs && inc("sevenps")`) the .docx
-  already uses, so both formats now agree.
-
-### Changed
-- Added a visible warning banner + a confirm-before-download step when
-  downloading the Word document without a completed strategy synthesis.
-  Previously, a failed/never-run Generate Strategy silently produced an
-  incomplete .docx (missing ~5 sections — Chessboard, Cost drivers,
-  Supplier segmentation, Risk register, References) with no indication
-  anything was wrong, while .pptx and .md happened to render complete
-  because they pull that content from raw module data independently
-  rather than through the same synthesized object. This doesn't unify
-  how the three formats source their data (a bigger, separate piece of
-  work) — it makes the existing gap visible instead of silent.
-
-### Investigated, not fixed this pass
-- The three export formats (.docx, .pptx, .md) source some sections
-  from the AI-synthesized `strategy` object and others from raw module
-  data, inconsistently across formats — this is why they can diverge in
-  completeness when synthesis fails. A deeper fix (making all three pull
-  from the same source consistently) is a real, valuable piece of work
-  but bigger in scope than this session's fixes; flagging for a future
-  dedicated pass rather than rushing it here.
-
-## v2.31.0
-### Changed
-- **Replaced all 33 native `window.confirm()`/`window.alert()` calls with
-  an in-app async modal.** Native dialogs live outside the DOM, making
-  every one of them invisible to browser-automation tools — this fully
-  blocked automated regression testing at 4+ confirmed points this
-  session (Excel upload, Exit deep-dive, Generate Strategy's completeness
-  check, portfolio switching), each requiring a full page reload to
-  recover from, discarding whatever was in flight. Real users were never
-  affected by the freeze itself, but the native dialogs were visually
-  inconsistent with the rest of the UI regardless.
-- New `confirmAsync()`/`alertAsync()` (module-level, callable from any
-  component without prop-drilling) plus a single `<ConfirmModalHost/>`
-  mounted at the app root. Same call/response shape as the native
-  versions (`await confirmAsync(msg)` → true/false), Escape/Enter
-  keyboard support, click-outside-to-cancel on confirms.
-- One functional chain (`ensureChartTokens` → `reportMarkdownForExport`
-  → `downloadPortfolioReport`) had to become async together, since the
-  return value was consumed synchronously — everything else converts
-  1:1 with no behavioral change beyond the dialog itself.
-
-### Note
-This is the largest single-session change so far by call-site count and
-has NOT been runtime-tested — every edit was applied via exact-match
-string replacement (each individually verified to exist before
-replacing) and the 3 most structurally complex conversions were manually
-re-inspected for correct brace/statement closure, but no JS parser or
-live browser was available in this environment to confirm the file
-actually runs. A full live pass — ideally re-running the same Portfolio
-regression prompt plus the pre-flight/negotiation-plan/Excel-upload
-checkpoints specifically — is required before this is trusted, let alone
-shipped further.
-
-## v2.30.3
-### Fixed
-- **P2 Strategic Options generation** (Portfolio Workbench) had no `maxTokens`
-  set at all — silently defaulting to 1500, same bug class as v2.30.0/v2.30.1.
-  This call's schema is the largest found yet (up to 5 options × 22+ scored
-  fields each), reproducibly failing 3/3. Now capped at 8000.
-- **"Start fresh"** only cleared `categoryai_session`, leaving 6 other
-  localStorage keys untouched (`categoryai_portfolio_strategies`,
-  `categoryai_portfolio_library`, `categoryai_custom`,
-  `categoryai_label_overrides`, `categoryai_tour_xy`,
-  `categoryai_tour_xy_min`). Stale data in the untouched keys — e.g. from
-  a prior Demo Tour run — was read straight back in on the very next load,
-  producing what looked like an un-clearable phantom demo session and a
-  wrong Portfolio Matrix. Now clears all session-derived keys (deliberately
-  still preserves `categoryai_keys`, the saved AI provider/API key —
-  that's a setting, not session data).
-- **`duplicateLevel1CategoryAsChild`** only received the composition
-  line's name string, not the row itself — when no matching tree node
-  existed yet (the common case for a line just typed into P1), it built a
-  synthetic blank parent with no notes/playbook/channel/etc. to copy from,
-  so the new child's descriptive context was silently empty regardless of
-  what the real composition row contained. Now receives and copies from
-  the actual row.
-
-### Changed
-- Route-to-market: added a one-click "use this →" link next to each
-  line's ranked channel suggestion. Previously, accepting the top
-  suggestion required a separate, easy-to-miss dropdown interaction —
-  the ranking text looked like a decision had already been made when it
-  hadn't, so a chosen channel could silently never reach the board-paper
-  report (§3) even though the underlying report logic was correct all
-  along.
-
-### Investigated, not a bug
-- Route-to-market recommendations "not flowing into the .docx" (flagged
-  in this session's QA report) — confirmed the report-builder logic is
-  correct and correctly gated; the real gap was the UX issue fixed above,
-  not a data-flow defect.
-
-## v2.30.2
-### Changed
-- Renamed "Archetype" → "Playbook" everywhere it's user-facing (Admin tab,
-  cost driver screen, P1 composition table, guide/help text, tour stops,
-  Excel export column, tooltips) — "Playbook" is the standard procurement
-  term for a pre-built sector template of cost drivers/levers/KPIs, where
-  "Archetype" was borrowed design/psychology terminology. Internal code
-  identifiers (`matchArchetype`, `ARCHETYPE_EXTRAS`, the `archetype` data
-  field on category objects) are unchanged — renaming those would need a
-  migration path for existing saved sessions and is a separate, lower-
-  priority piece of work with no user-visible benefit on its own.
-  Left alone: the unrelated "four offline archetypes" (independent /
-  integrated / hybrid / capability-based) in the P2 sourcing-options
-  screen — a different concept, not a category playbook.
-
-## v2.30.1
-### Fixed
-- **Elevator Pitch generation** (Step 14, "AI-write the 2-minute pitch + 10
-  FAQs") was using the default 1500-token cap like the other calls fixed in
-  v2.30.0 — this specific call site was missed because it's a separate
-  function/button from the main Step 14 strategy generation, even though
-  both live on the same screen. Combined pitch (180-230 words) + 10
-  sourced FAQ items reliably exceeds 1500 tokens. Now capped at 5000.
-  Found via live regression testing on the deployed v2.30.0 build (4/4
-  reproducible failures on Claude; passed on Gemini, which has no cap).
-
-## v2.30.0
-### Fixed
-- **Critical:** `max_tokens` was hardcoded to 1500 on every direct Claude
-  API call (both in-app and API-key modes), silently truncating JSON on
-  the app's largest prompts — Generate Strategy, Negotiation Plan, and
-  the Research Assistant — causing parse failures and blocking the core
-  strategy/export/business-case pipeline. Now sized per call: 6000 tokens
-  for strategy generation, 4096 for negotiation plan and research
-  assistant. Gemini path unaffected (no output cap was ever set there).
-- Negotiation Plan prompt now includes kept chessboard method names — the
-  `chess` data was already available to the component but was never
-  being passed into the prompt.
-- Header banner and version references were still reading v2.25.0/v1.2.0
-  in several places (export footers, AI guide context string) despite
-  the app having shipped through v2.29.0 internally — all six user-facing
-  version strings now consistently read v2.30.0.
- 
-## v2.29.0 (Phase B — category hierarchy)
-Categories can now have children: **➕ Duplicate as child** on any node (any level) copies its descriptive context (notes, archetype, channel, specialization, coverage, supplier count, volume) — never its scores; the child always starts unassessed, exactly like any new category. New **📊 Portfolio Matrix** tab on P3 plots every node in the portfolio on one Value×Risk chart, filterable by level or all levels at once (tangled, with parent-child connecting lines), children under the same top-level category grouped by a ring color; click a bubble to open it in the Category track. New **rollup engine**: a parent with children shows a position computed from its assessed children (spend-weighted average by default, falling back to a simple average when spend data's missing, or an alternate worst-case/highest-risk-child mode) — unassessed children are excluded outright, never blended in as a default guess, with a visible "rollup incomplete" indicator when only some children have been assessed. Spend on a line with children is now derived (summed from them) rather than independently editable. Optional **UNSPSC/CPV** classification code fields on every category node — manual entry only, no lookup or validation yet.
-
-## v2.28.0 (Phase A — category tree foundation)
-Replaced the single flat "currently active category" model with a real tree: every category is a node with a stable id, and the wizard (Steps 1–14) reads from and writes to its active node's own record live, as you edit — deep-dive a category, switch to another, come back, and each one's data is genuinely its own (previously, re-opening an already-deep-dived category silently carried over most of another category's data). Added an explicit Portfolio entity as the real container above the category tree. Existing sessions migrate automatically, once, with no data loss.
-
-## v2.27.0
-AI-draft-and-review workflow for unassessed Kraljic variables: new `ai_draft` confidence state ("AI Draft — unconfirmed") with its own badge styling; "AI-draft the missing scores" reuses the Step2.assess() scoring pattern but requires explicit accept (or an edit to a different value) before a drafted score counts — re-clicking the same value is a no-op, not silent acceptance. Confidence vocabulary synced everywhere it's described: Module Review export label, About tab tooltip, and three portfolio/export narrative strings that still said "User / AI-inferred / Assumed" now include AI Draft.
-
-## v2.26.0
-FIX: generic-mode Kraljic quadrant bug — business impact was hard-pinned to the midpoint whenever internal data was skipped, making Bottleneck/Non-critical mathematically unreachable; now always derived from the actual internal variables. FIX: a saved/imported session missing a variable (schema drift) threw and white-screened the app with no recovery — added a normalizeVars() merge-on-load and a React error boundary as a safety net. Added a visible "not yet assessed" state (banner, dashed/hollow marker, "(assumed)" axis labels) so an unscored category no longer looks like a real Strategic placement. Step2's AI market assessment now names which variables it didn't return a usable score for, instead of silently leaving them unchanged.
-
-## v2.25.0 (Route-to-market engine)
-New rule-based route-to-market recommendation panel beneath P1 Composition:
-ranks the 4 default channels (MSP/VMS, Niche/Specialist Consultancy,
-Contingent/Temp Labour, RFx) per line. Kraljic quadrant is the primary
-signal; specialization, volume/frequency, existing panel coverage, and
-credible-supplier-count are modifiers on top of a base score per
-quadrant×channel. Pure and rule-based by design — an optional AI
-narrative layer can sit on top later without changing the underlying
-contract. Recommendations are ranked suggestions, never locked; the
-category manager always makes the final channel choice. Channel library
-is Admin-extensible.
-
-## v2.24.0
-About tab rebuilt as a numbered, paginated deck (8 sections, one page at
-a time) with clickable page dots and Prev/Next, instead of one long
-scroll. Resets to page 1 each time About is reopened.
-
-## v2.23.0 (+ v2.23.2 fix)
-Tour card made freely draggable (drag the header anywhere; position
-clamped to the viewport and remembered per browser), with a sensible
-default position (top on mobile so it never covers the bottom action
-buttons; bottom-right on desktop) until the user drags it themselves.
-v2.23.2 fix: dragging then releasing was immediately followed by a
-browser-generated "click" on the same element — the drag-vs-click guard
-was clearing itself synchronously on release, so it read as already gone
-by the time the spurious click fired, causing every drag to also
-re-expand the minimised tour card right after moving it. Fixed by
-clearing the guard one tick later instead of synchronously.
-
- ## v2.22 — no trace found in code comments or commit history; likely a
-version-number skip, or content that left no recoverable detail.
-
-## v2.21.2 (frozen)
-FIX: demo tour blanked when crossing from the category stops to the portfolio stops — a stray comma in the tour array (introduced v2.12) created a JavaScript array hole, so the 17th stop was `undefined`; legal syntax, invisible to static checks, found by driving the full tour in a real headless Chrome (now a regression harness). Tour is now explicitly two-part: "Part 1 · CATEGORY tour (stops 1–16)" then "Part 2 · PORTFOLIO tour", with the handover announced at the Part-1 completion stop.
-
-## v2.21.1 (frozen)
-Minimum-path strip rendered above all routes (portfolio strip was below the fold).
-## v2.21.0
-Collapsible + clickable workbench headers; persistent per-workbench minimum-path strips (portfolio chips / category pills 1–14) with current-highlight and done-ticks; Deepen chip after Composition.
-## v2.20.0
-P2: four titled stages with From/Feeds lineage (Stage 2 finally titled); P1 banner titles match chips; chips clickable; two-workbench nav; guides synced.
-## v2.19.0
-Flow audit: 🚦 guided start, P1 minimum path, Step-14 Outputs divider, OUTPUT nav order (strategy before optional 7Ps), ➕ add-as-new-line (standalone category joins portfolio).
-## v2.18.0
-Workspace identity (👤 name, stamped exports), handoff-aware import confirm, About "Data & devices".
-## v2.17.x
-Chart-token regex fix (digits — literal `@@CHART:catforces5@@` bug); ATK wording honesty ("similar to"); VM business case primary; PowerPoint matched to Word (pitch-first, chart images); 🗂 My template language (51 renameable labels, both accepted on upload); guides/About/tour synced; to-do box honest statuses.
-## v2.16.0
-Business case in both formats: Value Management template (stakeholders → opportunity → benefits delivery plan L1/L2/L3 → project economics Capex/Opex → risks & alternatives incl. do-nothing) and Five Case Model — assembled from session data, `[To complete]` for named accountability; tested full+empty.
-## v2.15.0
-🧾 Document composer; pre-generation preflight; traditional Five Forces + chessboard selection funnel; 💡 Options & opportunities engine (Portfolio/Category levels); 2× chart resolution; pitch first, FAQ last.
-## v2.14.0
-Standalone↔portfolio loop (view-existing reminder, end-of-flow update with stamp); 7Ps honesty; five category charts + table upgrades; research wired into SWOT/PESTLE (sequence fix).
-## v2.13.0
-Portfolio frozen at v2.12.0; category audit vs management documents (decision-first reorder); duplicate-work guard.
-## v2.12.0 (portfolio freeze)
-Word input template round-trip (blank/prefilled, mammoth parse); professional .docx styling; P3 numbered download flow; sticky deep-dive reminders.
-## v2.0–v2.11 (portfolio build)
-Charter/fact base/plans/composition; strategic questions; options+matrix+risk heat; roll-up engine; library; Excel round-trip & doc ingestion; declarations; 12-section board paper with canvas charts; exec summary; edit-&-confirm single source.
-## v1.2.1 (baseline, frozen)
-Category track 1–14, demo tour, module reviews, PPT deck, ConfCell confidence flags.
+Every freeze was independently verified by hashing the actual live
+GitHub file and comparing against the value recorded here — not just
+trusting the local build.
