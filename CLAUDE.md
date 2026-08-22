@@ -1,118 +1,135 @@
 # CLAUDE.md
 
-Persistent context for Claude Code sessions in this repo. Read this before
-starting work.
+Context for Claude Code (or any AI agent) picking up work on this repo.
+Read this before touching `index.html`.
 
-## Who this repo belongs to
+## What this is
 
-Owned by Vijay L Narasimhan (GitHub: rags1816). Part of a wider portfolio
-of applied tools — see the hub page at https://rags1816.github.io for the
-full list. Each repo is independent but follows the same conventions below
-for consistency across the portfolio.
+CategoryAI: a single-file (`index.html`, ~10,650 lines), browser-based
+procurement category management application. React + Babel-standalone
++ PapaParse + pptxgenjs + SheetJS (xlsx) + docx, all loaded via CDN —
+**no build step, no bundler, no package.json**. Deployed as a static
+file on GitHub Pages: `https://rags1816.github.io/CategoryAI/`.
 
-## Repo structure convention
+Two independent workbenches: **Category Workbench** (Steps 1-14, one
+category's full strategy) and **Portfolio Workbench** (P1-P3, a
+cross-category charter/roll-up/board paper). They connect only by user
+choice (deep-dive, duplicate-as-child).
 
-- **Root** — only the live app file(s) (e.g. `index.html`), `README.md`,
-  `METHODOLOGY.md`, `LICENSE`, `.gitignore`, `CHANGELOG.md` (if the repo
-  tracks one). Keep root clean; nothing else belongs there.
-- **`docs/`** — user guides, admin guides, reference guides, and any
-  supporting documentation not needed to run the app.
-- **`archive/`** — superseded versions, old HTML/app snapshots, deprecated
-  scripts. Kept for history, not deleted, unless confirmed genuinely
-  redundant (e.g. a byte-identical duplicate).
-- **`tools/`** — utility/build scripts still actively used, if any (keep
-  separate from `archive/`, which is for scripts no longer used).
+## Architecture essentials
 
-## Documentation files — what each one is for
+- **State model**: every category is a node in `categoryTree`
+  (`newCategoryNode()` shape), each holding a `record` (`defaultRecord()`
+  shape — profile, vars, suppliers, risks, chess, nego, exec, value,
+  strategy, etc.). The active category is `activeNodeId`; `activeRecord`
+  derives from it. All field bindings go through `bindField(key)` —
+  `const risks=activeRecord.risks, setRisks=bindField("risks")`.
+- **A name lives in two different places** — this has caused two real
+  bugs already (v2.38.0-v2.38.2). `node.name` (top-level) is ONLY
+  populated via Portfolio-linked flows (deep-dive, duplicate-as-child).
+  The name a user types on Step 1 lands in `node.record.profile.name`.
+  Any code reading "the category's name" needs to check both, preferring
+  the record-level one — see `nameOf()` in `CategorySwitcher` for the
+  reference implementation.
+- **AI calls**: `askAI()`/`askClaude()` centralize provider routing
+  (Claude in-app / Claude API key / Gemini / Sandbox). Every AI call
+  site has its own tuned `max_tokens` — this was a real, serious
+  historical bug (hardcoded 1500 truncating everything); check the
+  changelog before ever touching this again.
+- **Excel round-trip**: `findCol(...)` matches by header TEXT, not
+  position. **If headers can't be recognized, refuse the import
+  entirely — never fall back to guessed positions.** An earlier version
+  guessed positions and silently corrupted data (a deleted column
+  shifted every field left). This is now the established, non-
+  negotiable pattern for every sheet in both the Category and Portfolio
+  templates.
+- **Chart embedding in exports**: `@@CHART:id@@` tokens in markdown get
+  resolved into real images by `mdToDocxChildren` (see `downloadAsWord`),
+  reading from `window.__docxCharts[id]`. Chart builders (`build*Chart`
+  functions, top-level, data-parameterized, not closure-bound) populate
+  this registry. To add a chart to any export: build/reuse a
+  `build*Chart(data)` function, register it into `window.__docxCharts`
+  before the download call, and add the matching token to the markdown.
+- **Confirm/alert**: no native `window.confirm`/`window.alert` anywhere
+  — use `confirmAsync(message)` / `alertAsync(message)`, the async
+  in-app modal system (`ConfirmModalHost`, mounted once at App root).
 
-- **`README.md`** — what the app does, current status, tech stack, how to
-  run it. Must end with a **Development note** section (see below) and a
-  **Related** section pointing to METHODOLOGY.md.
-- **`METHODOLOGY.md`** — the original framework/methodology behind the
-  tool. This is the IP-protection document — states origin, credits any
-  established frameworks the tool builds on (with clear attribution, e.g.
-  Kraljic, Porter's Five Forces), and describes the original contribution
-  clearly separated from the credited frameworks.
-- **`LICENSE`** — explicit "All Rights Reserved" copyright, present in
-  every repo individually (do not rely on inherited/default licensing —
-  confirmed unreliable across this portfolio; always add the file
-  directly). Exception: Raaga, which is deliberately MIT-licensed.
+## Non-negotiable patterns, learned the hard way this cycle
 
-## Standard "Development note" section for README.md
+1. **Regeneration must never silently discard data.** Either genuinely
+   accumulate (Chessboard, Research Assistant — new results merge with
+   old) or confirm-before-overwrite (Negotiation Plan, Execution Plan,
+   Risk, ESG). A wholesale silent replace was a real, serious bug found
+   in 5 places at once.
+2. **Collapse output, never collapse input.** If you add a new step
+   section, decide honestly which category it's in before wrapping it
+   in `<Collapsible>`. Active editing surfaces (scorecards, Gantt/RACI,
+   anything with "+Add" buttons) and anything with actionable alerts/
+   warnings must stay visible by default. Only AI-generated review
+   content collapses.
+3. **Secrets never sit in the DOM longer than necessary.**
+   `type="password"` only masks *visual rendering* — it does NOT stop
+   accessibility-tree snapshots (used by browser automation tools) from
+   reading the raw value. Once a credential is saved, show a masked
+   summary (`KeyField` component) and only let the real value re-enter
+   the DOM during active editing. This was a real, repeated (5+ times
+   in one session) exposure pattern before the fix — do not reintroduce
+   a plain bound `<input value={secret}>` anywhere.
+4. **Verify structural balance after every edit** — but not with a
+   naive whole-file brace/paren count. String literals (JSON schema
+   examples in AI prompts, emoji-adjacent text) throw off raw counts
+   and produce false positives. The reliable method: walk brace depth
+   from a specific function's actual body-opening `{` (found via the
+   character *after* the parameter list's closing `)`) to where depth
+   returns to 0. See any `python3 -c "..."` block in the changelog
+   history for the exact technique. When in doubt, compare against the
+   previous known-good baseline file — an identical discrepancy in both
+   versions means it's a pre-existing artifact, not something you
+   introduced.
+5. **Live-test claims before writing them into guide text.** This
+   session's Developer/Guide-chat text had at least 3 confirmed false
+   claims ("no AI button exists" when one did; "PESTLE is on page 2 of
+   the CEP" when it never was) — all from trusting a remembered
+   description instead of re-checking the actual function. Grep the
+   real code before describing what a screen does.
 
-Every README ends with this section, verbatim, before "Related":
+## Where things are
 
-```markdown
-## Development note
+- Step→title mapping, in order, both workbenches: `STEPS` array
+- Per-step AI chat knowledge base: `STEP_GUIDE` object (`kb:` field —
+  check this isn't an empty string if a screen's guide answers seem
+  vague; it has been, at least once)
+- Master cross-cutting AI context: the `APP-WIDE CONTEXT (v...)` string
+  inside the guide-chat prompt builder — has a numbered "NEW in this
+  build" list; add a new numbered item for any release-worthy feature,
+  don't let it go stale (it did, for 3 minor versions, before v2.38.5)
+- Demo Tour stops: `TOUR` array
+- About tab content: `AboutScreen` function
 
-Development assisted by Claude Code (Anthropic) under my direction. The
-methodology, product design, and domain expertise reflected in this tool
-are my own — see `METHODOLOGY.md` for the original framework.
-```
+## Testing discipline
 
-## Workflow rules — always follow these
+Every fix in this codebase's history that shipped without a live check
+turned out to have at least one issue found on the next real test. The
+established minimum bar:
+- Structural balance check (above) before any version bump
+- A live re-check with **quoted evidence** (exact values observed, not
+  "looks right") for anything touching calculation, data parsing, or
+  navigation
+- Re-test the SPECIFIC thing that failed, not just "did the app load,"
+  after any fix — several "fixed" claims in this history needed a
+  second round because the first fix addressed a symptom, not the root
+  cause
 
-1. **Never commit without showing a diff first and waiting for explicit
-   confirmation.** A stop-hook nudge about uncommitted changes is not
-   confirmation — only an explicit go-ahead from Vijay counts.
-2. **Never force-push** without explicit, separate confirmation — treat
-   this as a distinct, higher-caution action from a normal push.
-3. **Before any file reorg**, check whether files referenced by the live
-   app (script tags, asset paths, sound files, etc.) would be affected.
-   Search the app file for references before moving anything that could
-   plausibly be a runtime dependency. Report findings before moving, don't
-   assume.
-4. **Work happens on a feature branch, then via PR into `main`.** Direct
-   pushes to `main` should be avoided — branch protection may not be
-   enabled on all repos yet, but the convention is PR-first regardless.
-5. **After a PR merges, the remote feature branch is not auto-deleted.**
-   Flag it and offer to delete it — if deletion 403s (a known permission
-   gap with the current GitHub App install), tell Vijay to delete it
-   manually via the repo's Branches page rather than retrying.
-6. **Never hardcode API keys, passwords, or secrets into any file.** Keys
-   are supplied at runtime (env vars, UI input, or session input) — this
-   is a firm project-wide rule, not a per-repo preference.
-7. **Flag, don't silently fix, anything that looks like real personal
-   data, credentials, or PII** in any file being touched — stop and ask
-   before proceeding, even if it seems like test data.
+See `CategoryAI_Testing_Guide.md` and `CategoryAI_EndToEnd_Test_Script.md`
+for reusable test templates. See `METHODOLOGY.md` for the full patch→
+verify→freeze→checksum workflow.
 
-## Working alongside direct edits to main
+## Don't
 
-The repo owner sometimes edits `main` directly (via GitHub's web editor or
-a local clone) rather than routing every change through a PR — this is a
-legitimate, normal part of the workflow, not something to avoid or work
-around. Because of this, Claude Code sessions must actively guard against
-branch divergence rather than assuming `main` is static:
-
-1. **At the start of every session**, before any work, pull latest `main`
-   and briefly confirm whether it has moved since Claude Code last touched
-   this repo.
-2. **Never let a working branch live longer than one discrete fix/task.**
-   Complete one piece of work, get it reviewed and merged, then start the
-   next piece from a freshly-pulled `main` — don't accumulate multiple
-   unrelated fixes on one long-lived branch. The longer a branch stays
-   open, the more likely it silently diverges from direct edits landing on
-   `main` in the meantime, and the more entangled the eventual
-   reconciliation becomes.
-3. **Before starting a new task within the same session**, always re-pull
-   `main` first, even if it was checked recently — don't assume it's still
-   where it was 20 minutes ago.
-4. **If `main` has changed in ways that touch the same functions/lines
-   being worked on**, stop and flag it immediately with a clear diff of
-   what changed, rather than discovering it at merge time. Assess what's
-   genuinely good to adopt from the direct changes (fixes, improvements)
-   separately from what needs reconciling with in-progress work.
-
-## Known environment quirks
-
-- The GitHub App integration can push and merge but **cannot delete
-  branches** (consistent 403) — this is expected, not a bug to keep
-  retrying.
-- Commit signing may show as unverifiable in local hooks even when the
-  actual signature is present and GitHub verifies it server-side after
-  push — don't treat a local signing-check failure as blocking on its own.
-
-## When in doubt
-
-Report findings and ask, rather than assuming — this repo (and the wider
-portfolio) prioritises careful, reviewed changes over speed.
+- Don't add a new native `window.confirm`/`alert`/`prompt` call
+- Don't bind a secret's raw value directly to an always-rendered input
+- Don't guess a fallback column position when Excel headers don't match
+- Don't claim a screen "can't do X" or "has no button for Y" without
+  grepping the actual function first
+- Don't trust a whole-file brace/paren count as evidence of a real bug
+  without checking it against the pre-edit baseline first
