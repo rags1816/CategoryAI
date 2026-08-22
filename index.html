@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.38.2</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.38.3</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230F5E56'/%3E%3Ctext x='50' y='68' font-size='58' font-family='Arial,sans-serif' font-weight='bold' fill='%23D8A441' text-anchor='middle'%3ECA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -487,7 +487,7 @@ function storageGet(k){ try{ return window.localStorage.getItem(k); }catch(e){ r
 function storageSet(k,v){ try{ window.localStorage.setItem(k,v); return true; }catch(e){ return false; } }
 function storageDel(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
 
-/* ================= IN-APP CONFIRM/ALERT MODAL (v2.38.2) =================
+/* ================= IN-APP CONFIRM/ALERT MODAL (v2.38.3) =================
    Replaces native window.confirm()/window.alert() everywhere in the app.
    Native dialogs are invisible to browser-automation tools (they live
    outside the DOM), which made every one of these un-testable and, for
@@ -1724,7 +1724,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
-        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.38.2 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
+        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.38.3 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
       </div>
     )]
   ];
@@ -1858,13 +1858,25 @@ function TourOverlay({tour,setTour,setStep}){
 }
 
 /* ================= SMALL PARTS ================= */
+/* v2.38.3 — the header status chip claimed "AI ready" purely from "a key
+   string is present," with no relation to whether Test Connection had
+   ever actually been run or had just failed — confirmed confusing when
+   a test returns a 401 and the header immediately contradicts it. Can't
+   auto-verify on every render (that's a real API call), so instead:
+   remember the last explicit test result against the specific key value
+   tested, and only let it override the optimistic "ready" label when the
+   CURRENTLY active key matches what was tested — changing the key
+   correctly clears any stale failure. */
+let _lastTestResult = null; // {key, ok} | null
 function aiStatus(){
   const s=AI_SETTINGS;
   const savedKeys=!!storageGet("categoryai_keys");
+  const activeKey = s.provider==="claude-key" ? s.claudeKey : s.provider==="gemini" ? s.geminiKey : "";
+  const testFailedForCurrentKey = _lastTestResult && _lastTestResult.key===activeKey && _lastTestResult.ok===false;
   if(s.provider==="sandbox") return {ready:true,label:"🏖 Sandbox · simulated data"};
   if(s.provider==="claude-app") return {ready:true,label:"Claude · in-app"};
-  if(s.provider==="claude-key") return {ready:!!s.claudeKey,label:s.claudeKey?("Claude · key "+(savedKeys?"saved on this device":"this session")):"Claude · no key"};
-  return {ready:!!s.geminiKey,label:s.geminiKey?("Gemini "+s.geminiModel.replace("gemini-","")+" · key "+(savedKeys?"saved on this device":"this session")):"Gemini · no key"};
+  if(s.provider==="claude-key") return {ready:!!s.claudeKey && !testFailedForCurrentKey,label:s.claudeKey?(testFailedForCurrentKey?"Claude · last test failed":"Claude · key "+(savedKeys?"saved on this device":"this session")):"Claude · no key"};
+  return {ready:!!s.geminiKey && !testFailedForCurrentKey,label:s.geminiKey?(testFailedForCurrentKey?"Gemini · last test failed":"Gemini "+s.geminiModel.replace("gemini-","")+" · key "+(savedKeys?"saved on this device":"this session")):"Gemini · no key"};
 }
 function AIStatusChip(){
   const [,force]=useState(0);
@@ -1884,6 +1896,30 @@ function AIStatusChip(){
   );
 }
 
+/* v2.38.3 — the raw key value previously sat continuously in the input's
+   DOM value attribute (even with type="password") the entire time an AI
+   settings panel was open, for as long as a key was saved — not just
+   while being typed. type="password" only masks the visual rendering;
+   browser accessibility-tree snapshots (used by automated testing
+   tools) can still read the underlying value regardless of input type,
+   and this genuinely happened three times in one session's testing.
+   Once a key is saved, show a masked summary (last 4 chars only) with a
+   "Change" button instead — the real value only re-enters the DOM
+   during the brief window a person is actively typing a new one.
+   Standalone (not nested in AISettings) since a second, independent
+   settings surface — AISettingsBody — needs the identical behavior. */
+function KeyField({value,onChange,placeholder,saved,revealKey,setRevealKey}){
+  const masked = saved && value && !revealKey;
+  if(masked) return (
+    <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
+      <span className="mono" style={{fontSize:12.5,padding:"6px 10px",background:"var(--paper)",borderRadius:6,flex:1}}>
+        {placeholder.replace("…","")}••••••••{value.slice(-4)} · saved on this device
+      </span>
+      <button className="btn ghost" style={{fontSize:11.5}} onClick={()=>setRevealKey(true)}>Change</button>
+    </div>
+  );
+  return <input type="password" placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)}/>;
+}
 function AISettings({open,setOpen}){
   const [,force]=useState(0);
   const [saved,setSaved]=useState(false);
@@ -1891,14 +1927,18 @@ function AISettings({open,setOpen}){
   async function testConnection(){
     if(AI_SETTINGS.provider==="sandbox"){ setTest({ok:true,msg:"Sandbox is offline simulated mode — nothing to connect. All outputs will be labelled [Sandbox — simulated]."}); return; }
     setTest("busy");
+    const testedKey = AI_SETTINGS.provider==="claude-key" ? AI_SETTINGS.claudeKey : AI_SETTINGS.provider==="gemini" ? AI_SETTINGS.geminiKey : "";
     try{
       const t0=Date.now();
       const r=await askAI("Reply with exactly the single word: OK",{json:false});
       const ms=Date.now()-t0;
+      _lastTestResult={key:testedKey,ok:true};
       setTest({ok:true,msg:"✓ Connected — "+aiSourceLabel()+" responded in "+(ms/1000).toFixed(1)+"s"+(String(r).slice(0,40).includes("OK")?"":" (unexpected reply — check the key/model)")});
-    }catch(e){ setTest({ok:false,msg:"✕ Not connected — "+((e&&e.message)||"unknown error")}); }
+    }catch(e){ _lastTestResult={key:testedKey,ok:false}; setTest({ok:false,msg:"✕ Not connected — "+((e&&e.message)||"unknown error")}); }
+    window.dispatchEvent(new Event("ai-updated"));
   }
   const set=(k,v)=>{AI_SETTINGS[k]=v; setSaved(false); force(x=>x+1); window.dispatchEvent(new Event("ai-updated"));};
+  const [revealKey,setRevealKey]=useState(false);
   if(!open) return null;
   const ready = AI_SETTINGS.provider==="claude-app" || AI_SETTINGS.provider==="sandbox" || (AI_SETTINGS.provider==="claude-key"&&AI_SETTINGS.claudeKey) || (AI_SETTINGS.provider==="gemini"&&AI_SETTINGS.geminiKey);
   const statusLabel = AI_SETTINGS.provider==="claude-app" ? "Claude (in-app)" :
@@ -1906,11 +1946,11 @@ function AISettings({open,setOpen}){
     (AI_SETTINGS.geminiKey?"Gemini "+AI_SETTINGS.geminiModel.replace("gemini-","")+" · key set ("+AI_SETTINGS.geminiKey.slice(0,6)+"…)":"Gemini · no key");
   function saveKeys(){
     const ok=storageSet("categoryai_keys",JSON.stringify({provider:AI_SETTINGS.provider,claudeKey:AI_SETTINGS.claudeKey,geminiKey:AI_SETTINGS.geminiKey,geminiModel:AI_SETTINGS.geminiModel}));
-    setSaved(ok); window.dispatchEvent(new Event("ai-updated"));
+    setSaved(ok); setRevealKey(false); window.dispatchEvent(new Event("ai-updated"));
   }
   function clearKeys(){
     AI_SETTINGS.claudeKey=""; AI_SETTINGS.geminiKey=""; AI_SETTINGS.provider="claude-app";
-    storageDel("categoryai_keys"); setSaved(false); force(x=>x+1); window.dispatchEvent(new Event("ai-updated"));
+    storageDel("categoryai_keys"); setSaved(false); setRevealKey(false); force(x=>x+1); window.dispatchEvent(new Event("ai-updated"));
   }
   return (
     <div className="card" style={{position:"fixed",top:64,right:16,width:360,zIndex:60,boxShadow:"0 10px 30px rgba(0,0,0,.25)"}}>
@@ -1934,11 +1974,11 @@ function AISettings({open,setOpen}){
       {AI_SETTINGS.provider==="sandbox" && <div className="banner" style={{background:"#FBF3DC",borderColor:"var(--amber)",marginTop:6}}><b>Sandbox mode:</b> every ⚡ button returns <b>simulated, clearly-labelled demo content</b> synthesised offline from the built-in playbook library — no key, no network, nothing sent anywhere. Perfect for demos and training. All simulated outputs carry a "[Sandbox — simulated]" marker and stay flagged AI-inferred; switch to a live provider before producing a real strategy.</div>}
       {AI_SETTINGS.provider==="claude-key" && (<div>
         <h3>Claude API key<Tip t="Get one at console.anthropic.com → API keys. Starts with sk-ant-."/></h3>
-        <input type="password" placeholder="sk-ant-…" value={AI_SETTINGS.claudeKey} onChange={e=>set("claudeKey",e.target.value)}/>
+        <KeyField value={AI_SETTINGS.claudeKey} onChange={v=>set("claudeKey",v)} placeholder="sk-ant-…" saved={saved} revealKey={revealKey} setRevealKey={setRevealKey}/>
       </div>)}
       {AI_SETTINGS.provider==="gemini" && (<div>
         <h3>Gemini API key<Tip t="Get one free at aistudio.google.com → Get API key."/></h3>
-        <input type="password" placeholder="AIza…" value={AI_SETTINGS.geminiKey} onChange={e=>set("geminiKey",e.target.value)}/>
+        <KeyField value={AI_SETTINGS.geminiKey} onChange={v=>set("geminiKey",v)} placeholder="AIza…" saved={saved} revealKey={revealKey} setRevealKey={setRevealKey}/>
         <h3>Gemini model<Tip t="2.5 Flash is the fast default; 2.5 Pro is stronger for long strategy synthesis. If a model isn't available on your key, the app automatically falls back to the next."/></h3>
         <select value={AI_SETTINGS.geminiModel} onChange={e=>set("geminiModel",e.target.value)}>
           <option value="gemini-2.5-flash">gemini-2.5-flash (fast, default)</option>
@@ -2175,6 +2215,7 @@ function AISettingsInline(){
 function AISettingsBody(){
   const [,force]=useState(0);
   const [saved,setSaved]=useState(false);
+  const [revealKey,setRevealKey]=useState(false);
   const set=(k,v)=>{AI_SETTINGS[k]=v; setSaved(false); force(x=>x+1); window.dispatchEvent(new Event("ai-updated"));};
   const ready = AI_SETTINGS.provider==="claude-app" || AI_SETTINGS.provider==="sandbox" || (AI_SETTINGS.provider==="claude-key"&&AI_SETTINGS.claudeKey) || (AI_SETTINGS.provider==="gemini"&&AI_SETTINGS.geminiKey);
   return (
@@ -2190,9 +2231,9 @@ function AISettingsBody(){
         <option value="gemini">Google Gemini — with API key</option>
         <option value="sandbox">🏖 Sandbox — simulated demo data (no key, offline)</option>
       </select>
-      {AI_SETTINGS.provider==="claude-key" && <input type="password" style={{marginTop:6}} placeholder="sk-ant-…" value={AI_SETTINGS.claudeKey} onChange={e=>set("claudeKey",e.target.value)}/>}
+      {AI_SETTINGS.provider==="claude-key" && <div style={{marginTop:6}}><KeyField value={AI_SETTINGS.claudeKey} onChange={v=>set("claudeKey",v)} placeholder="sk-ant-…" saved={saved} revealKey={revealKey} setRevealKey={setRevealKey}/></div>}
       {AI_SETTINGS.provider==="gemini" && (<div>
-        <input type="password" style={{marginTop:6}} placeholder="AIza…" value={AI_SETTINGS.geminiKey} onChange={e=>set("geminiKey",e.target.value)}/>
+        <div style={{marginTop:6}}><KeyField value={AI_SETTINGS.geminiKey} onChange={v=>set("geminiKey",v)} placeholder="AIza…" saved={saved} revealKey={revealKey} setRevealKey={setRevealKey}/></div>
         <select style={{marginTop:6}} value={AI_SETTINGS.geminiModel} onChange={e=>set("geminiModel",e.target.value)}>
           <option value="gemini-2.5-flash">gemini-2.5-flash</option>
           <option value="gemini-2.5-pro">gemini-2.5-pro</option>
@@ -2200,8 +2241,8 @@ function AISettingsBody(){
         </select>
       </div>)}
       <div style={{display:"flex",gap:8,marginTop:8}}>
-        <button className="btn primary" onClick={()=>{setSaved(storageSet("categoryai_keys",JSON.stringify({provider:AI_SETTINGS.provider,claudeKey:AI_SETTINGS.claudeKey,geminiKey:AI_SETTINGS.geminiKey,geminiModel:AI_SETTINGS.geminiModel})));window.dispatchEvent(new Event("ai-updated"));}}>{saved?"✓ Saved":"Save"}</button>
-        <button className="btn" onClick={()=>{AI_SETTINGS.claudeKey="";AI_SETTINGS.geminiKey="";AI_SETTINGS.provider="claude-app";storageDel("categoryai_keys");setSaved(false);force(x=>x+1);}}>Clear</button>
+        <button className="btn primary" onClick={()=>{setSaved(storageSet("categoryai_keys",JSON.stringify({provider:AI_SETTINGS.provider,claudeKey:AI_SETTINGS.claudeKey,geminiKey:AI_SETTINGS.geminiKey,geminiModel:AI_SETTINGS.geminiModel})));setRevealKey(false);window.dispatchEvent(new Event("ai-updated"));}}>{saved?"✓ Saved":"Save"}</button>
+        <button className="btn" onClick={()=>{AI_SETTINGS.claudeKey="";AI_SETTINGS.geminiKey="";AI_SETTINGS.provider="claude-app";storageDel("categoryai_keys");setSaved(false);setRevealKey(false);force(x=>x+1);}}>Clear</button>
       </div>
     </div>
   );
@@ -3530,7 +3571,7 @@ Respond ONLY with JSON, no markdown fences:
     setBusy(false);
   }
   function buildMd(){
-    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.38.2 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
+    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.38.3 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
     if(!strategy) md+=`**⚠ DRAFT — Generate Strategy has not been run (or did not complete).** Executive Summary, Objectives, Negotiation Approach, Roadmap, Risk register and Data gaps are not yet included below. This is a partial export, not a finished strategy.\n\n`;
     md+=`**Kraljic:** ${d.quadrant} (supply risk ${d.supplyRisk.toFixed(1)}/5, business impact ${d.businessImpact.toFixed(1)}/5)\n\n`;
     /* v2.13 — decision-paper order (per the management documents): summary,
@@ -3710,7 +3751,7 @@ Respond ONLY with JSON, no markdown fences:
       const pptx=new PGJ(); pptx.layout="LAYOUT_WIDE";
       pptx.defineSlideMaster({title:"MAIN",background:{color:"FFFFFF"},objects:[
         {rect:{x:0,y:0,w:"100%",h:0.35,fill:{color:P}}},
-        {text:{text:"CategoryAI Strategic Category Suite v2.38.2",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
+        {text:{text:"CategoryAI Strategic Category Suite v2.38.3",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
       const slide=(title)=>{const s=pptx.addSlide({masterName:"MAIN"}); if(title) s.addText(title,{x:0.4,y:0.5,w:12.5,h:0.6,fontSize:26,bold:true,color:INKC,fontFace:"Calibri"}); return s;};
       const tblOpts={x:0.4,y:1.3,w:12.5,fontSize:11,color:INKC,border:{pt:0.5,color:"D8DCE0"},fill:{color:"FFFFFF"},autoPage:true,autoPageRepeatHeader:true};
       const hdr=t=>t.map(x=>({text:x,options:{bold:true,fill:{color:"EEF4F1"},color:INKC}}));
@@ -5486,7 +5527,7 @@ CATEGORY ARCHETYPES:\n${Object.entries(CATEGORY_ARCHETYPES).map(([k,a])=>{const 
     setQ(""); setBusy(true);
     try{
       const text=await askClaude(
-        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.38.2): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.38.2 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 9-sheet .xlsx (Read me with full scoring criteria, Profile, Market & Internal Variables, Spend — folds in what used to be a separate .csv upload, auto-infers supplier concentration — Suppliers, Risks, Contracts, Demand forecast, Stakeholders/Mendelow grid, Supplier performance which adds to SRM history rather than replacing it); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed).\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
+        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.38.3): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.38.3 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 9-sheet .xlsx (Read me with full scoring criteria, Profile, Market & Internal Variables, Spend — folds in what used to be a separate .csv upload, auto-infers supplier concentration — Suppliers, Risks, Contracts, Demand forecast, Stakeholders/Mendelow grid, Supplier performance which adds to SRM history rather than replacing it); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed).\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
         false, false);
       setMsgs(m=>[...m,{role:"assistant",text}]);
     }catch(e){ setMsgs(m=>[...m,{role:"assistant",text:e.message}]); }
@@ -10162,8 +10203,8 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.38.2</span></div>
-          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.38.2 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.38.3</span></div>
+          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.38.3 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <AIStatusChip/>
