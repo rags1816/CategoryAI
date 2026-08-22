@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.38.2
+### Fixed
+- **The separate inline "📂 My categories" widget on Step 1 had the
+  exact same `node.name` vs `node.record.profile.name` bug as v2.38.0's
+  header panel** — a genuinely different, earlier-built component (its
+  own `otherCategories` computation, `startNewCategory`/
+  `switchToCategory` functions), not the same code, but the identical
+  root cause. Fixed the same way.
+
+### Important correction to earlier guidance this session
+- This inline widget's discovery reveals that a working "+ New
+  category" and category-switcher mechanism — including a smart
+  rename-vs-new-category confirm dialog on the name field's blur event
+  — **already existed before v2.38.0**. My earlier claim that "there is
+  no explicit + New category button and no visible categories list"
+  was wrong; I didn't find this component during that investigation.
+  The v2.38.0 header panel is therefore genuinely redundant with
+  pre-existing functionality for its core create/switch capability —
+  its real incremental value is delete support and being reachable from
+  any screen, not the create/switch itself.
+
 ## v2.38.1
 ### Fixed
 - **My Categories panel always showed "No named categories yet," even
