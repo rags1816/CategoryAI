@@ -1,5 +1,34 @@
 # Changelog
 
+## v2.38.3
+### Fixed — real security hardening, not just advice
+- **API key exposure in accessibility snapshots — 3rd occurrence this
+  session.** `type="password"` only masks the visual rendering; it
+  doesn't stop accessibility-tree tools (used by browser automation)
+  from reading the raw underlying DOM value, which sat there
+  continuously for as long as a key was saved, not just while typing.
+  Fixed structurally: once a key is saved, both AI Settings surfaces
+  (`AISettings` — the header panel, and `AISettingsBody` — a second,
+  independent settings surface) now show a masked summary (last 4
+  characters only) with a "Change" button, rather than keeping the full
+  secret bound to an input's value at all times. The real value only
+  re-enters the DOM during the brief window someone is actively typing
+  a replacement. New shared `KeyField` component, used identically by
+  both surfaces rather than two diverging implementations.
+- **Header "AI ready" status was stale relative to Test Connection
+  results** — could claim ready immediately after a test explicitly
+  returned a 401. Now tracks the last test result against the specific
+  key value tested; if that exact key just failed, the header says "last
+  test failed" instead of "ready." Changing the key value automatically
+  clears the stale failure without needing an explicit reset — the
+  tracked key simply stops matching the active one.
+
+### Note
+Confirmed via source: 401 on Test Connection means the provider itself
+rejected the key — nothing wrong on the app side. If the key was
+rotated as planned, this is the expected, correct result of the old key
+now being dead.
+
 ## v2.38.2
 ### Fixed
 - **The separate inline "📂 My categories" widget on Step 1 had the
