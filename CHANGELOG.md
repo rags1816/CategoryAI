@@ -1,5 +1,6 @@
 # Changelog
 
+freezepoint SHA-256: 8ce3caa9a51f5180abaf2f35c55fce827430356c7615194995afae96cbbe3e73
 ## v2.38.4
 ### Fixed — closes both remaining key-exposure paths from v2.38.3's verification
 - **Root cause was one bug, showing up in two places.** `saved` state
