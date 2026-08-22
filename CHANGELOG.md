@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.38.4
+### Fixed — closes both remaining key-exposure paths from v2.38.3's verification
+- **Root cause was one bug, showing up in two places.** `saved` state
+  always initialized to `false` on every fresh component mount,
+  regardless of whether a key was already persisted from a previous
+  session. Masking (added in v2.38.3) only activates when `saved` is
+  true, so it never engaged until an explicit Save happened *during
+  that specific mount's lifetime* — meaning any freshly-opened instance
+  showed the raw key by default.
+- This explains both v2.38.3 findings as the same issue: the Admin
+  panel's key field (confirmed to be the exact same `AISettingsBody`
+  component, mounted via `AISettingsInline` — not a third, separate
+  implementation) and the header panel's "unmasked on first open"
+  behavior.
+- Fixed by initializing `saved` from whether a key is actually already
+  persisted (`storageGet("categoryai_keys")` exists and `AI_SETTINGS`
+  already holds a key value), in both `AISettings` and `AISettingsBody`
+  — masking is now correctly the default state on mount whenever a real
+  key already exists, not just after an in-session Save.
+
+### On rotation timing
+Per the suggestion to hold off rotating until both surfaces are closed —
+this patch closes both. Worth a live re-check (below) before rotating,
+same discipline as every fix this session: confirm before trusting.
+
 ## v2.38.3
 ### Fixed — real security hardening, not just advice
 - **API key exposure in accessibility snapshots — 3rd occurrence this
