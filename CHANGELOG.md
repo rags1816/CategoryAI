@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.38.1
+### Fixed
+- **My Categories panel always showed "No named categories yet," even
+  with real categories present** — a genuine field-naming bug, not a
+  data problem (confirmed: the underlying `categoryTree` data was
+  always correctly isolated per category). The name a user types into
+  Step 1 lands in `node.record.profile.name`; the panel's filter
+  checked `node.name` — a completely different, top-level field that's
+  only populated via Portfolio-linked flows (deep-dive,
+  duplicate-as-child). Every standalone category — the normal, most
+  common case — has an empty `node.name`, so the filter always excluded
+  everything. Fixed with a `nameOf()` helper that checks
+  `record.profile.name` first, falling back to the node's own `name`
+  for the portfolio-linked case, applied consistently to the list
+  filter, the displayed name, and the delete-confirmation text.
+
 ## v2.38.0 — Multi-category switcher + collapsible sections
 ### Added — Multi-category switcher
 - **"📁 My categories"** header button — a real fix for a genuine gap:
