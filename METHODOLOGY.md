@@ -1,90 +1,118 @@
-# Category AI — Methodology
+# Development Methodology
 
-## Origin
+The workflow this repo's development has followed, and why — for
+anyone continuing this work, human or AI.
 
-Developed by Vijay L Narasimhan, 2025–26, drawing on 20+ years of category
-management practice at BP (indirect category portfolios, $800m+), Shell
-(global category strategies), and NESO (digital procurement platform,
-Procurement Act 2023 compliance) — where category positioning was
-traditionally done manually in workshops using static Kraljic-style
-matrices.
+## The core cycle
 
-## Problem this solves
+**Patch → verify structurally → live-test → freeze → checksum → changelog**
 
-Traditional category positioning (Kraljic matrix, Five Forces-style
-supplier power analysis, purchasing chessboard exercises) is typically a
-manual, workshop-driven process — slow to run, dependent on facilitator
-expertise, and rarely revisited once done. This tool applies AI to speed up
-and structure that positioning exercise, and to make it easier to revisit
-as category conditions change, without needing a full workshop each time.
+No step gets skipped, and no step happens out of order. A patch that
+hasn't been live-tested is not "done" — it's a candidate.
 
-## Built on / credited frameworks
+## 1. Patch
 
-- **Framework: Kraljic Portfolio Matrix** (Peter Kraljic, 1983)
-  - What it contributes: the core two-axis logic — supply risk vs. profit/
-    business impact — used to classify categories into strategic quadrants
-    (Strategic, Leverage, Bottleneck, Non-critical)
-  - How this tool adapts it: replaces manual scoring with AI-assisted
-    weighting of inputs (spend data, supplier market conditions, switching
-    cost signals), so positioning can be generated and refreshed rapidly
-    rather than fixed at a single workshop point in time
+One scoped change at a time where reasonably possible. When a fix
+touches multiple files/functions for a single coherent reason (e.g.
+the same field-naming bug appearing in two separate components), fix
+all instances together rather than partially.
 
-- **Framework: Porter's Five Forces** (Michael Porter, 1979)
-  - What it contributes: structured lens on supplier market
-    competitiveness/power — one of the inputs to the supply-risk axis above
-  - How this tool adapts it: uses Five Forces as a background scoring input
-    (not a separate output) to inform the AI's supply-risk weighting, rather
-    than presenting it as a standalone analysis
+## 2. Verify structurally
 
-- **Framework: Purchasing Chessboard concept** (conceptually related to
-  A.T. Kearney's trademarked Purchasing Chessboard®)
-  - What it contributes: a matrix-based approach to mapping category
-    sourcing levers across supply/demand-side strategies
-  - How this tool differs: Category AI implements its own original 64-cell
-    board — no licensed A.T. Kearney dataset is included, and "Purchasing
-    Chessboard" as a mark remains Kearney's. A licence would be required
-    before wiring in official Kearney data. See
-    `docs/THIRD-PARTY-NOTICES.md` for the full attribution note.
+Before any version bump, confirm the edited function's braces and
+parentheses are genuinely balanced. **The naive method — counting `{`
+and `}` across a whole file — produces false positives**, because
+string literals (JSON schema examples inside AI prompts, emoji-adjacent
+text) contain unmatched brace/paren characters as plain text, not code
+structure.
 
-## Core framework (your original model)
+The reliable method: walk brace depth starting from the actual function
+body's opening `{` — found by locating the `{` immediately after the
+parameter list's closing `)`, not just the first `{` in the source
+(which is often the destructured-parameters brace, giving a trivially
+small and meaningless span) — through to where depth returns to zero.
 
-The tool positions a category using two composite scores:
-1. **Business Impact Score** — derived from spend volume, criticality to
-   operations, and number of viable alternative categories
-2. **Supply Risk Score** — derived from supplier concentration, switching
-   cost, and Five-Forces-informed market power signals
+```python
+start = content.index('function NAME(')
+paren_close = content.index(')', start)
+body_start = content.index('{', paren_close)
+depth = 0
+j = body_start
+while j < len(content):
+    if content[j] == '{': depth += 1
+    elif content[j] == '}':
+        depth -= 1
+        if depth == 0: break
+    j += 1
+# content[start:j+1] is the real function; check brace/paren counts there
+```
 
-These two scores place the category on a quadrant, and the AI layer then
-suggests category strategy directions per quadrant (e.g. "Strategic" →
-partnership/joint innovation approaches; "Leverage" → competitive
-tendering). The purchasing chessboard's 64 cells provide a complementary,
-more granular set of sourcing/negotiation lever suggestions once a category
-has been quadrant-placed.
+**When a discrepancy shows up, check it against the pre-edit baseline
+before assuming it's new.** More than once this session, a "failing"
+check turned out to be an artifact already present in the last known-
+good, already-shipped file — proving the edit didn't introduce it. Only
+trust a discrepancy as real once you've confirmed the baseline was
+clean on that exact same check.
 
-## Inputs → Process → Outputs
+## 3. Live-test — with evidence, not impressions
 
-- **Inputs:** category name, spend data, supplier count, contract terms,
-  market conditions
-- **Process:** AI-assisted scoring against Business Impact and Supply Risk
-  axes, informed by Kraljic and Five Forces logic; optional deeper
-  chessboard-based lever selection
-- **Outputs:** quadrant placement, suggested strategy direction, chessboard
-  lever recommendations, AI-generated narrative explanation
+A fix is not confirmed by "it looks right" or "the button responded."
+The standard used throughout this repo's history:
 
-## Why this approach (rationale)
+- **Quote exact values observed** — an exact total, an exact score, an
+  exact error message — not a paraphrase
+- **For visual/rendering claims, extract and inspect the actual asset**
+  (pull the embedded chart image out of the .docx and look at it) —
+  don't infer correctness from "a chart appeared"
+- **For UI state claims, use the DOM/accessibility tree directly**
+  (`document.elementFromPoint`, computed styles, `getBoundingClientRect`)
+  rather than a visual screenshot alone — several real bugs in this
+  history (state logic masquerading as a "mobile touch" issue) would
+  have been misdiagnosed by relying on appearance alone
+- **Re-test the specific thing that failed**, not just "does the app
+  still load," after every fix. Several fixes in this history needed a
+  second round because the first attempt addressed a symptom convincingly
+  without addressing the actual mechanism — confirmed only by testing
+  the exact original failure case again, not a broader smoke test
 
-Manual category positioning doesn't scale across a large category
-portfolio and is rarely updated once market conditions shift. AI-assisted
-scoring allows category managers to re-run positioning quickly as inputs
-change, while keeping the underlying strategic logic (Kraljic, Five Forces,
-and chessboard-style lever mapping) intact and recognisable to procurement
-professionals — rather than replacing established frameworks with an opaque
-black-box score.
+## 4. Don't declare done on a single pass
 
-## Version history
+A pattern worth naming explicitly, because it recurred: fixing one bug
+sometimes reveals a second, previously-masked one in the same area
+(e.g. fixing a crash on a screen surfaces a completely unrelated,
+pre-existing broken button that testing happened to exercise while
+verifying the fix). Finding something unrelated to what you were
+checking is a reason to fix it, not a distraction from the actual task.
 
-- v1.0–v1.2.0: initial AI-assisted Kraljic-style positioning model,
-  Five-Forces-informed supply risk weighting (see `archive/` for these
-  version snapshots)
-- Current: adds the 64-cell purchasing chessboard tool, AI-assisted lever
-  suggestions, and consolidated documentation (`docs/`, `archive/`)
+## 5. Freeze
+
+A "freeze" is a specific, checkable claim: *this exact file, identified
+by its hash, is what's live.* Not "I think this is what's deployed" —
+a SHA-256 comparison between the file about to be recorded and the
+actual file fetched from the live URL.
+
+```cmd
+certutil -hashfile index.html SHA256
+```
+
+If the hash doesn't match, the freeze record is wrong and needs
+correcting before trusting it — this caught at least one real upload
+mismatch in this repo's history (an intermediate build got uploaded
+instead of the intended one).
+
+## 6. Changelog
+
+Every freeze gets a changelog entry recording: what changed, why (the
+actual bug/gap, not just the fix), and the verified checksum. Entries
+distinguish real fixes from confirmed-non-bugs (a report that turned
+out to be correct existing behavior, once investigated) — both are
+valuable to record; conflating them isn't.
+
+## Why this much process for a single HTML file
+
+Because "it's just one file" is exactly the condition under which
+sloppy verification is most tempting and most costly — there's no
+compiler, no type system, no test suite to catch a syntax slip before
+it reaches production. The structural-balance check and the live-
+evidence standard exist specifically to substitute for the safety net
+a build step would normally provide.
