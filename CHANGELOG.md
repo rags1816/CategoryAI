@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.38.5
+### Fixed — in-app documentation was stale relative to v2.35-v2.38's work
+- **Guide chat** (master AI context string): the "NEW in this build" list
+  stopped at item (7), the v2.32-era Category input template — every
+  feature from v2.35 onward (Find, My Categories, Collapsible sections,
+  phase banner, CEP export, chart embedding) was invisible to the AI
+  guide, meaning it would have answered questions about these features
+  incorrectly or not at all. Added item (8) covering all of it.
+- **Demo Tour**: welcome stop now mentions 🔎 Find and 📁 My Categories
+  (header-level features that don't map to a specific step, so they
+  needed an explicit mention rather than a dedicated stop); the Strategy
+  stop now mentions the 2-page CEP export and its preview.
+- **About tab**: "Board-ready outputs" now mentions chart embedding in
+  Module Review's per-module exports and the CEP export; added a new
+  "DELIVERED" entry to the To-do box status list for the multi-category
+  switcher, Find, and the collapsible-sections/phase-banner UX work —
+  matching the existing entries' exact format and tone.
+
 freezepoint SHA-256: 8ce3caa9a51f5180abaf2f35c55fce827430356c7615194995afae96cbbe3e73
 ## v2.38.4
 ### Fixed — closes both remaining key-exposure paths from v2.38.3's verification
