@@ -1,5 +1,7 @@
 # Changelog
 
+SHA-256: aada281cd6f3dc5d3de71c0fdbe52da3b4559a7a448fc101febe5c6baee18e1e
+Version: v2.38.5
 ## v2.38.5
 ### Fixed — in-app documentation was stale relative to v2.35-v2.38's work
 - **Guide chat** (master AI context string): the "NEW in this build" list
@@ -18,7 +20,6 @@
   switcher, Find, and the collapsible-sections/phase-banner UX work —
   matching the existing entries' exact format and tone.
 
-freezepoint SHA-256: 8ce3caa9a51f5180abaf2f35c55fce827430356c7615194995afae96cbbe3e73
 ## v2.38.4
 ### Fixed — closes both remaining key-exposure paths from v2.38.3's verification
 - **Root cause was one bug, showing up in two places.** `saved` state
