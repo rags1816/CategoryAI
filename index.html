@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.38.5</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.39.1</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230F5E56'/%3E%3Ctext x='50' y='68' font-size='58' font-family='Arial,sans-serif' font-weight='bold' fill='%23D8A441' text-anchor='middle'%3ECA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -487,7 +487,7 @@ function storageGet(k){ try{ return window.localStorage.getItem(k); }catch(e){ r
 function storageSet(k,v){ try{ window.localStorage.setItem(k,v); return true; }catch(e){ return false; } }
 function storageDel(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
 
-/* ================= IN-APP CONFIRM/ALERT MODAL (v2.38.5) =================
+/* ================= IN-APP CONFIRM/ALERT MODAL (v2.39.1) =================
    Replaces native window.confirm()/window.alert() everywhere in the app.
    Native dialogs are invisible to browser-automation tools (they live
    outside the DOM), which made every one of these un-testable and, for
@@ -1165,6 +1165,8 @@ function buildCepMarkdown(profile, d, internal, suppliers, strategy, pitch, rese
       }).join(", ")
     : "[No suppliers assessed yet]";
   md += `| ${forcesCell} | ${supplierCell} |\n\n`;
+  if(d?.porter) md += `@@CHART:catforces5@@\n\n`;
+  if(suppliers&&suppliers.length) md += `@@CHART:catsuppliers@@\n\n`;
 
   md += `| 3-year plan | Near-term actions |\n|---|---|\n`;
   const roadmapCell = strategy?.roadmap?.length
@@ -1176,12 +1178,29 @@ function buildCepMarkdown(profile, d, internal, suppliers, strategy, pitch, rese
   md += `| ${roadmapCell.replace(/\n/g," ")} | ${actionsCell.replace(/\n/g," ")} |\n\n`;
 
   md += `\n## Disruptors & developments — future of the category\n\n`;
-  md += `| What? | Impact | Response |\n|---|---|---|\n`;
   if(research?.disruptions?.length){
+    // Grouped by category rather than a flat list — a horizon-scan reads
+    // more usefully clustered (Supply chain / Technology / Regulatory /
+    // Geopolitical / Economic / Market & competitive / Environmental &
+    // climate) than as an undifferentiated table.
+    const byCategory = {};
     research.disruptions.forEach(x=>{
-      md += `| ${(x.disruption||"").replace(/\n/g," ")} | ${(x.impact||"").replace(/\n/g," ")} | [To complete — add your response] |\n`;
+      const cat = x.category || "Uncategorised";
+      (byCategory[cat] = byCategory[cat] || []).push(x);
+    });
+    Object.entries(byCategory).forEach(([cat, items])=>{
+      md += `**${cat}**\n\n`;
+      md += `| What? | Impact | AI-drafted response |\n|---|---|---|\n`;
+      items.forEach(x=>{
+        const response = x.suggestedResponse
+          ? "[AI draft — review before use] "+x.suggestedResponse.replace(/\n/g," ")
+          : "[To complete — add your response]";
+        md += `| ${(x.disruption||"").replace(/\n/g," ")} | ${(x.impact||"").replace(/\n/g," ")} | ${response} |\n`;
+      });
+      md += `\n`;
     });
   } else {
+    md += `| What? | Impact | Response |\n|---|---|---|\n`;
     md += `| [Run the Research Assistant (Step 3) to populate this from live market disruptions] | | |\n`;
   }
   return md;
@@ -1201,6 +1220,14 @@ function renderCepPreview(md){
   while(i<lines.length){
     const line=lines[i];
     if(!line.trim()){ i++; continue; }
+    const chartMatch=line.match(/^@@CHART:(\w+)@@$/);
+    if(chartMatch){
+      const chart=window.__docxCharts&&window.__docxCharts[chartMatch[1]];
+      out.push(chart
+        ? <img key={i} src={chart.dataUrl} style={{maxWidth:"100%",width:chart.width,marginTop:8,marginBottom:8}} alt={chartMatch[1]}/>
+        : <p key={i} className="hint" style={{fontStyle:"italic"}}>[chart not yet available for preview]</p>);
+      i++; continue;
+    }
     if(line.startsWith("## ")){ out.push(<h3 key={i} style={{marginTop:14}}>{inline(line.slice(3))}</h3>); i++; continue; }
     if(line.startsWith("# ")){ out.push(<h2 key={i} className="display" style={{marginTop:0}}>{inline(line.slice(2))}</h2>); i++; continue; }
     if(line.startsWith("|")){
@@ -1222,6 +1249,15 @@ function renderCepPreview(md){
     out.push(<p key={i} style={{fontSize:13,lineHeight:1.5}}>{inline(line)}</p>); i++;
   }
   return out;
+}
+/* Populates window.__docxCharts with everything buildCepMarkdown()
+   references via @@CHART:id@@ tokens — shared by both the preview and
+   the actual download, so what you see in preview matches what
+   downloads exactly, not two separately-maintained chart lists. */
+function populateCepCharts(d, suppliers){
+  window.__docxCharts = window.__docxCharts || {};
+  if(d && d.porter) window.__docxCharts.catforces5 = buildForcesTraditionalChart(d.porter);
+  if(suppliers && suppliers.length) window.__docxCharts.catsuppliers = buildSupplierScatterChart(suppliers);
 }
 async function downloadAsWord(md,baseName){
   // Try real .docx first; fall back to legacy HTML-in-.doc
@@ -1725,7 +1761,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
-        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.38.5 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
+        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.39.1 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
       </div>
     )]
   ];
@@ -1859,7 +1895,7 @@ function TourOverlay({tour,setTour,setStep}){
 }
 
 /* ================= SMALL PARTS ================= */
-/* v2.38.5 — the header status chip claimed "AI ready" purely from "a key
+/* v2.39.1 — the header status chip claimed "AI ready" purely from "a key
    string is present," with no relation to whether Test Connection had
    ever actually been run or had just failed — confirmed confusing when
    a test returns a 401 and the header immediately contradicts it. Can't
@@ -1897,7 +1933,7 @@ function AIStatusChip(){
   );
 }
 
-/* v2.38.5 — the raw key value previously sat continuously in the input's
+/* v2.39.1 — the raw key value previously sat continuously in the input's
    DOM value attribute (even with type="password") the entire time an AI
    settings panel was open, for as long as a key was saved — not just
    while being typed. type="password" only masks the visual rendering;
@@ -3572,7 +3608,7 @@ Respond ONLY with JSON, no markdown fences:
     setBusy(false);
   }
   function buildMd(){
-    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.38.5 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
+    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.39.1 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
     if(!strategy) md+=`**⚠ DRAFT — Generate Strategy has not been run (or did not complete).** Executive Summary, Objectives, Negotiation Approach, Roadmap, Risk register and Data gaps are not yet included below. This is a partial export, not a finished strategy.\n\n`;
     md+=`**Kraljic:** ${d.quadrant} (supply risk ${d.supplyRisk.toFixed(1)}/5, business impact ${d.businessImpact.toFixed(1)}/5)\n\n`;
     /* v2.13 — decision-paper order (per the management documents): summary,
@@ -3752,7 +3788,7 @@ Respond ONLY with JSON, no markdown fences:
       const pptx=new PGJ(); pptx.layout="LAYOUT_WIDE";
       pptx.defineSlideMaster({title:"MAIN",background:{color:"FFFFFF"},objects:[
         {rect:{x:0,y:0,w:"100%",h:0.35,fill:{color:P}}},
-        {text:{text:"CategoryAI Strategic Category Suite v2.38.5",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
+        {text:{text:"CategoryAI Strategic Category Suite v2.39.1",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
       const slide=(title)=>{const s=pptx.addSlide({masterName:"MAIN"}); if(title) s.addText(title,{x:0.4,y:0.5,w:12.5,h:0.6,fontSize:26,bold:true,color:INKC,fontFace:"Calibri"}); return s;};
       const tblOpts={x:0.4,y:1.3,w:12.5,fontSize:11,color:INKC,border:{pt:0.5,color:"D8DCE0"},fill:{color:"FFFFFF"},autoPage:true,autoPageRepeatHeader:true};
       const hdr=t=>t.map(x=>({text:x,options:{bold:true,fill:{color:"EEF4F1"},color:INKC}}));
@@ -3971,8 +4007,8 @@ Respond ONLY with JSON, no markdown fences:
           <button className="btn dark" disabled={busy} onClick={generate} title="Checks completeness first (you'll see any missing inputs and choose to continue with available data), then sends everything you've entered — with confidence flags — to the AI, which writes the full strategy document below.">{busy?"Synthesising…":strategy?"↻ Regenerate strategy":"⚡ Generate strategy"}</button>
           <span style={{flexBasis:"100%", fontSize:10.5, fontWeight:800, color:"var(--slate)", textTransform:"uppercase", letterSpacing:"0.05em", marginTop:6}}>Outputs — one strategy, several formats:</span>
           <button className="btn primary" onClick={async()=>{ if(!strategy && !(await confirmAsync("No completed strategy synthesis yet — this Word document will be missing several sections (executive summary, objectives, roadmap, and likely Chessboard/Cost drivers/Suppliers/Risk register too).\n\nDownload the incomplete document anyway?"))) return; downloadDoc(); }} title="Downloads the full strategy as a real Word document (.docx, with automatic .doc fallback offline) — the format to circulate to stakeholders.">⬇ Download Word document (.docx)</button>
-          <button className="btn" onClick={async()=>{ const d=deriveScores(vars,generic); const md=buildCepMarkdown(profile,d,internal,suppliers,strategy,pitch,research,cl,demandForecast); const slug=(profile.name||"category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"category"; await downloadAsWord(md,slug+"-execution-plan"); }} title="A dense, 2-page at-a-glance summary — spend/scope, position, 3-year plan and disruptors. Distinct from the full strategy document; built from whatever's in this session, [To complete] markers where data isn't captured yet.">⬇ 2-page Category Execution Plan</button>
-          <button className="btn ghost" onClick={()=>setCepPreviewOpen(o=>!o)}>{cepPreviewOpen?"▲ Hide preview":"👁 Preview before downloading"}</button>
+          <button className="btn" onClick={async()=>{ const d=deriveScores(vars,generic); populateCepCharts(d,suppliers); const md=buildCepMarkdown(profile,d,internal,suppliers,strategy,pitch,research,cl,demandForecast); const slug=(profile.name||"category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"category"; await downloadAsWord(md,slug+"-execution-plan"); }} title="A dense, 2-page at-a-glance summary — spend/scope, position, 3-year plan and disruptors, with Five Forces and supplier landscape charts embedded. Distinct from the full strategy document; built from whatever's in this session, [To complete] markers where data isn't captured yet.">⬇ 2-page Category Execution Plan</button>
+          <button className="btn ghost" onClick={()=>{ if(!cepPreviewOpen){ populateCepCharts(deriveScores(vars,generic),suppliers); } setCepPreviewOpen(o=>!o); }}>{cepPreviewOpen?"▲ Hide preview":"👁 Preview before downloading"}</button>
           {cepPreviewOpen && (
             <div className="card" style={{marginTop:10,background:"var(--paper)",border:"1px solid var(--line)"}}>
               <p className="hint" style={{marginTop:0}}>On-screen preview — review before downloading. This matches what the .docx will contain, rendered directly here rather than in a separate file.</p>
@@ -4353,9 +4389,9 @@ function ResearchCard({profile,research,setResearch}){
 Respond ONLY with JSON, no fences:
 {"overview":"3-4 sentence current market overview",
  "pestleRegulatory":[{"area":"Political|Economic|Social|Technological|Legal|Environmental|Regulatory","finding":"one specific recent finding","source":"publication name","url":"https://..."}],
- "disruptions":[{"disruption":"supply-chain disruption or shift affecting this category","impact":"what it means for buyers","source":"publication","url":"https://..."}],
+ "disruptions":[{"disruption":"supply-chain disruption or shift affecting this category","category":"Supply chain|Technology|Regulatory|Geopolitical|Economic|Market & competitive|Environmental & climate","impact":"what it means for buyers","suggestedResponse":"one-sentence DRAFT mitigation or response a buyer could take — a genuine starting point, not a generic platitude","source":"publication","url":"https://..."}],
  "priceOutlook":"one sentence with source if found"}
-Give ${already?"3-5":"5-8"} pestleRegulatory items and ${already?"2-3":"3-5"} disruptions. If a source URL is uncertain, give the publication name and put "" for url — never invent URLs.`, true, true, 4096);
+Give ${already?"3-5":"5-8"} pestleRegulatory items and ${already?"2-3":"3-5"} disruptions, spread across different categories where the real findings support it — don't force every disruption into the same category. If a source URL is uncertain, give the publication name and put "" for url — never invent URLs.`, true, true, 4096);
       setResearch({
         overview: out.overview||(already?already.overview:""),
         priceOutlook: out.priceOutlook||(already?already.priceOutlook:""),
@@ -4389,13 +4425,18 @@ Give ${already?"3-5":"5-8"} pestleRegulatory items and ${already?"2-3":"3-5"} di
           </tbody></table>
           </Collapsible>
           <Collapsible title="Supply-chain disruptions affecting this category" defaultOpen={false} badge={<span className="badge ai" style={{fontSize:9}}>{(research.disruptions||[]).length}</span>}>
-          <table><thead><tr><th>Disruption</th><th>Impact on buyers</th><th>Source</th></tr></thead><tbody>
+          <table><thead><tr><th>Category</th><th>Disruption</th><th>Impact on buyers</th><th>AI-drafted response</th><th>Source</th></tr></thead><tbody>
             {(research.disruptions||[]).map((r,i)=>(
-              <tr key={i}><td><b>{r.disruption}</b></td><td>{r.impact}</td>
-                <td style={{fontSize:11.5}}>{r.url?<a href={r.url} target="_blank" rel="noreferrer">{r.source||r.url}</a>:(r.source||"—")}</td></tr>))}
+              <tr key={i}>
+                <td style={{fontSize:11,fontWeight:700,color:"var(--mulberry)"}}>{r.category||"—"}</td>
+                <td><b>{r.disruption}</b></td>
+                <td>{r.impact}</td>
+                <td style={{fontSize:11.5}}>{r.suggestedResponse||"—"}</td>
+                <td style={{fontSize:11.5}}>{r.url?<a href={r.url} target="_blank" rel="noreferrer">{r.source||r.url}</a>:(r.source||"—")}</td>
+              </tr>))}
           </tbody></table>
           </Collapsible>
-          <p className="hint" style={{marginTop:8}}>⚠ AI research with best-effort citations — verify sources before quoting in a board paper. Findings are flagged AI-inferred in the document.</p>
+          <p className="hint" style={{marginTop:8}}>⚠ AI research with best-effort citations — verify sources before quoting in a board paper. Findings, categories, and drafted responses are all AI-inferred — review before use, don't treat the response column as a decision already made.</p>
         </div>
       )}
     </div>
@@ -5528,7 +5569,7 @@ CATEGORY ARCHETYPES:\n${Object.entries(CATEGORY_ARCHETYPES).map(([k,a])=>{const 
     setQ(""); setBusy(true);
     try{
       const text=await askClaude(
-        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.38.5): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.38.5 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 9-sheet .xlsx (Read me with full scoring criteria, Profile, Market & Internal Variables, Spend — folds in what used to be a separate .csv upload, auto-infers supplier concentration — Suppliers, Risks, Contracts, Demand forecast, Stakeholders/Mendelow grid, Supplier performance which adds to SRM history rather than replacing it); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed). (8) UX additions (v2.35-v2.38): 🔎 Find (header) — keyword search across every screen's name and description, click to jump; 📁 My Categories (header) — create and switch between multiple genuinely independent standalone categories in the same browser, with delete; AI-generated output sections across most Category steps are now individually collapsible (closed by default), input fields and action buttons always stay visible; a phase chevron banner (Define/Understand/Strategise/Source/Contract & Manage/Output) shows at the top of every Category step; a 2-page Category Execution Plan export (Step 14) with an on-screen preview before downloading; Module Review's per-module Word exports now embed that module's actual chart image, not just its data table, including a new should-cost breakdown chart.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
+        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.39.1): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.39.1 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 9-sheet .xlsx (Read me with full scoring criteria, Profile, Market & Internal Variables, Spend — folds in what used to be a separate .csv upload, auto-infers supplier concentration — Suppliers, Risks, Contracts, Demand forecast, Stakeholders/Mendelow grid, Supplier performance which adds to SRM history rather than replacing it); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed). (8) UX additions (v2.35-v2.38): 🔎 Find (header) — keyword search across every screen's name and description, click to jump; 📁 My Categories (header) — create and switch between multiple genuinely independent standalone categories in the same browser, with delete; AI-generated output sections across most Category steps are now individually collapsible (closed by default), input fields and action buttons always stay visible; a phase chevron banner (Define/Understand/Strategise/Source/Contract & Manage/Output) shows at the top of every Category step; a 2-page Category Execution Plan export (Step 14) with an on-screen preview before downloading; Module Review's per-module Word exports now embed that module's actual chart image, not just its data table, including a new should-cost breakdown chart.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
         false, false);
       setMsgs(m=>[...m,{role:"assistant",text}]);
     }catch(e){ setMsgs(m=>[...m,{role:"assistant",text:e.message}]); }
@@ -10126,7 +10167,9 @@ function App(){
   const [wsOwner,setWsOwner]=useState(storageGet("categoryai_workspace_owner")||"");
   const saveWsOwner=(v)=>{ const t=String(v||"").slice(0,40); setWsOwner(t); storageSet("categoryai_workspace_owner",t); };
   function exportSession(){
-    const payload={...sessionPayload(), workspaceOwner:wsOwner||undefined, exportedFrom:(navigator.userAgent||"").includes("Mobile")?"mobile":"desktop"};
+    const safeParse=(key)=>{ try{ return JSON.parse(storageGet(key)||"{}"); }catch(e){ return {}; } };
+    const payload={...sessionPayload(), workspaceOwner:wsOwner||undefined, exportedFrom:(navigator.userAgent||"").includes("Mobile")?"mobile":"desktop",
+      custom:CUSTOM, portfolioLibrary:safeParse("categoryai_portfolio_library"), labelOverrides:safeParse("categoryai_label_overrides")};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     const stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
@@ -10137,9 +10180,13 @@ function App(){
     r.onload=async()=>{ try{
       const j=JSON.parse(r.result);
       if(!j||!j.version||!(String(j.version).startsWith("categoryai-session")||String(j.version).startsWith("procureai-session"))) throw new Error("Not a CategoryAI session file");
-      if(!(await confirmAsync("Load this session file?\n\n"+(j.workspaceOwner?"File workspace: "+j.workspaceOwner+(j.exportedFrom?" ("+j.exportedFrom+")":"")+"\n":"")+(j.when?"Saved: "+new Date(j.when).toLocaleString()+"\n":"")+"\nThis REPLACES everything currently in this browser's workspace (device handoff = last import wins). If work here isn't backed up yet, Cancel and export it first."))) return;
+      const hasCustomizations = !!(j.custom||j.portfolioLibrary||j.labelOverrides);
+      if(!(await confirmAsync("Load this session file?\n\n"+(j.workspaceOwner?"File workspace: "+j.workspaceOwner+(j.exportedFrom?" ("+j.exportedFrom+")":"")+"\n":"")+(j.when?"Saved: "+new Date(j.when).toLocaleString()+"\n":"")+"\nThis REPLACES everything currently in this browser's workspace (device handoff = last import wins)."+(hasCustomizations?" This file also carries custom playbooks/portfolio library/label overrides, which will replace this browser's own.":"")+" If work here isn't backed up yet, Cancel and export it first."))) return;
       if(j.portfolioStrategies) storageSet("categoryai_portfolio_strategies",JSON.stringify(j.portfolioStrategies));
       if(j.workspaceOwner) storageSet("categoryai_workspace_owner",String(j.workspaceOwner).slice(0,40));
+      if(j.custom) storageSet("categoryai_custom",JSON.stringify(j.custom));
+      if(j.portfolioLibrary) storageSet("categoryai_portfolio_library",JSON.stringify(j.portfolioLibrary));
+      if(j.labelOverrides) storageSet("categoryai_label_overrides",JSON.stringify(j.labelOverrides));
       storageSet("categoryai_session",JSON.stringify(j));
       window.location.reload();
     }catch(e){ await alertAsync("Couldn't load session file: "+e.message); } };
@@ -10204,8 +10251,8 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.38.5</span></div>
-          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.38.5 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.39.1</span></div>
+          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.39.1 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <AIStatusChip/>
