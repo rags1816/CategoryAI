@@ -1,5 +1,59 @@
 # CategoryAI — Changelog
 
+## v2.39.1
+### Fixed
+- **Session export/import didn't carry Admin-panel customizations across
+  devices** — confirmed via source: `categoryai_custom` (custom
+  playbooks/archetypes), `categoryai_portfolio_library` (saved portfolio
+  templates), and `categoryai_label_overrides` (custom terminology) each
+  have their own separate localStorage key and load/save functions, and
+  none were included in `sessionPayload()` or `importSession()`. A
+  session file would restore all category/portfolio work perfectly, but
+  any strategy referencing a custom playbook would land on a device
+  where that playbook simply didn't exist.
+- Fixed at the export/import boundary specifically, not by changing
+  `sessionPayload()` itself — that function also backs frequent
+  same-device autosave, and these three keys already persist
+  independently there, so bundling them into every autosave would just
+  be redundant duplication. Only the explicit cross-device export now
+  bundles all three; the confirm-before-import dialog now says so
+  explicitly when a file carries them.
+- `App()` confirmed to have **zero** pre-existing brace/paren
+  discrepancy (unlike `Step5`, which has a known harmless one) — checked
+  both before and after this edit, genuinely balanced in both cases.
+
+## v2.39.0
+### Added
+- **Five Forces and Supplier landscape charts now embed in the 2-page
+  CEP export** — previously the CEP was text-only, no charts at all.
+  Reuses the exact same chart-builder functions already used for the
+  main strategy document (`buildForcesTraditionalChart`,
+  `buildSupplierScatterChart`), not new chart-rendering code.
+- **On-screen preview now shows the same real chart images the
+  download will contain** — new `populateCepCharts()` helper shared by
+  both the preview toggle and the download button, so what you see in
+  preview genuinely matches what downloads. `renderCepPreview` extended
+  to resolve `@@CHART:id@@` tokens into real `<img>` elements (falls
+  back to a "[chart not yet available]" note if somehow called before
+  population).
+- **Disruptors now categorized** — Research Assistant's prompt extended
+  to classify each disruption (Supply chain / Technology / Regulatory /
+  Geopolitical / Economic / Market & competitive / Environmental &
+  climate), and both the CEP export and the on-screen Research
+  Assistant table now group findings by category instead of a flat
+  list.
+- **AI-drafted response suggestions for each disruptor** — the same
+  Research Assistant prompt now also generates a one-sentence draft
+  mitigation/response per disruption, clearly labeled "[AI draft —
+  review before use]" everywhere it appears (CEP export and on-screen
+  table), consistent with the app's confidence-flagging philosophy —
+  never presented as a decision already made.
+
+### Note
+Category/response fields are generated once by Research Assistant and
+reused everywhere downstream (CEP, on-screen table) — not regenerated
+separately at CEP-download time, avoiding extra AI-call latency on a
+simple document export action.
 _Consolidated record. Earlier history (pre-v2.31) predates this
 development cycle and isn't reconstructed here in full — this file
 picks up from the point continuous, verified development began._
