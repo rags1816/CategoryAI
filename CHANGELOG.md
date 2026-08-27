@@ -1,5 +1,36 @@
 # CategoryAI — Changelog
 
+## v2.40.1
+### Fixed — Research Assistant consistently omitting category/suggestedResponse
+- Confirmed via real screenshot evidence: the AI was returning rich,
+  well-cited content for `disruption`/`impact`/`source`/`url` (with
+  working hyperlinks) across all 8 rows, but `category` and
+  `suggestedResponse` were blank in every single row. Since `source`/
+  `url` — which come AFTER these two fields in the schema — were
+  present and working, this rules out simple token truncation (which
+  would cut off the END of generation, not selectively skip 2 middle
+  fields while completing everything around them). This was the model
+  choosing to omit them, not running out of room.
+- Root cause: the JSON schema *showed* these fields but nothing in the
+  prompt's actual instructions stated they were mandatory — a schema
+  example alone wasn't enough compliance pressure against the model's
+  evident focus on the (excellent, heavily-researched) disruption/impact
+  text. Fixed with two reinforcements: an explicit "REQUIRED... never
+  omit this field" note directly on both fields in the schema, and a
+  separate, standalone directive earlier in the prompt stating plainly
+  that classification and response-drafting are as mandatory as the
+  disruption text itself.
+- Also improved the fallback display everywhere these fields appear
+  (on-screen table, CEP export) from a bare "—" to "Not classified by
+  AI" / "Not drafted by AI" — if this ever recurs despite the stronger
+  prompt, it'll read as a clear diagnostic message, not an ambiguous
+  blank that looks like a rendering bug.
+
+### Note
+Can't fully guarantee 100% model compliance from a prompt change alone
+— this needs a real re-test with fresh Research Assistant output before
+treating it as closed, not just trusted on reasoning.
+
 ## v2.40.0
 ### Fixed — systemic chart text truncation (all 9 chart functions, not just Five Forces)
 - Root cause: `truncLbl()` truncated by a fixed *character count*, not
