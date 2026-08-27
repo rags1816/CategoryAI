@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.39.1</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.40.0</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230F5E56'/%3E%3Ctext x='50' y='68' font-size='58' font-family='Arial,sans-serif' font-weight='bold' fill='%23D8A441' text-anchor='middle'%3ECA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -487,7 +487,7 @@ function storageGet(k){ try{ return window.localStorage.getItem(k); }catch(e){ r
 function storageSet(k,v){ try{ window.localStorage.setItem(k,v); return true; }catch(e){ return false; } }
 function storageDel(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
 
-/* ================= IN-APP CONFIRM/ALERT MODAL (v2.39.1) =================
+/* ================= IN-APP CONFIRM/ALERT MODAL (v2.40.0) =================
    Replaces native window.confirm()/window.alert() everywhere in the app.
    Native dialogs are invisible to browser-automation tools (they live
    outside the DOM), which made every one of these un-testable and, for
@@ -746,12 +746,31 @@ const CHART_PALETTE={petrol:"#0F5E56",amber:"#C99A2E",red:"#B4534B",green:"#1E8E
 function chartCanvas(w,h){const c=document.createElement("canvas");c.width=w*2;c.height=h*2;const x=c.getContext("2d");x.scale(2,2);x.fillStyle="#FFFFFF";x.fillRect(0,0,w,h);x.font="12px Calibri, Arial";x.textBaseline="middle";return [c,x];}
 function chartResult(c,w,h){return {dataUrl:c.toDataURL("image/png"),width:Math.round(w*0.62),height:Math.round(h*0.62)};}
 function truncLbl(s,n){s=String(s||"");return s.length>n?s.slice(0,n-1)+"…":s;}
+/* v2.40 — width-aware truncation. truncLbl() truncated by a fixed
+   CHARACTER count, which is fragile: character width varies by font
+   weight/size, so a "safe" limit for one box size silently overflows a
+   different one. Confirmed as a real, systemic bug across every chart
+   in the app (10 callsites), not just Five Forces. This measures actual
+   rendered pixel width via ctx.measureText() and truncates to fit,
+   using whatever font is currently set on the context — call this
+   AFTER setting x.font, not before. */
+function truncLblPx(ctx,s,maxWidth){
+  s=String(s||"");
+  if(ctx.measureText(s).width<=maxWidth) return s;
+  let lo=0,hi=s.length;
+  while(lo<hi){
+    const mid=Math.ceil((lo+hi)/2);
+    const candidate=s.slice(0,mid)+"…";
+    if(ctx.measureText(candidate).width<=maxWidth) lo=mid; else hi=mid-1;
+  }
+  return lo>0 ? s.slice(0,lo)+"…" : "…";
+}
 function buildCompositionChart(cats,cur){
   const W=900,rowH=34,H=70+cats.length*rowH;const [c,x]=chartCanvas(W,H);
   x.fillStyle=CHART_PALETTE.petrol;x.font="bold 15px Calibri, Arial";x.fillText("Spend by service line (bar colour = P1 risk rating)",20,24);
   const max=Math.max(...cats.map(k=>Number(k.spend)||0),1);
   cats.forEach((k,i)=>{const y=58+i*rowH;const v=Number(k.spend)||0;const bw=(W-330)*(v/max);
-    x.font="12px Calibri, Arial";x.fillStyle=CHART_PALETTE.slate;x.textAlign="right";x.fillText(truncLbl(k.name,28),190,y+10);x.textAlign="left";
+    x.font="12px Calibri, Arial";x.fillStyle=CHART_PALETTE.slate;x.textAlign="right";x.fillText(truncLblPx(x,k.name,175),190,y+10);x.textAlign="left";
     x.fillStyle=k.risk==="High"?CHART_PALETTE.red:k.risk==="Low"?CHART_PALETTE.green:CHART_PALETTE.amber;
     x.fillRect(200,y,Math.max(bw,3),20);
     x.fillStyle=CHART_PALETTE.slate;x.fillText(cur+v.toLocaleString()+" · "+(k.quadrant||"Strategic"),206+Math.max(bw,3),y+10);});
@@ -782,7 +801,7 @@ function buildKraljicChart(cats,cur){
       x.beginPath();x.arc(px,py,r,0,Math.PI*2);
       x.fillStyle=k.risk==="High"?"rgba(180,83,75,0.55)":k.risk==="Low"?"rgba(30,142,90,0.55)":"rgba(201,154,46,0.55)";x.fill();
       x.strokeStyle=CHART_PALETTE.petrol;x.lineWidth=1.5;x.stroke();
-      x.fillStyle="#2E2A26";x.font="11px Calibri, Arial";x.textAlign="center";x.fillText(truncLbl(k.name,20),px,py+r+11);x.textAlign="left";});});
+      x.fillStyle="#2E2A26";x.font="11px Calibri, Arial";x.textAlign="center";x.fillText(truncLblPx(x,k.name,110),px,py+r+11);x.textAlign="left";});});
   return chartResult(c,W,H);
 }
 function buildRiskMatrixChart(register){
@@ -803,7 +822,7 @@ function buildRiskMatrixChart(register){
     x.beginPath();x.arc(cx,cy,13,0,Math.PI*2);x.fillStyle=CHART_PALETTE.petrol;x.fill();
     x.fillStyle="#FFFFFF";x.font="bold 12px Calibri, Arial";x.textAlign="center";x.fillText(ids.join(","),cx,cy);x.textAlign="left";});
   x.fillStyle=CHART_PALETTE.slate;x.font="11px Calibri, Arial";
-  register.slice(0,10).forEach((r,i)=>x.fillText((i+1)+" · "+truncLbl(r.risk,44)+" ("+(r.owner||"TBC")+")",R+16,T+14+i*20));
+  register.slice(0,10).forEach((r,i)=>{x.font="12px Calibri, Arial";x.fillText((i+1)+" · "+truncLblPx(x,r.risk,400)+" ("+(r.owner||"TBC")+")",R+16,T+14+i*20);});
   return chartResult(c,W,H);
 }
 function buildOptionsChart(opts,weights){
@@ -811,7 +830,7 @@ function buildOptionsChart(opts,weights){
   x.fillStyle=CHART_PALETTE.petrol;x.font="bold 15px Calibri, Arial";x.fillText("Weighted option assessment (score out of 5)",20,24);
   const scores=opts.map(o=>weightedScore(o,weights));const leader=Math.max(...scores);
   opts.forEach((o,i)=>{const y=58+i*rowH;const s=scores[i];const bw=(W-360)*(s/5);
-    x.font="12px Calibri, Arial";x.fillStyle=CHART_PALETTE.slate;x.textAlign="right";x.fillText(truncLbl(o.name,30),220,y+12);x.textAlign="left";
+    x.font="12px Calibri, Arial";x.fillStyle=CHART_PALETTE.slate;x.textAlign="right";x.fillText(truncLblPx(x,o.name,200),220,y+12);x.textAlign="left";
     x.fillStyle=CHART_PALETTE.line;x.fillRect(230,y,W-360,24);
     x.fillStyle=s===leader?CHART_PALETTE.green:CHART_PALETTE.petrol;x.fillRect(230,y,Math.max(bw,3),24);
     x.fillStyle=CHART_PALETTE.slate;x.font="bold 12px Calibri, Arial";x.fillText(s.toFixed(2)+(s===leader?"  ← leads":""),240+Math.max(bw,3),y+12);});
@@ -975,7 +994,7 @@ function buildForcesTraditionalChart(porter){
     x.strokeStyle=CHART_PALETTE.petrol;x.lineWidth=center?2.5:1.5;
     x.fillRect(cx-bw/2,cy-bh/2,bw,bh);x.strokeRect(cx-bw/2,cy-bh/2,bw,bh);
     x.fillStyle=CHART_PALETTE.petrol;x.font="bold 12.5px Calibri, Arial";x.textAlign="center";
-    x.fillText(truncLbl(k,28),cx,cy-12);
+    x.fillText(truncLblPx(x,k,190),cx,cy-12);
     x.fillStyle="#2E2A26";x.font="bold 15px Calibri, Arial";x.fillText(v.toFixed(1)+" / 5 · "+(v>=3.5?"strong":v>=2.5?"moderate":"weak"),cx,cy+12);
     x.textAlign="left";
   };
@@ -1005,15 +1024,16 @@ function buildChessFunnelChart(quad,boardCount,keptNames){
   const band=(y,wTop,wBot,h,fill,l1,l2)=>{
     x.beginPath();x.moveTo(cx-wTop/2,y);x.lineTo(cx+wTop/2,y);x.lineTo(cx+wBot/2,y+h);x.lineTo(cx-wBot/2,y+h);x.closePath();
     x.fillStyle=fill;x.fill();x.strokeStyle=CHART_PALETTE.petrol;x.lineWidth=1.5;x.stroke();
+    const availWidth=(wTop+wBot)/2*0.85; // trapezoid narrows top-to-bottom; text sits mid-height, so use the midpoint width with margin for the slant
     x.fillStyle="#2E2A26";x.font="bold 13px Calibri, Arial";x.textAlign="center";
-    x.fillText(l1,cx,y+h/2-8);
-    x.font="12px Calibri, Arial";x.fillText(truncLbl(l2,72),cx,y+h/2+12);x.textAlign="left";
+    x.fillText(truncLblPx(x,l1,availWidth),cx,y+h/2-8);
+    x.font="12px Calibri, Arial";x.fillText(truncLblPx(x,l2,availWidth),cx,y+h/2+12);x.textAlign="left";
   };
   band(48,620,470,80,"#E6F0EA","4 base strategies (power balance)","Chosen: "+(quad||"—"));
   band(140,470,320,80,"#F7EFD8",(boardCount||0)+" method(s) shortlisted from the 64-cell open board","(CategoryAI's own board, similar to the A.T. Kearney chessboard; licensed ATK data pluggable via Admin)");
   band(232,320,200,80,"rgba(15,94,86,0.18)",(kept.length)+" play(s) kept by the manager","These drive the levers, roadmap and negotiation plan");
   x.fillStyle=CHART_PALETTE.slate;x.font="12px Calibri, Arial";
-  kept.forEach((k2,i)=>x.fillText("★ "+truncLbl(k2,60),cx-150,340+i*18));
+  kept.forEach((k2,i)=>x.fillText("★ "+truncLblPx(x,k2,480),cx-150,340+i*18));
   if(!kept.length){x.fillText("No plays kept yet — tick 'Keep' on the Chessboard step.",cx-150,340);}
   return chartResult(c,W,H);
 }
@@ -1025,7 +1045,7 @@ function buildShouldCostChart(drivers, categoryName){
   entries.forEach(([id,d],i)=>{
     const y=54+i*rowH; const w=Number(d.weight)||0; const bw=(W-330)*(w/max);
     x.font="12px Calibri, Arial";x.fillStyle=CHART_PALETTE.slate;x.textAlign="right";
-    x.fillText(truncLbl(COST_DRIVER_LIBRARY[id]||id,28),190,y+10);x.textAlign="left";
+    x.fillText(truncLblPx(x,COST_DRIVER_LIBRARY[id]||id,175),190,y+10);x.textAlign="left";
     x.fillStyle=d.conf==="user"?CHART_PALETTE.petrol:CHART_PALETTE.amber;
     x.fillRect(200,y,Math.max(bw,3),20);
     x.fillStyle=CHART_PALETTE.slate;x.fillText(w+"%",206+Math.max(bw,3),y+10);
@@ -1044,7 +1064,7 @@ function buildForcesRadarChart(porter){
   keys.forEach((k,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;
     x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+R*Math.cos(a),cy+R*Math.sin(a));x.strokeStyle=CHART_PALETTE.line;x.stroke();
     x.fillStyle=CHART_PALETTE.slate;x.font="bold 12px Calibri, Arial";x.textAlign=Math.cos(a)>0.3?"left":Math.cos(a)<-0.3?"right":"center";
-    x.fillText(k+" ("+porter[k].toFixed(1)+")",cx+(R+14)*Math.cos(a),cy+(R+14)*Math.sin(a));});
+    x.fillText(truncLblPx(x,k,130)+" ("+porter[k].toFixed(1)+")",cx+(R+14)*Math.cos(a),cy+(R+14)*Math.sin(a));});
   x.textAlign="left";
   x.beginPath();
   keys.forEach((k,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;const r=R*Math.min(5,Math.max(0,porter[k]))/5;const px=cx+r*Math.cos(a),py=cy+r*Math.sin(a);i?x.lineTo(px,py):x.moveTo(px,py);});
@@ -1065,7 +1085,7 @@ function buildCategoryKraljicChart(quadrant,supplyRisk,businessImpact,name){
   x.textAlign="center";x.fillText("Profit / spend impact →",(L+R)/2,H-22);x.textAlign="left";
   const px=L+(Math.min(5,businessImpact)/5)*(R-L), py=B-(Math.min(5,supplyRisk)/5)*(B-T);
   x.beginPath();x.arc(px,py,20,0,Math.PI*2);x.fillStyle="rgba(15,94,86,0.55)";x.fill();x.strokeStyle=CHART_PALETTE.petrol;x.lineWidth=2;x.stroke();
-  x.fillStyle="#2E2A26";x.font="11px Calibri, Arial";x.textAlign="center";x.fillText(truncLbl(name,26)+" ("+businessImpact.toFixed(1)+", "+supplyRisk.toFixed(1)+")",px,py+34);x.textAlign="left";
+  x.fillStyle="#2E2A26";x.font="11px Calibri, Arial";x.textAlign="center";x.fillText(truncLblPx(x,name,140)+" ("+businessImpact.toFixed(1)+", "+supplyRisk.toFixed(1)+")",px,py+34);x.textAlign="left";
   return chartResult(c,W,H);
 }
 function buildSupplierScatterChart(suppliers){
@@ -1089,7 +1109,7 @@ function buildSupplierScatterChart(suppliers){
       const px=L+((Math.min(5,Math.max(1,s.capability))-0.5)/5)*(R-L) + (group.length>1?(gi-(group.length-1)/2)*16:0);
       const py=B-((Math.min(5,Math.max(1,s.alignment))-0.5)/5)*(B-T);
       x.beginPath();x.arc(px,py,9,0,Math.PI*2);x.fillStyle="rgba(201,154,46,0.6)";x.fill();x.strokeStyle=CHART_PALETTE.petrol;x.lineWidth=1.5;x.stroke();
-      x.fillStyle="#2E2A26";x.font="10.5px Calibri, Arial";x.textAlign="center";x.fillText(truncLbl(s.name,18),px,py+20+gi*13);x.textAlign="left";
+      x.fillStyle="#2E2A26";x.font="10.5px Calibri, Arial";x.textAlign="center";x.fillText(truncLblPx(x,s.name,100),px,py+20+gi*13);x.textAlign="left";
     });
   });
   return chartResult(c,W,H);
@@ -1165,7 +1185,7 @@ function buildCepMarkdown(profile, d, internal, suppliers, strategy, pitch, rese
       }).join(", ")
     : "[No suppliers assessed yet]";
   md += `| ${forcesCell} | ${supplierCell} |\n\n`;
-  if(d?.porter) md += `@@CHART:catforces5@@\n\n`;
+  if(d?.porter) md += `@@CHART:catforcesradar@@\n\n`;
   if(suppliers&&suppliers.length) md += `@@CHART:catsuppliers@@\n\n`;
 
   md += `| 3-year plan | Near-term actions |\n|---|---|\n`;
@@ -1179,29 +1199,16 @@ function buildCepMarkdown(profile, d, internal, suppliers, strategy, pitch, rese
 
   md += `\n## Disruptors & developments — future of the category\n\n`;
   if(research?.disruptions?.length){
-    // Grouped by category rather than a flat list — a horizon-scan reads
-    // more usefully clustered (Supply chain / Technology / Regulatory /
-    // Geopolitical / Economic / Market & competitive / Environmental &
-    // climate) than as an undifferentiated table.
-    const byCategory = {};
+    md += `| Category | What? | Impact | Response |\n|---|---|---|---|\n`;
     research.disruptions.forEach(x=>{
-      const cat = x.category || "Uncategorised";
-      (byCategory[cat] = byCategory[cat] || []).push(x);
-    });
-    Object.entries(byCategory).forEach(([cat, items])=>{
-      md += `**${cat}**\n\n`;
-      md += `| What? | Impact | AI-drafted response |\n|---|---|---|\n`;
-      items.forEach(x=>{
-        const response = x.suggestedResponse
-          ? "[AI draft — review before use] "+x.suggestedResponse.replace(/\n/g," ")
-          : "[To complete — add your response]";
-        md += `| ${(x.disruption||"").replace(/\n/g," ")} | ${(x.impact||"").replace(/\n/g," ")} | ${response} |\n`;
-      });
-      md += `\n`;
+      const response = x.suggestedResponse
+        ? "**[AI DRAFT]** "+x.suggestedResponse.replace(/\n/g," ")+" _(review before use)_"
+        : "[To complete — add your response]";
+      md += `| **${x.category||"—"}** | ${(x.disruption||"").replace(/\n/g," ")} | ${(x.impact||"").replace(/\n/g," ")} | ${response} |\n`;
     });
   } else {
-    md += `| What? | Impact | Response |\n|---|---|---|\n`;
-    md += `| [Run the Research Assistant (Step 3) to populate this from live market disruptions] | | |\n`;
+    md += `| Category | What? | Impact | Response |\n|---|---|---|---|\n`;
+    md += `| | [Run the Research Assistant (Step 3) to populate this from live market disruptions] | | |\n`;
   }
   return md;
 }
@@ -1256,8 +1263,165 @@ function renderCepPreview(md){
    downloads exactly, not two separately-maintained chart lists. */
 function populateCepCharts(d, suppliers){
   window.__docxCharts = window.__docxCharts || {};
-  if(d && d.porter) window.__docxCharts.catforces5 = buildForcesTraditionalChart(d.porter);
+  if(d && d.porter) window.__docxCharts.catforcesradar = buildForcesRadarChart(d.porter);
   if(suppliers && suppliers.length) window.__docxCharts.catsuppliers = buildSupplierScatterChart(suppliers);
+}
+/* v2.40 — fully custom CEP docx, replacing the generic markdown→table
+   pipeline for this ONE export specifically. The generic pipeline
+   (mdToDocxChildren) can't produce cell shading/colours, which is most
+   of what makes the real reference template read as professional
+   rather than a plain Word table. Built directly against the docx
+   library's Table/TableCell/shading/ImageRun API — the same API
+   surface mdToDocxChildren already uses successfully, just used more
+   directly here for layout control. Falls back to the old markdown
+   path if the docx library fails to load, same fallback pattern as
+   downloadAsWord. */
+async function downloadCepDocx(profile, d, internal, suppliers, strategy, pitch, research, cl, demandForecast){
+  const dx = await ensureDocx();
+  const slug = (profile.name||"category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"category";
+  if(!dx){
+    const md = buildCepMarkdown(profile,d,internal,suppliers,strategy,pitch,research,cl,demandForecast);
+    await downloadAsWord(md, slug+"-execution-plan");
+    return;
+  }
+  populateCepCharts(d, suppliers);
+  const PETROL="0F5E56", AMBER="D8A441", INK="1A1A1A", SLATE="5A6068", AI_COLOR="8A3B6B";
+  const SHADE_HDR=PETROL, SHADE_LABEL="EAF3F0", SHADE_AMBER="FBF3DC";
+
+  const imgRun=(chartKey,maxW)=>{
+    const ch=window.__docxCharts&&window.__docxCharts[chartKey];
+    if(!ch||!ch.dataUrl) return null;
+    try{
+      const b64=ch.dataUrl.split(",")[1];
+      const bin=atob(b64); const bytes=new Uint8Array(bin.length);
+      for(let k=0;k<bin.length;k++) bytes[k]=bin.charCodeAt(k);
+      const scale=Math.min(1,maxW/ch.width);
+      return new dx.ImageRun({type:"png",data:bytes,transformation:{width:Math.round(ch.width*scale),height:Math.round(ch.height*scale)}});
+    }catch(e){ return null; }
+  };
+  const P=(text,opts={})=>new dx.Paragraph({children:[new dx.TextRun({text:String(text||""),size:opts.size||18,bold:!!opts.bold,italics:!!opts.italics,color:opts.color||INK})],spacing:{after:opts.after??60}});
+  const cell=(children,opts={})=>new dx.TableCell({
+    children:Array.isArray(children)?children:[children],
+    shading:opts.shade?{fill:opts.shade}:undefined,
+    width:opts.width?{size:opts.width,type:dx.WidthType.PERCENTAGE}:undefined,
+    margins:{top:100,bottom:100,left:130,right:130},
+    verticalAlign:opts.valign,
+  });
+  const labelCell=(text,width)=>cell(P(text,{bold:true,color:PETROL,size:19}),{shade:SHADE_LABEL,width});
+  const hdrCellDark=(children,width)=>cell(children,{shade:SHADE_HDR,width});
+
+  const spend=internal?.spend;
+  const spendStr = spend ? "$"+(spend.total/1e6).toFixed(1)+"m" : "[To complete]";
+  const scopeStr = profile.sector||"[sector not set]";
+  const summary = (pitch&&pitch.text) ? pitch.text : (strategy?.executiveSummary) ? strategy.executiveSummary : "[To complete — generate the strategy or the elevator pitch for a summary here.]";
+  const dateStr = new Date().toISOString().slice(0,10);
+
+  // Header row — category / spend+PSL / scope, matching the template's 3-column top band
+  const headerRow=new dx.Table({
+    width:{size:100,type:dx.WidthType.PERCENTAGE},
+    borders:{top:{style:dx.BorderStyle.NONE},bottom:{style:dx.BorderStyle.NONE},left:{style:dx.BorderStyle.NONE},right:{style:dx.BorderStyle.NONE},insideHorizontal:{style:dx.BorderStyle.NONE},insideVertical:{style:dx.BorderStyle.NONE}},
+    rows:[new dx.TableRow({children:[
+      hdrCellDark([new dx.Paragraph({children:[new dx.TextRun({text:(profile.name||"[Category name]").toUpperCase(),bold:true,color:"FFFFFF",size:26})]}),
+                   new dx.Paragraph({children:[new dx.TextRun({text:"Category Execution Plan · "+dateStr,color:"D9E4E1",size:16})],spacing:{before:20}})],45),
+      hdrCellDark([new dx.Paragraph({children:[new dx.TextRun({text:"Spend ",color:"FFFFFF",size:18}),new dx.TextRun({text:spendStr,bold:true,color:AMBER,size:20})]}),
+                   new dx.Paragraph({children:[new dx.TextRun({text:"PSL ",color:"FFFFFF",size:18}),new dx.TextRun({text:spend?(spend.top3Share*100).toFixed(0)+"%":"[To complete]",bold:true,color:AMBER,size:20})],spacing:{before:20}})],25),
+      hdrCellDark([new dx.Paragraph({children:[new dx.TextRun({text:"Scope: ",bold:true,color:"FFFFFF",size:17}),new dx.TextRun({text:scopeStr,color:"FFFFFF",size:17})]})],30),
+    ]})]
+  });
+
+  // 2x2 grid — Spend profile / Demand & strategy // Five Forces (radar) / Supplier landscape
+  const demandCell=[
+    (demandForecast&&demandForecast.length) ? "Forecast: "+demandForecast.map(f=>f.period+" "+f.amount+" ("+(f.trend||"Flat")+")").join("; ") : "",
+    (profile.pains&&profile.pains.length) ? "Pain points: "+profile.pains.join(", ") : "",
+    (strategy?.objectives?.length) ? "Objectives: "+strategy.objectives.slice(0,2).join("; ") : ""
+  ].filter(Boolean).join(". ") || "[No demand forecast or objectives captured yet]";
+  const spendCellText = spend
+    ? "Total spend "+spendStr+". Top-3 supplier concentration "+(spend.top3Share*100).toFixed(0)+"%. "+spend.suppliers.slice(0,3).map(s=>s.supplier).join(", ")
+    : (profile.notes||"[No spend data or scope notes captured yet]");
+  const supplierListText = (suppliers&&suppliers.length)
+    ? suppliers.slice(0,5).map(s=>{
+        const seg = s.capability>=3 ? (s.alignment>=3?"Strategic partner":"Transactional expert") : (s.alignment>=3?"Develop":"Tactical");
+        return s.name+" ("+seg+")";
+      }).join(", ")
+    : "[No suppliers assessed yet]";
+  const radarImg=imgRun("catforcesradar",250);
+  const suppImg=imgRun("catsuppliers",250);
+
+  const grid=new dx.Table({
+    width:{size:100,type:dx.WidthType.PERCENTAGE},
+    borders:{top:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},bottom:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},left:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},right:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},insideHorizontal:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},insideVertical:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"}},
+    rows:[
+      new dx.TableRow({children:[labelCell("Spend profile",50),labelCell("Known demand & business strategy",50)]}),
+      new dx.TableRow({children:[cell(P(spendCellText),{width:50,valign:dx.VerticalAlign.TOP}),cell(P(demandCell),{width:50,valign:dx.VerticalAlign.TOP})]}),
+      new dx.TableRow({children:[labelCell((profile.name||"Category")+" power — Five Forces",50),labelCell("Supplier landscape",50)]}),
+      new dx.TableRow({children:[
+        cell(radarImg?[new dx.Paragraph({children:[radarImg]})]:[P(d?.porter?"[Chart unavailable]":"[Not yet assessed — Step 5, Five Forces]")],{width:50,valign:dx.VerticalAlign.TOP}),
+        cell([P(supplierListText),...(suppImg?[new dx.Paragraph({children:[suppImg]})]:[])],{width:50,valign:dx.VerticalAlign.TOP}),
+      ]}),
+    ]
+  });
+
+  // Plan / actions — 2-column
+  const roadmapCell = strategy?.roadmap?.length
+    ? strategy.roadmap.map(p=>p.phase+": "+(p.actions||[]).slice(0,2).join("; ")).join(". ")
+    : "[To complete — generate the strategy for a roadmap]";
+  const actionsCell = strategy?.roadmap?.[0]?.actions?.length ? strategy.roadmap[0].actions.join("; ") : "[To complete]";
+  const planTable=new dx.Table({
+    width:{size:100,type:dx.WidthType.PERCENTAGE},
+    borders:{top:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},bottom:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},left:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},right:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},insideHorizontal:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},insideVertical:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"}},
+    rows:[
+      new dx.TableRow({children:[labelCell("Planned activity — 3 year plan",50),labelCell("Action plan — next 3 months",50)]}),
+      new dx.TableRow({children:[cell(P(roadmapCell),{width:50,valign:dx.VerticalAlign.TOP}),cell(P(actionsCell),{width:50,valign:dx.VerticalAlign.TOP})]}),
+    ]
+  });
+
+  // Page 2 — disruptors, single table with a Category column (matches
+  // the reference template's actual layout), AI-draft response visually
+  // prominent rather than a plain-text prefix.
+  const disruptHeader=new dx.Paragraph({children:[new dx.TextRun({text:"DISRUPTORS & DEVELOPMENTS — FUTURE OF THE CATEGORY",bold:true,color:"FFFFFF",size:22})],
+    shading:{fill:PETROL},spacing:{before:0,after:200},pageBreakBefore:true});
+  const dRows=[new dx.TableRow({children:[
+    cell(P("Category",{bold:true,color:"FFFFFF"}),{shade:PETROL,width:15}),
+    cell(P("What?",{bold:true,color:"FFFFFF"}),{shade:PETROL,width:25}),
+    cell(P("Impact",{bold:true,color:"FFFFFF"}),{shade:PETROL,width:25}),
+    cell(P("Response",{bold:true,color:"FFFFFF"}),{shade:PETROL,width:35}),
+  ]})];
+  if(research?.disruptions?.length){
+    research.disruptions.forEach((x,i)=>{
+      const respChildren = x.suggestedResponse
+        ? [new dx.Paragraph({children:[new dx.TextRun({text:"AI DRAFT — review before use",bold:true,color:AI_COLOR,size:16})]}),
+           new dx.Paragraph({children:[new dx.TextRun({text:x.suggestedResponse,size:18})]})]
+        : [P("[To complete — add your response]",{italics:true,color:SLATE})];
+      dRows.push(new dx.TableRow({children:[
+        cell(P(x.category||"—",{bold:true,color:PETROL,size:17}),{shade:i%2?"F7F6F2":undefined}),
+        cell(P(x.disruption||""),{shade:i%2?"F7F6F2":undefined}),
+        cell(P(x.impact||""),{shade:i%2?"F7F6F2":undefined}),
+        cell(respChildren,{shade:i%2?SHADE_AMBER:SHADE_AMBER}),
+      ]}));
+    });
+  } else {
+    dRows.push(new dx.TableRow({children:[cell(P("")),cell(P("[Run the Research Assistant (Step 3) to populate this from live market disruptions]")),cell(P("")),cell(P(""))]}));
+  }
+  const disruptTable=new dx.Table({
+    width:{size:100,type:dx.WidthType.PERCENTAGE},
+    borders:{top:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},bottom:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},left:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},right:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},insideHorizontal:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"},insideVertical:{style:dx.BorderStyle.SINGLE,size:4,color:"C9C5BC"}},
+    rows:dRows
+  });
+
+  const doc=new dx.Document({
+    styles:{default:{document:{run:{font:"Calibri",size:18},paragraph:{spacing:{after:60,line:250}}}}},
+    sections:[{properties:{page:{margin:{top:600,bottom:600,left:700,right:700}}},children:[
+      headerRow, new dx.Paragraph({text:"",spacing:{after:100}}),
+      P(summary,{size:19}), new dx.Paragraph({text:"",spacing:{after:80}}),
+      grid, new dx.Paragraph({text:"",spacing:{after:160}}),
+      planTable,
+      disruptHeader, disruptTable,
+    ]}]
+  });
+  const blob=await dx.Packer.toBlob(doc);
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=slug+"-execution-plan.docx"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
 async function downloadAsWord(md,baseName){
   // Try real .docx first; fall back to legacy HTML-in-.doc
@@ -1761,7 +1925,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
-        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.39.1 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
+        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.40.0 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
       </div>
     )]
   ];
@@ -1895,7 +2059,7 @@ function TourOverlay({tour,setTour,setStep}){
 }
 
 /* ================= SMALL PARTS ================= */
-/* v2.39.1 — the header status chip claimed "AI ready" purely from "a key
+/* v2.40.0 — the header status chip claimed "AI ready" purely from "a key
    string is present," with no relation to whether Test Connection had
    ever actually been run or had just failed — confirmed confusing when
    a test returns a 401 and the header immediately contradicts it. Can't
@@ -1933,7 +2097,7 @@ function AIStatusChip(){
   );
 }
 
-/* v2.39.1 — the raw key value previously sat continuously in the input's
+/* v2.40.0 — the raw key value previously sat continuously in the input's
    DOM value attribute (even with type="password") the entire time an AI
    settings panel was open, for as long as a key was saved — not just
    while being typed. type="password" only masks the visual rendering;
@@ -3608,7 +3772,7 @@ Respond ONLY with JSON, no markdown fences:
     setBusy(false);
   }
   function buildMd(){
-    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.39.1 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
+    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.40.0 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
     if(!strategy) md+=`**⚠ DRAFT — Generate Strategy has not been run (or did not complete).** Executive Summary, Objectives, Negotiation Approach, Roadmap, Risk register and Data gaps are not yet included below. This is a partial export, not a finished strategy.\n\n`;
     md+=`**Kraljic:** ${d.quadrant} (supply risk ${d.supplyRisk.toFixed(1)}/5, business impact ${d.businessImpact.toFixed(1)}/5)\n\n`;
     /* v2.13 — decision-paper order (per the management documents): summary,
@@ -3788,7 +3952,7 @@ Respond ONLY with JSON, no markdown fences:
       const pptx=new PGJ(); pptx.layout="LAYOUT_WIDE";
       pptx.defineSlideMaster({title:"MAIN",background:{color:"FFFFFF"},objects:[
         {rect:{x:0,y:0,w:"100%",h:0.35,fill:{color:P}}},
-        {text:{text:"CategoryAI Strategic Category Suite v2.39.1",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
+        {text:{text:"CategoryAI Strategic Category Suite v2.40.0",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
       const slide=(title)=>{const s=pptx.addSlide({masterName:"MAIN"}); if(title) s.addText(title,{x:0.4,y:0.5,w:12.5,h:0.6,fontSize:26,bold:true,color:INKC,fontFace:"Calibri"}); return s;};
       const tblOpts={x:0.4,y:1.3,w:12.5,fontSize:11,color:INKC,border:{pt:0.5,color:"D8DCE0"},fill:{color:"FFFFFF"},autoPage:true,autoPageRepeatHeader:true};
       const hdr=t=>t.map(x=>({text:x,options:{bold:true,fill:{color:"EEF4F1"},color:INKC}}));
@@ -4007,7 +4171,7 @@ Respond ONLY with JSON, no markdown fences:
           <button className="btn dark" disabled={busy} onClick={generate} title="Checks completeness first (you'll see any missing inputs and choose to continue with available data), then sends everything you've entered — with confidence flags — to the AI, which writes the full strategy document below.">{busy?"Synthesising…":strategy?"↻ Regenerate strategy":"⚡ Generate strategy"}</button>
           <span style={{flexBasis:"100%", fontSize:10.5, fontWeight:800, color:"var(--slate)", textTransform:"uppercase", letterSpacing:"0.05em", marginTop:6}}>Outputs — one strategy, several formats:</span>
           <button className="btn primary" onClick={async()=>{ if(!strategy && !(await confirmAsync("No completed strategy synthesis yet — this Word document will be missing several sections (executive summary, objectives, roadmap, and likely Chessboard/Cost drivers/Suppliers/Risk register too).\n\nDownload the incomplete document anyway?"))) return; downloadDoc(); }} title="Downloads the full strategy as a real Word document (.docx, with automatic .doc fallback offline) — the format to circulate to stakeholders.">⬇ Download Word document (.docx)</button>
-          <button className="btn" onClick={async()=>{ const d=deriveScores(vars,generic); populateCepCharts(d,suppliers); const md=buildCepMarkdown(profile,d,internal,suppliers,strategy,pitch,research,cl,demandForecast); const slug=(profile.name||"category").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"category"; await downloadAsWord(md,slug+"-execution-plan"); }} title="A dense, 2-page at-a-glance summary — spend/scope, position, 3-year plan and disruptors, with Five Forces and supplier landscape charts embedded. Distinct from the full strategy document; built from whatever's in this session, [To complete] markers where data isn't captured yet.">⬇ 2-page Category Execution Plan</button>
+          <button className="btn" onClick={async()=>{ const d=deriveScores(vars,generic); await downloadCepDocx(profile,d,internal,suppliers,strategy,pitch,research,cl,demandForecast); }} title="A dense, 2-page at-a-glance summary matching a real corporate CEP template — spend/scope, position with a Five Forces spider diagram, 3-year plan and categorised disruptors with AI-drafted responses. Distinct from the full strategy document; [To complete] markers where data isn't captured yet.">⬇ 2-page Category Execution Plan</button>
           <button className="btn ghost" onClick={()=>{ if(!cepPreviewOpen){ populateCepCharts(deriveScores(vars,generic),suppliers); } setCepPreviewOpen(o=>!o); }}>{cepPreviewOpen?"▲ Hide preview":"👁 Preview before downloading"}</button>
           {cepPreviewOpen && (
             <div className="card" style={{marginTop:10,background:"var(--paper)",border:"1px solid var(--line)"}}>
@@ -4431,7 +4595,7 @@ Give ${already?"3-5":"5-8"} pestleRegulatory items and ${already?"2-3":"3-5"} di
                 <td style={{fontSize:11,fontWeight:700,color:"var(--mulberry)"}}>{r.category||"—"}</td>
                 <td><b>{r.disruption}</b></td>
                 <td>{r.impact}</td>
-                <td style={{fontSize:11.5}}>{r.suggestedResponse||"—"}</td>
+                <td style={{fontSize:11.5}}>{r.suggestedResponse?(<><span className="badge ai" style={{fontSize:8.5,display:"block",width:"fit-content",marginBottom:3}}>AI DRAFT</span>{r.suggestedResponse}</>):"—"}</td>
                 <td style={{fontSize:11.5}}>{r.url?<a href={r.url} target="_blank" rel="noreferrer">{r.source||r.url}</a>:(r.source||"—")}</td>
               </tr>))}
           </tbody></table>
@@ -5569,7 +5733,7 @@ CATEGORY ARCHETYPES:\n${Object.entries(CATEGORY_ARCHETYPES).map(([k,a])=>{const 
     setQ(""); setBusy(true);
     try{
       const text=await askClaude(
-        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.39.1): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.39.1 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 9-sheet .xlsx (Read me with full scoring criteria, Profile, Market & Internal Variables, Spend — folds in what used to be a separate .csv upload, auto-infers supplier concentration — Suppliers, Risks, Contracts, Demand forecast, Stakeholders/Mendelow grid, Supplier performance which adds to SRM history rather than replacing it); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed). (8) UX additions (v2.35-v2.38): 🔎 Find (header) — keyword search across every screen's name and description, click to jump; 📁 My Categories (header) — create and switch between multiple genuinely independent standalone categories in the same browser, with delete; AI-generated output sections across most Category steps are now individually collapsible (closed by default), input fields and action buttons always stay visible; a phase chevron banner (Define/Understand/Strategise/Source/Contract & Manage/Output) shows at the top of every Category step; a 2-page Category Execution Plan export (Step 14) with an on-screen preview before downloading; Module Review's per-module Word exports now embed that module's actual chart image, not just its data table, including a new should-cost breakdown chart.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
+        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.40.0): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.40.0 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 9-sheet .xlsx (Read me with full scoring criteria, Profile, Market & Internal Variables, Spend — folds in what used to be a separate .csv upload, auto-infers supplier concentration — Suppliers, Risks, Contracts, Demand forecast, Stakeholders/Mendelow grid, Supplier performance which adds to SRM history rather than replacing it); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed). (8) UX additions (v2.35-v2.38): 🔎 Find (header) — keyword search across every screen's name and description, click to jump; 📁 My Categories (header) — create and switch between multiple genuinely independent standalone categories in the same browser, with delete; AI-generated output sections across most Category steps are now individually collapsible (closed by default), input fields and action buttons always stay visible; a phase chevron banner (Define/Understand/Strategise/Source/Contract & Manage/Output) shows at the top of every Category step; a 2-page Category Execution Plan export (Step 14) with an on-screen preview before downloading; Module Review's per-module Word exports now embed that module's actual chart image, not just its data table, including a new should-cost breakdown chart.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
         false, false);
       setMsgs(m=>[...m,{role:"assistant",text}]);
     }catch(e){ setMsgs(m=>[...m,{role:"assistant",text:e.message}]); }
@@ -10251,8 +10415,8 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.39.1</span></div>
-          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.39.1 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.40.0</span></div>
+          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.40.0 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <AIStatusChip/>
