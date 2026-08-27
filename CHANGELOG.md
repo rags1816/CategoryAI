@@ -1,5 +1,51 @@
 # CategoryAI — Changelog
 
+## v2.40.0
+### Fixed — systemic chart text truncation (all 9 chart functions, not just Five Forces)
+- Root cause: `truncLbl()` truncated by a fixed *character count*, not
+  actual rendered pixel width — inherently fragile since character
+  width varies by font weight/size. Replaced with `truncLblPx()`, which
+  measures real pixel width via `ctx.measureText()` and truncates to
+  fit whatever's actually available at that point in the layout.
+- Fixed at all 10 callsites across `buildCompositionChart`,
+  `buildKraljicChart`, `buildRiskMatrixChart`, `buildOptionsChart`,
+  `buildForcesTraditionalChart`, `buildChessFunnelChart` (also fixed a
+  related gap — its "l1" band label had *no* truncation at all before),
+  `buildShouldCostChart`, `buildCategoryKraljicChart`,
+  `buildSupplierScatterChart`.
+- Also added truncation to `buildForcesRadarChart`'s axis labels, which
+  had none previously — a related gap in the exact chart now used for
+  the CEP.
+
+### Added — 2-page CEP: professional redesign matching a real reference template
+- **Five Forces spider/radar diagram** now embedded (was a bar chart) —
+  `buildForcesRadarChart` already existed and is a genuine 5-axis radar,
+  just wasn't used here. Given its own dedicated chart-registry key
+  (`catforcesradar`) rather than reusing `catforces5`, avoiding a real
+  collision risk with Module Review's and the main strategy document's
+  Five Forces exports, which correctly keep using the bar chart.
+- **Fully custom docx generator** (`downloadCepDocx`) replacing the
+  generic markdown→table pipeline for this one export — the generic
+  pipeline can't produce cell shading/colors, which is most of what
+  makes the reference template read as professional. Built directly
+  against the docx library's Table/TableCell/shading/ImageRun API:
+  dark petrol header band, shaded label cells, both chart images
+  embedded inline within their actual grid cells, proper page break
+  before page 2. Falls back to the old markdown path if the docx
+  library fails to load.
+- **Disruptors restructured** to a single table with Category as the
+  leftmost column, matching the reference template's actual layout
+  (previously grouped into separate mini-tables per category).
+- **AI-drafted responses made visually prominent**, not just plain-text
+  prefixed — a distinct "AI DRAFT — review before use" bold marker in
+  its own color, shown both in the downloaded docx and the on-screen
+  Research Assistant table (a matching badge there too).
+
+### Note
+Given this is the largest single build of the session — a systemic fix
+across 9 chart functions plus an entirely new document generator — a
+real live check matters more than usual here.
+
 ## v2.39.1
 ### Fixed
 - **Session export/import didn't carry Admin-panel customizations across
