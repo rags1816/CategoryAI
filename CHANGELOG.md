@@ -1,5 +1,25 @@
 # CategoryAI — Changelog
 
+## v2.41.0
+### Added — Category-level source document ingestion
+- Step 3 (Market info hub) can now ingest a document directly, alongside
+  the existing web-search research assistant: upload a PDF/PPTX/DOCX/TXT/MD
+  (market report, supplier proposal, internal strategy deck, etc.) and AI
+  extracts structured PESTLE findings, disruptions and candidate
+  opportunities from it — the same tables the web research assistant
+  already produces, plus Step 14's opportunities — every entry cited to
+  the uploaded document by name, never an invented publication or URL.
+- Always additive: extracted findings are appended to existing
+  research/opportunities, never replacing them, matching the established
+  pattern for Supplier performance reviews. A "Source documents ingested"
+  list tracks what's been uploaded and what each one added; removing an
+  entry from that list only removes the audit record, not the findings
+  it already produced.
+- Mirrors the Portfolio workbench's existing document ingestion
+  (`ingestSourceDocument`), reusing the same in-browser extraction
+  plumbing, but returns structured findings routed to typed fields
+  instead of one prose summary dumped into a notes field.
+
 ## v2.40.1
 ### Fixed — Research Assistant consistently omitting category/suggestedResponse
 - Confirmed via real screenshot evidence: the AI was returning rich,
