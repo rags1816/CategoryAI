@@ -1,5 +1,19 @@
 # CategoryAI — Changelog
 
+## v2.42.0
+### Added — Suggested research topics
+- Step 3 (Market info hub)'s Research Assistant now offers two suggested
+  research topics, derived purely from data the category already has
+  (matched archetype, current Kraljic position) — no AI call to generate
+  them, so they're free to preview. Clicking one runs it as a focus topic;
+  nothing executes just from being shown.
+- Fixed a real stale-closure bug caught while building this: `run()` only
+  ever read its focus topic from local state via closure, so a handler
+  that set the topic and called `run()` in the same click would have run
+  with the *previous* topic. `run()` now takes an optional override,
+  type-guarded so the existing button (still just `onClick={() => run()}`)
+  can't mistake a React event object for a topic string.
+
 ## v2.41.0
 ### Added — Category-level source document ingestion
 - Step 3 (Market info hub) can now ingest a document directly, alongside

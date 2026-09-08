@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CategoryAI · Portfolio & Category Strategy Suite · v2.41.0</title>
+<title>CategoryAI · Portfolio & Category Strategy Suite · v2.42.0</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230F5E56'/%3E%3Ctext x='50' y='68' font-size='58' font-family='Arial,sans-serif' font-weight='bold' fill='%23D8A441' text-anchor='middle'%3ECA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -465,6 +465,35 @@ function deriveScores(vars, generic){
   const supplyRiskAssumed = SUPPLY_RISK_VAR_IDS.every(isUnconfirmed);
   const businessImpactAssumed = BUSINESS_IMPACT_VAR_IDS.every(isUnconfirmed);
   return {supplyRisk,businessImpact,porter,quadrant,supplyRiskAssumed,businessImpactAssumed};
+}
+
+/* v2.42.0 — suggested research topics for the Research Assistant (Step 3).
+   Pure and derived-only: reuses matchArchetype/getArchetype (profile) and
+   deriveScores (vars/generic) exactly as StepCostLevers and Step4 already
+   do — no new AI call, so it costs nothing to show. Both clauses degrade
+   gracefully with no archetype match (matchArchetype returns null for an
+   unmatched category) or unscored vars (deriveScores still returns a valid
+   quadrant off the {value:3,conf:"assumed"} defaults from initVars). */
+function buildSuggestedResearchTopics(profile, vars, generic){
+  const archetypeKey = matchArchetype(profile.name, profile.sector);
+  const archetype = archetypeKey ? getArchetype(archetypeKey) : null;
+  const d = vars ? deriveScores(vars, generic) : null;
+  const topRisk = archetype && archetype.risks && archetype.risks[0];
+  const topDriver = archetype && archetype.demandDrivers && archetype.demandDrivers[0];
+  const quadrant = d && d.quadrant;
+  const topics = [];
+
+  let t1 = `Alternate and emerging suppliers capable of delivering ${profile.name}${profile.sector?` in ${profile.sector}`:""}`;
+  if(topRisk) t1 += `, specifically addressing ${topRisk.toLowerCase()}`;
+  if(quadrant==="Strategic"||quadrant==="Bottleneck") t1 += " and reducing single-supplier dependency";
+  topics.push({label:"Alternate supplier landscape", topic:t1});
+
+  let t2 = `Regulatory and market developments affecting ${profile.name}`;
+  if(topDriver) t2 += `, particularly around ${topDriver.toLowerCase()}`;
+  if(quadrant) t2 += `, relevant to a ${quadrant} sourcing position`;
+  topics.push({label:"Regulatory & future-scope signals", topic:t2});
+
+  return topics;
 }
 
 const LEVERS = {
@@ -1756,7 +1785,7 @@ function buildDemoState(){
 const TOUR=[
   {step:"profile",title:"🚀 Welcome — Part 1 · the CATEGORY tour (stops 1–16)",text:"A complete simulated category — Cloud Services — has been loaded, generated offline by Sandbox mode from the built-in playbook library (no key, no network; every value is labelled simulated). This first screen is the Category profile: the name drives playbook matching and every AI prompt. Two header buttons work from anywhere: 🔎 Find (jump to any screen by keyword) and 📁 My Categories (switch between, or start, multiple independent categories in this browser). Use Next to walk through all 15 modules."},
   {step:"internal",title:"📁 Internal data is optional",text:"The suite is external-data-first: a spend CSV and five internal variables sharpen the models, but skipping just switches on generic mode — nothing blocks. The demo runs generic, exactly like a manager with no internal data yet."},
-  {step:"market",title:"📡 Market info hub — the engine room",text:"Nine external market variables, each 1–5 with a confidence flag. Everything downstream — Five Forces, Kraljic, the chessboard's power balance — derives from these. Check the Module review card below: every module has one, with a chart and its own Word report."},
+  {step:"market",title:"📡 Market info hub — the engine room",text:"Nine external market variables, each 1–5 with a confidence flag. Everything downstream — Five Forces, Kraljic, the chessboard's power balance — derives from these. Further down, the Research Assistant runs live web-search deep-dives (with suggested topics derived from your archetype and Kraljic position, or a document you upload) to ground your findings in real citations. Check the Module review card below: every module has one, with a chart and its own Word report."},
   {step:"assess",title:"🧭 SWOT & PESTLE",text:"AI-drafted from the buyer's perspective and fully editable — edit any cell and its flag flips to User. Sequence matters: Step 3's research assistant gathers the evidence; this step synthesises it — generation is grounded in those findings when present (the banner tells you which mode you're in)."},
   {step:"forces",title:"⚖️ Five Forces — derived, not entered",text:"Each force is computed live from the market variables (the formulas are shown under each force). The diagram and the pentagon radar update the moment a market score changes."},
   {step:"kraljic",title:"🧮 Kraljic positioning",text:"Supply risk × business impact places the category in a quadrant and sets the overall posture — partner, compete, secure or minimise — with canonical levers for each."},
@@ -1925,7 +1954,7 @@ function AboutScreen({setStep,startDemoTour,setAiOpen,profileNamed,onClose}){
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Multi-user approval routing — parked (server phase).</b> Routing a report to several named approvers needs real identities and notifications; a single-file browser app cannot do that honestly — it would only simulate sign-off. Comes with the server phase, together with:</div>
         <div className="hint" style={{margin:"0 0 5px"}}>🅿 <b>Central user management & roles</b> — real authentication replacing the local user register in 🛠 Admin (same server dependency).</div>
         <div className="hint" style={{margin:0}}>🅿 <b>Licensed ATK Chessboard data — pending on your instruction.</b> The plug-in slot is live (🛠 Admin → ♟ Chessboard); the app ships CategoryAI's own 64-cell board ("similar to" the A.T. Kearney model) until your organisation's licence populates the official one.</div>
-        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.41.0 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
+        <div className="hint" style={{margin:"10px 0 0",paddingTop:8,borderTop:"1px solid var(--line)"}}>🕐 <b>Version history:</b> current build v2.42.0 · category baseline frozen at v1.2.1 · portfolio track frozen at v2.12.0 (commit bbf2fc5c…).</div>
       </div>
     )]
   ];
@@ -3782,7 +3811,7 @@ Respond ONLY with JSON, no markdown fences:
     setBusy(false);
   }
   function buildMd(){
-    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.41.0 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
+    let md=`# Category Strategy — ${profile.name}\n_CategoryAI Strategic Category Suite v2.42.0 · ${new Date().toISOString().slice(0,10)}${generic?" · GENERIC MODE (external data only)":""}_\n\n`;
     if(!strategy) md+=`**⚠ DRAFT — Generate Strategy has not been run (or did not complete).** Executive Summary, Objectives, Negotiation Approach, Roadmap, Risk register and Data gaps are not yet included below. This is a partial export, not a finished strategy.\n\n`;
     md+=`**Kraljic:** ${d.quadrant} (supply risk ${d.supplyRisk.toFixed(1)}/5, business impact ${d.businessImpact.toFixed(1)}/5)\n\n`;
     /* v2.13 — decision-paper order (per the management documents): summary,
@@ -3962,7 +3991,7 @@ Respond ONLY with JSON, no markdown fences:
       const pptx=new PGJ(); pptx.layout="LAYOUT_WIDE";
       pptx.defineSlideMaster({title:"MAIN",background:{color:"FFFFFF"},objects:[
         {rect:{x:0,y:0,w:"100%",h:0.35,fill:{color:P}}},
-        {text:{text:"CategoryAI Strategic Category Suite v2.41.0",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
+        {text:{text:"CategoryAI Strategic Category Suite v2.42.0",options:{x:0.3,y:7.05,w:8,h:0.3,fontSize:9,color:SL}}}]});
       const slide=(title)=>{const s=pptx.addSlide({masterName:"MAIN"}); if(title) s.addText(title,{x:0.4,y:0.5,w:12.5,h:0.6,fontSize:26,bold:true,color:INKC,fontFace:"Calibri"}); return s;};
       const tblOpts={x:0.4,y:1.3,w:12.5,fontSize:11,color:INKC,border:{pt:0.5,color:"D8DCE0"},fill:{color:"FFFFFF"},autoPage:true,autoPageRepeatHeader:true};
       const hdr=t=>t.map(x=>({text:x,options:{bold:true,fill:{color:"EEF4F1"},color:INKC}}));
@@ -4550,11 +4579,14 @@ function ForcesRadar({porter}){
   );
 }
 
-function ResearchCard({profile,research,setResearch,opps,setOpps}){
+function ResearchCard({profile,research,setResearch,opps,setOpps,vars,generic}){
   const [busy,setBusy]=useState(false);
   const [err,setErr]=useState("");
   const [topic,setTopic]=useState("");
   const already=(research&&((research.pestleRegulatory||[]).length||(research.disruptions||[]).length))?research:null;
+  /* v2.42.0 — suggested topics: pure/derived, no AI call, safe to compute
+     on every render (see buildSuggestedResearchTopics near deriveScores). */
+  const suggestedTopics = buildSuggestedResearchTopics(profile, vars, generic);
   /* v2.41 — Category-level source-document ingestion. Mirrors the Portfolio
      workbench's ingestSourceDocument (StepPortfolioSetup), reusing the same
      extractDocumentText() plumbing, but goes further: instead of one prose
@@ -4607,11 +4639,18 @@ ${excerpt}`,
     if(!(await confirmAsync("Remove this document from the list? (Findings it already added to research/opportunities stay — this only removes the record of having uploaded it.)"))) return;
     setResearch({...research, sourceDocs: sourceDocs.filter((_,idx)=>idx!==i)});
   }
-  async function run(){
+  async function run(topicOverride){
+    /* v2.42.0 — accepts an optional topic override so a suggestion chip can
+       set the visible topic field AND run with that exact value in one
+       click, without hitting a stale-closure read of `topic` (setTopic is
+       async). Guarded by typeof so the existing button's onClick — which
+       must call run() with no args, not be passed as onClick={run} — can
+       never mistake a stray argument for a topic string. */
+    const useTopic = typeof topicOverride==="string" ? topicOverride : topic;
     setBusy(true); setErr("");
     try{
       const out=await askClaude(
-        `You are a procurement research analyst with web search. Do a deep-dive on the supply market for the category "${profile.name}" (sector ${profile.sector||"unspecified"}, region ${profile.region||"Global"}).${profile.specs?" What's actually being bought/required: "+profile.specs:""}${profile.notes?" Scope & context: "+profile.notes:""}${profile.pains?.length?" Known pain points to research into: "+profile.pains.join("; ")+".":""}${topic?`, with special focus on: "${topic}"`:""}. Search for the LATEST information and cite real sources (publication + URL) for every finding. For EVERY disruption you report, you MUST classify it into exactly one category from the fixed list below AND draft a one-sentence suggested response — these two fields are not optional extras, they are as mandatory as the disruption text itself; do not return a disruption entry without them.${already?" Already found (do NOT repeat these — find DIFFERENT ones): PESTLE — "+(already.pestleRegulatory||[]).map(r=>r.finding).join("; ")+". Disruptions — "+(already.disruptions||[]).map(r=>r.disruption).join("; ")+".":""}
+        `You are a procurement research analyst with web search. Do a deep-dive on the supply market for the category "${profile.name}" (sector ${profile.sector||"unspecified"}, region ${profile.region||"Global"}).${profile.specs?" What's actually being bought/required: "+profile.specs:""}${profile.notes?" Scope & context: "+profile.notes:""}${profile.pains?.length?" Known challenges to research into: "+profile.pains.join("; ")+".":""}${useTopic?`, with special focus on: "${useTopic}"`:""}. Search for the LATEST information and cite real sources (publication + URL) for every finding. For EVERY disruption you report, you MUST classify it into exactly one category from the fixed list below AND draft a one-sentence suggested response — these two fields are not optional extras, they are as mandatory as the disruption text itself; do not return a disruption entry without them.${already?" Already found (do NOT repeat these — find DIFFERENT ones): PESTLE — "+(already.pestleRegulatory||[]).map(r=>r.finding).join("; ")+". Disruptions — "+(already.disruptions||[]).map(r=>r.disruption).join("; ")+".":""}
 Respond ONLY with JSON, no fences:
 {"overview":"3-4 sentence current market overview",
  "pestleRegulatory":[{"area":"Political|Economic|Social|Technological|Legal|Environmental|Regulatory","finding":"one specific recent finding","source":"publication name","url":"https://..."}],
@@ -4623,23 +4662,35 @@ Give ${already?"3-5":"5-8"} pestleRegulatory items and ${already?"2-3":"3-5"} di
         priceOutlook: out.priceOutlook||(already?already.priceOutlook:""),
         pestleRegulatory: [...(already?already.pestleRegulatory||[]:[]), ...(out.pestleRegulatory||[])],
         disruptions: [...(already?already.disruptions||[]:[]), ...(out.disruptions||[])],
-        conf:"ai", when:new Date().toISOString().slice(0,10), topic
+        conf:"ai", when:new Date().toISOString().slice(0,10), topic:useTopic
       });
     }catch(e){ setErr(e.message); }
     setBusy(false);
   }
   async function clearResearch(){ if(await confirmAsync("Clear all research findings and start over?")) setResearch(null); }
+  function runSuggested(t){ setTopic(t); run(t); }
   return (
     <div className="card">
       <h2 className="display">🔎 Research assistant<Tip t="Deep-dive web research on this category's supply market: latest PESTLE + regulatory findings and supply-chain disruptions, with declared sources. Uses live web search — needs the Claude provider (in-app or API key)."/></h2>
       <p className="hint">Runs live research on this category — latest regulatory & compliance changes, PESTLE signals and supply-chain disruptions, <b>with sources declared</b>. Add an optional focus topic (e.g. "EU deforestation regulation", "Red Sea shipping"). Findings feed the PESTLE model and risk register context.</p>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         <input type="text" style={{maxWidth:340}} placeholder="Optional focus topic…" value={topic} onChange={e=>setTopic(e.target.value)}/>
-        <button className="btn dark" disabled={busy} onClick={run}>{busy?"Researching…":research?"＋ Find more findings":"⚡ Run deep-dive research"}</button>
+        <button className="btn dark" disabled={busy} onClick={()=>run()}>{busy?"Researching…":research?"＋ Find more findings":"⚡ Run deep-dive research"}</button>
         {research && <button className="btn" disabled={busy} onClick={clearResearch}>🗑 Clear all findings</button>}
       </div>
       {busy && <Spinner label="Searching the web and compiling findings with sources…"/>}
       {err && <div className="err">{err}</div>}
+      <div style={{marginTop:14,paddingTop:12,borderTop:"1px dashed var(--line)"}}>
+        <h3 style={{marginTop:0}}>💡 Suggested research topics<Tip t="Derived from this category's matched archetype and current Kraljic position — no AI call, free to look at. Click one to run it as a focus topic; nothing runs until you click. This is desktop research to inform who gets targeted for market awareness/PSQ outreach, not a substitute for a competitive tender."/></h3>
+        <p className="hint">Free to preview, derived from this category's archetype and Kraljic position — nothing runs until you click one.</p>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {suggestedTopics.map((t,i)=>(
+            <button key={i} className="btn ghost" style={{textAlign:"left",fontSize:12,padding:"8px 10px"}} disabled={busy} onClick={()=>runSuggested(t.topic)}>
+              <b>{t.label}:</b> {t.topic}
+            </button>
+          ))}
+        </div>
+      </div>
       <div style={{marginTop:14,paddingTop:12,borderTop:"1px dashed var(--line)"}}>
         <h3 style={{marginTop:0}}>📄 Upload a document<Tip t="Have a market report, supplier proposal, internal strategy deck or similar (PDF, PPTX, DOCX, TXT or MD)? Upload it here — the text is extracted in your browser, then AI pulls out PESTLE findings, disruptions and candidate opportunities, citing this document as the source. Added to your existing research, never replacing it."/></h3>
         <p className="hint">Extracts PESTLE findings, disruptions and opportunities directly from a document you already have — same output as the web research above, but grounded in your own source rather than the open web.</p>
@@ -5770,7 +5821,7 @@ const STEP_GUIDE={
   profile:{intro:"You're on Category profile. Ask about any field — e.g. what counts as a pain point, or how scope notes are used.",
     kb:"SCREEN: Category profile. Fields: category name (drives playbook matching & all AI), sector (adapts questions/benchmarks), region of supply (drives geo risk), incumbent suppliers (chips — feed market assessment & negotiation context), pain points (chips — strategy explicitly addresses them), scope & context notes (free text, can be AI-drafted from the other fields then edited). Prefer to prepare offline? '⬇ Download input template' gives a 9-sheet spreadsheet (Read me, Profile, Variables, Spend, Suppliers, Risks, Contracts, Demand forecast, Stakeholders, Supplier performance) — fill it, then '⬆ Upload filled template' applies it back, with the same protective column-matching used elsewhere: unrecognized headers are refused, never guessed. The Spend sheet replaces what used to be a separate .csv upload on Step 2 — one file covers both now."},
   market:{intro:"You're on Market Intelligence. Ask what any of the nine market variables means, how to score it, or about the Research Assistant.",
-    kb:"SCREEN: Market Intelligence. Nine external variables scored 1-5 by tapping (no internal data needed): "+MARKET_VARS.map(v=>v.label+" ("+v.help+" 1="+v.lo+", 5="+v.hi+")").join("; ")+". AI can score all nine with rationales; tapping a score overrides it and flags it User. RESEARCH ASSISTANT (further down this screen) is NOT just PESTLE — one AI call with live web search produces a market overview, a price outlook, 5-8 PESTLE/regulatory findings AND 3-5 supply-chain disruptions, each with a real citation. It's based on the category name, sector, region, your scope & context notes, and known pain points — not just the category name alone. It feeds downstream into SWOT/PESTLE generation and the negotiation plan (disruptions inform tactics). Every finding is flagged AI-inferred — verify sources before quoting. Running it again ADDS new findings alongside the existing ones (the AI is told what's already found and asked for different ones) rather than replacing them — nothing is lost; use 🗑 Clear all findings if you genuinely want a blank slate."},
+    kb:"SCREEN: Market Intelligence. Nine external variables scored 1-5 by tapping (no internal data needed): "+MARKET_VARS.map(v=>v.label+" ("+v.help+" 1="+v.lo+", 5="+v.hi+")").join("; ")+". AI can score all nine with rationales; tapping a score overrides it and flags it User. RESEARCH ASSISTANT (further down this screen) is NOT just PESTLE — one AI call with live web search produces a market overview, a price outlook, 5-8 PESTLE/regulatory findings AND 3-5 supply-chain disruptions, each with a real citation. It's based on the category name, sector, region, your scope & context notes, and known challenges — not just the category name alone. It feeds downstream into SWOT/PESTLE generation and the negotiation plan (disruptions inform tactics). Every finding is flagged AI-inferred — verify sources before quoting. Running it again ADDS new findings alongside the existing ones (the AI is told what's already found and asked for different ones) rather than replacing them — nothing is lost; use 🗑 Clear all findings if you genuinely want a blank slate. SUGGESTED RESEARCH TOPICS sit above the topic box — two topics derived purely from the category's matched archetype and current Kraljic position (no AI call to generate them, free to preview); clicking one fills the topic field and runs it in one action. UPLOAD A DOCUMENT (further down, its own section) is a second, independent input route into the same research: a PDF/PPTX/DOCX/TXT/MD gets its text extracted in-browser, then AI pulls structured PESTLE findings, disruptions AND candidate Step 14 opportunities out of it, citing the document by name — also additive, never replacing what's already there, with its own 'Source documents ingested' audit list."},
   internal:{intro:"You're on Internal data. Ask what data you need, where to get it, or what happens if you skip.",
     kb:"SCREEN: Internal data (optional). Useful data: "+INTERNAL_DATA_CHECKLIST.map(d=>d.item+" — "+d.what+" (sharpens: "+d.feeds+")").join("; ")+". Skipping = generic mode: strategy built from market data only with assumptions flagged. The spend CSV needs supplier + spend columns; it auto-infers supplier concentration and puts top suppliers on the Kraljic chart. Same data can also be provided via the Spend sheet in Step 1's downloadable input template, if you'd rather prepare everything offline in one file instead of uploading a separate CSV here — either route produces the same result."},
   models:{intro:"You're on Positioning models. Ask what Five Forces, Kraljic, SWOT or PESTLE mean, or what your scores imply.",
@@ -5819,7 +5870,7 @@ CATEGORY ARCHETYPES:\n${Object.entries(CATEGORY_ARCHETYPES).map(([k,a])=>{const 
     setQ(""); setBusy(true);
     try{
       const text=await askClaude(
-        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.41.0): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.41.0 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 9-sheet .xlsx (Read me with full scoring criteria, Profile, Market & Internal Variables, Spend — folds in what used to be a separate .csv upload, auto-infers supplier concentration — Suppliers, Risks, Contracts, Demand forecast, Stakeholders/Mendelow grid, Supplier performance which adds to SRM history rather than replacing it); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed). (8) UX additions (v2.35-v2.38): 🔎 Find (header) — keyword search across every screen's name and description, click to jump; 📁 My Categories (header) — create and switch between multiple genuinely independent standalone categories in the same browser, with delete; AI-generated output sections across most Category steps are now individually collapsible (closed by default), input fields and action buttons always stay visible; a phase chevron banner (Define/Understand/Strategise/Source/Contract & Manage/Output) shows at the top of every Category step; a 2-page Category Execution Plan export (Step 14) with an on-screen preview before downloading; Module Review's per-module Word exports now embed that module's actual chart image, not just its data table, including a new should-cost breakdown chart. (9) Category document ingestion — Step 3 (Market info hub) can now ingest an uploaded PDF/PPTX/DOCX/TXT/MD directly, alongside the web-search research assistant: AI extracts structured PESTLE findings, disruptions and Step 14 opportunities from it, every entry cited to the uploaded document by name; always additive to existing research/opportunities, never replacing them.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
+        `You are the in-app guide for a procurement category-strategy tool. The user is currently on this screen — prioritise its context:\n${guide.kb}\n\nMaster reference library (for cost driver / lever / playbook questions):\n${libraryContext}\n\nAPP-WIDE CONTEXT (v2.42.0): The left rail is organised as TWO STANDALONE WORKBENCHES — 💼 Portfolio (P1 charter/fact base/composition → P2 four stages: questions, options, weighted assessment, risk heat → P3 roll-up & board paper) and 📦 Category (Steps 1–14) — each works alone; they connect only by user choice (deep-dive from P3, or update/add-a-line at category Step 14). This is CategoryAI Strategic Category Suite v2.42.0 (formerly ProcureAI v1.0). AI providers (header ⚙): Claude in-app (no key inside Claude.ai), Claude with API key, Gemini with API key, or Sandbox mode — offline simulated demo data from the built-in playbook library, no key, all outputs labelled [Sandbox — simulated]. Word downloads produce a real .docx (docx library via CDN; offline falls back to .doc). The Purchasing Chessboard is drawn as a literal 8x8 grid (strategy=4x4 quadrant, approach=2x2 block, cell=method; click a cell to add/remove it, amber = shortlisted); recommendations accumulate up to 15 and only 'Keep'-ticked methods flow downstream. The savings pipeline has a Delivered % column editable only at status Delivered. The tiering screen has a 3-dimension tier calculator (Gold/Silver/Bronze = GCF public-procurement naming). NEW in this build: (1) ▶ Demo tour button in the header — a 19-stop, two-part guided walkthrough (category then portfolio) on a full simulated Cloud Services dataset (loads instantly via Sandbox, replaces current screen data after a confirm); (2) progress tracking — the left rail shows a green dot per completed module and amber for pending, with an X/13 core modules progress bar at the top; (3) a Module review card at the bottom of every screen — Complete/Pending badge, an SVG chart of the module's output where chartable (market bars, five-forces bars, supplier scatter, risk bars, driver weights, planned-vs-delivered savings, workstream timeline) and a one-click Word report of just that module; (4) ⬇ PowerPoint deck download on the Strategy screen — a widescreen board deck with native charts, one slide per module (pptxgenjs via CDN); (5) v2 portfolio track (independent) — P1 (charter & composition) captures the parent portfolio charter (19 fields incl. description and business outcomes) AND a user-defined list of categories/service lines (name, spend, risk, Kraljic, playbook, notes); P2 generates strategic options scored on the four balances (multiple adoptable, sliders editable, custom attributes per option); P1 also offers three INPUT ROUTES (fill online; Excel round-trip — download a prefilled .xlsx template, fill offline, upload back; source documents — PDF/PPTX/DOCX/TXT extracted in-browser and AI-summarised into notes, cited in the bibliography) and a DECLARATIONS register logging every data event with its source; the final output is a 12-section board-paper .docx (Exec Summary → Context → Definition → Fact Base → Questions → Options & Evaluation → Recommended Strategy & Future State → Delivery → Registers → Line Summaries → Assumptions & Declarations → Bibliography) with embedded charts, identical HTML, and edit-&-confirm; input templates round-trip in Word (narratives, blank or prefilled) and Excel (numbers/composition); P3 (roll-up) lists the lines, generates a strategy per line AI-first (configured provider) with a rule-based template fallback, labels every generated strategy with its source (Custom via Steps 1–14 / AI-generated with provider+model / Template), and downloads a consolidated Portfolio Strategy as Word (.docx) or HTML containing the parent charter, roll-up table, per-line strategy sheets and a full provenance appendix. A portfolio strategy can be produced standalone (charter + composition), independent of any detailed category strategy. (6) category hierarchy — any line can be split into sub-categories at any depth (➕ Duplicate as child: copies descriptive context, never scores; the child starts unassessed like any new category); the 📊 Portfolio Matrix tab on P3 plots every node on one Value×Risk chart, filterable by level or all levels tangled together; a line with assessed children shows a ROLLED-UP position (spend-weighted average by default, simple-average fallback when spend data's missing, or a worst-case/highest-risk-child alternate mode) instead of one lump score — unassessed children are always excluded, never blended in as a guess, with a 'rollup incomplete' indicator when the rollup is partial; optional UNSPSC/CPV classification codes (manual entry only) are available on every node. (7) Category input template — Step 1 now has its own offline round-trip, separate from Portfolio's: ⬇ Download input template gives a 9-sheet .xlsx (Read me with full scoring criteria, Profile, Market & Internal Variables, Spend — folds in what used to be a separate .csv upload, auto-infers supplier concentration — Suppliers, Risks, Contracts, Demand forecast, Stakeholders/Mendelow grid, Supplier performance which adds to SRM history rather than replacing it); ⬆ Upload filled template applies it back with the same protective column-matching as the Portfolio route (unrecognized headers are refused, not guessed). (8) UX additions (v2.35-v2.38): 🔎 Find (header) — keyword search across every screen's name and description, click to jump; 📁 My Categories (header) — create and switch between multiple genuinely independent standalone categories in the same browser, with delete; AI-generated output sections across most Category steps are now individually collapsible (closed by default), input fields and action buttons always stay visible; a phase chevron banner (Define/Understand/Strategise/Source/Contract & Manage/Output) shows at the top of every Category step; a 2-page Category Execution Plan export (Step 14) with an on-screen preview before downloading; Module Review's per-module Word exports now embed that module's actual chart image, not just its data table, including a new should-cost breakdown chart. (9) Category document ingestion — Step 3 (Market info hub) can now ingest an uploaded PDF/PPTX/DOCX/TXT/MD directly, alongside the web-search research assistant: AI extracts structured PESTLE findings, disruptions and Step 14 opportunities from it, every entry cited to the uploaded document by name; always additive to existing research/opportunities, never replacing them. (10) Suggested research topics — Step 3's Research Assistant now suggests two research topics derived purely from the category's matched archetype and Kraljic position (no AI call to show them); clicking one runs it as a focus topic, nothing executes until clicked.\n\nAnswer using only this material plus standard category-management knowledge consistent with it. Be concise — 3-5 sentences, plain prose, no headers.\n\nQuestion: ${question}`,
         false, false);
       setMsgs(m=>[...m,{role:"assistant",text}]);
     }catch(e){ setMsgs(m=>[...m,{role:"assistant",text:e.message}]); }
@@ -10501,8 +10552,8 @@ function App(){
     <div>
       <header style={{background:"var(--ink)",color:"#fff",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.41.0</span></div>
-          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.41.0 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
+          <div className="display" style={{fontSize:18}}>CATEGORYAI <span style={{color:"var(--amber)"}}>· PORTFOLIO & CATEGORY STRATEGY SUITE</span> <span className="mono" style={{fontSize:11,background:"#2A2F37",border:"1px solid #4A4F57",borderRadius:99,padding:"2px 8px",verticalAlign:"middle"}}>v2.42.0</span></div>
+          <div style={{fontSize:12,color:"#B9BDC2",marginTop:2}}>v2.42.0 · demand↔supply balance · every input declares its source · Excel round-trip & document ingestion</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <AIStatusChip/>
@@ -10843,7 +10894,7 @@ function App(){
             next={()=>{setGeneric(false);setStep("market");}} skip={()=>{setGeneric(true);setStep("market");}}/>}
           {step==="market" && <div>
             <Step2 profile={profile} vars={vars} setVar={setVar} marketBrief={marketBrief} setMarketBrief={setMarketBrief} next={()=>setStep("assess")}/>
-            <ResearchCard profile={profile} research={research} setResearch={setResearch} opps={opps} setOpps={setOpps}/>
+            <ResearchCard profile={profile} research={research} setResearch={setResearch} opps={opps} setOpps={setOpps} vars={vars} generic={generic}/>
             <button className="btn primary" style={{marginTop:12}} onClick={()=>setStep("assess")}>Continue to SWOT & PESTLE →</button>
           </div>}
           {step==="assess" && <Step4 mode="assess" profile={profile} vars={vars} generic={generic&&!internalTouched} internal={internal}
